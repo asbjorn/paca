@@ -8,8 +8,7 @@ Interactive diagram: [https://dbdiagram.io/d/Paca-69c212ae78c6c4bc7a4fc190](http
 
 | File | Purpose |
 |---|---|
-| `000001_init.sql` | Full schema: `global_roles`, `users` (with `role_id` FK and `must_change_password`), projects, project roles/members, seed data |
-| `000002_tasks.sql` | Task-related tables: `task_types`, `task_statuses`, `tasks` (with `importance`, `board_position`), `custom_field_definitions`, `sprints`, `sprint_views`, `bdd_scenarios`, `time_logs`, `documents`, `dashboards`, `task_activities` |
+| `000001_init.sql` | Full consolidated schema: `global_roles`, `users`, projects, project roles/members, task configuration (`task_types`, `task_statuses`), `sprints`, `sprint_views` (with `view_type`, `config`, `position`), `view_task_positions` (manual task order), `custom_field_definitions`, `tasks`, seed data |
 
 ## Schema (DBML)
 
@@ -125,8 +124,41 @@ Table sprint_views {
   id uuid [primary key]
   sprint_id uuid
   name varchar
-  view_type varchar // kanban, list, gantt, burndown
-  config jsonb
+  view_type varchar [not null, note: 'Layout: table | board | roadmap']
+  config jsonb [note: '''
+    View display settings.  All keys are optional; unset keys fall back to
+    per-project or system defaults.
+
+    fields      array<string>  Ordered list of visible column names.
+                               e.g. ["title","assignees","status","priority"]
+    column_by   string         Field used to group board columns or table
+                               groups.  e.g. "status" (default), "assignee".
+    swimlanes   string|null    Field used to create horizontal swimlane bands
+                               across the view.  null = no swimlanes.
+    sort_by     string         "manual" = user-defined drag order stored in
+                               view_task_positions.  Any other value is a
+                               field name used for automatic sort.
+                               e.g. "priority", "created_at", "manual".
+    field_sum   string         Aggregate shown in group/column headings.
+                               "count" (default) = number of tasks.  Can be
+                               any numeric custom field key.
+    slice_by    string|null    Additional filter dimension applied to the
+                               visible task set.  null = no slice.
+  ''']
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table view_task_positions {
+  id uuid [primary key]
+  view_id uuid
+  task_id uuid
+  position integer [not null, note: 'Zero-based index within its group_key; lower = higher in list']
+  group_key varchar [null, note: 'Value of the column_by field for this task (e.g. status name, assignee id) or swimlane key.  null = ungrouped.']
+
+  indexes {
+    (view_id, task_id) [unique]
+  }
 }
 
 // --- FEATURES & UTILITIES ---
@@ -201,4 +233,6 @@ Ref: project_members.id < task_activities.member_id
 Ref: project_members.id < tasks.assignee_id
 Ref: project_members.id < tasks.reporter_id
 Ref: sprints.id < sprint_views.sprint_id
+Ref: sprint_views.id < view_task_positions.view_id
+Ref: tasks.id < view_task_positions.task_id
 ```

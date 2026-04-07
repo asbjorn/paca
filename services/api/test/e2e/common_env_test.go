@@ -61,6 +61,8 @@ type e2eEnv struct {
 	taskSvc     *tasksvc.Service
 	sprintRepo  *pgRepo.SprintRepository
 	sprintSvc   *sprintsvc.Service
+	viewRepo    *pgRepo.ViewRepository
+	viewSvc     *sprintsvc.ViewService
 }
 
 func newE2EEnv(t *testing.T) *e2eEnv {
@@ -183,6 +185,8 @@ func newE2EEnv(t *testing.T) *e2eEnv {
 	taskService := tasksvc.New(taskRepo)
 	sprintRepo := pgRepo.NewSprintRepository(db)
 	sprintService := sprintsvc.New(sprintRepo)
+	viewRepo := pgRepo.NewViewRepository(db)
+	viewService := sprintsvc.NewViewService(viewRepo)
 
 	cookieCfg := handler.CookieConfig{
 		Secure:            false,
@@ -200,6 +204,7 @@ func newE2EEnv(t *testing.T) *e2eEnv {
 		Project:      handler.NewProjectHandler(projectService, authz.NewAuthorizer(authzStore)),
 		Task:         handler.NewTaskHandler(taskService),
 		Sprint:       handler.NewSprintHandler(sprintService),
+		View:         handler.NewViewHandler(viewService),
 		Log:          log,
 	})
 
@@ -227,6 +232,8 @@ func newE2EEnv(t *testing.T) *e2eEnv {
 		taskSvc:     taskService,
 		sprintRepo:  sprintRepo,
 		sprintSvc:   sprintService,
+		viewRepo:    viewRepo,
+		viewSvc:     viewService,
 	}
 }
 

@@ -1,12 +1,16 @@
 @projects @integrations @views
 Feature: Integration views (board and list layouts)
   Each project integration (product backlog or a sprint) can be explored
-  through one or more saved views.  A view defines a named layout — Board
-  or List — and persists the user's preferred way of looking at work items.
-  The default view opened when entering an integration is always the first
-  view in the tab bar.  Users with sufficient permissions may create additional
-  views, rename or delete them, and switch freely between layouts.  Creating
-  tasks is available inline from both Board and List views.
+  through one or more saved views.  A view defines a named layout — Table,
+  Board, or Roadmap — and persists the user's preferred way of looking at work
+  items.  Each view also stores display settings (visible fields, column
+  grouping, swimlanes, sort order, field sum, and slice dimension).  The
+  default view opened when entering an integration is always the first view in
+  the tab bar.  Users with sufficient permissions may create additional views,
+  rename or delete them, and switch freely between layouts.  An "Add view" (+)
+  button sits to the right of the last view tab; a separate "View settings"
+  button in the view toolbar opens a settings panel for the active view.
+  Creating tasks is available inline from both Table and Board views.
 
   @authenticated
   Rule: Entering an integration opens its default view
@@ -36,12 +40,19 @@ Feature: Integration views (board and list layouts)
       Then the kanban board layout should be displayed
       And each status column should be visible as a swimlane
 
-    Scenario: List view is indicated by its tab label
-      Given the "Product Backlog" integration has a view named "List" with layout "List"
+    Scenario: Table view is indicated by its tab label
+      Given the "Product Backlog" integration has a view named "Table" with layout "Table"
       When the user clicks "Product Backlog" in the project sidebar
-      And the user clicks the "List" view tab
+      And the user clicks the "Table" view tab
       Then the tabular list layout should be displayed
       And each task should appear as a row with its title, status, type, and assignee
+
+    Scenario: Roadmap view is indicated by its tab label
+      Given the "Product Backlog" integration has a view named "Roadmap" with layout "Roadmap"
+      When the user clicks "Product Backlog" in the project sidebar
+      And the user clicks the "Roadmap" view tab
+      Then the roadmap timeline layout should be displayed
+      And each task should appear as a horizontal bar spanning its scheduled date range
 
     Scenario: Navigating to a sprint opens that sprint's default view
       Given the project has an active sprint named "E2E_SPRINT_1"
@@ -118,25 +129,25 @@ Feature: Integration views (board and list layouts)
       And "E2E_READONLY_TASK" should remain in the "Todo" column
 
   @authenticated
-  Rule: List view layout and task display
+  Rule: Table view layout and task display
 
     Background:
       Given the user already has a stored authenticated session
-      And a project named "E2E_LIST_PROJECT" exists
-      And the project has a "Product Backlog" integration with a "List" view
-      And the user has the "View Sprints" project permission in "E2E_LIST_PROJECT"
-      And the user has navigated to the "Product Backlog" list view inside "E2E_LIST_PROJECT"
+      And a project named "E2E_TABLE_PROJECT" exists
+      And the project has a "Product Backlog" integration with a "Table" view
+      And the user has the "View Sprints" project permission in "E2E_TABLE_PROJECT"
+      And the user has navigated to the "Product Backlog" table view inside "E2E_TABLE_PROJECT"
 
-    Scenario: List view renders tasks as rows grouped by status
+    Scenario: Table view renders tasks as rows grouped by status
       Then tasks should be displayed as rows grouped under their status heading
       And each group heading should show the status name and task count
       And each row should display the task title
 
-    Scenario: Each list row shows columns for title, assignee, task type, priority, and status
+    Scenario: Each table row shows columns for title, assignee, task type, priority, and status
       Given the integration has at least one task
       Then each task row should have visible columns for "Title", "Assignee", "Type", "Priority", and "Status"
 
-    Scenario: Status groups in the list can be collapsed and expanded
+    Scenario: Status groups in the table can be collapsed and expanded
       Given a status group "In Progress" is expanded and has tasks
       When the user clicks the "In Progress" group header toggle
       Then the "In Progress" group should collapse and hide its task rows
@@ -144,9 +155,9 @@ Feature: Integration views (board and list layouts)
       Then the "In Progress" group should expand and show its task rows
 
     Scenario: Clicking a task row opens the task detail panel or page
-      Given the integration has a task "E2E_LIST_DETAIL_TASK"
-      When the user clicks the row for "E2E_LIST_DETAIL_TASK"
-      Then the task detail panel or page for "E2E_LIST_DETAIL_TASK" should open
+      Given the integration has a task "E2E_TABLE_DETAIL_TASK"
+      When the user clicks the row for "E2E_TABLE_DETAIL_TASK"
+      Then the task detail panel or page for "E2E_TABLE_DETAIL_TASK" should open
 
     Scenario: Completed task groups are collapsed by default
       Given the integration has tasks with status "Done"
@@ -195,16 +206,16 @@ Feature: Integration views (board and list layouts)
       Then no "Add task" button should be visible on any column
 
   @authenticated
-  Rule: Creating a task from the list view
+  Rule: Creating a task from the table view
 
     Background:
       Given the user already has a stored authenticated session
-      And a project named "E2E_CREATE_LIST_PROJECT" exists
-      And the project has a "Product Backlog" integration with a "List" view
-      And the user has the "Create Tasks" project permission in "E2E_CREATE_LIST_PROJECT"
-      And the user has navigated to the "Product Backlog" list view inside "E2E_CREATE_LIST_PROJECT"
+      And a project named "E2E_CREATE_TABLE_PROJECT" exists
+      And the project has a "Product Backlog" integration with a "Table" view
+      And the user has the "Create Tasks" project permission in "E2E_CREATE_TABLE_PROJECT"
+      And the user has navigated to the "Product Backlog" table view inside "E2E_CREATE_TABLE_PROJECT"
 
-    Scenario: Each status group in the list view has an "Add task" button
+    Scenario: Each status group in the table view has an "Add task" button
       Then every status group should show an "Add task" button below the last row
 
     Scenario: Clicking "Add task" in a group opens an inline creation row
@@ -213,16 +224,16 @@ Feature: Integration views (board and list layouts)
 
     Scenario: Typing a title and pressing Enter creates the task in that group
       When the user clicks "Add task" in the "Backlog" group
-      And the user types "E2E_LIST_NEW_TASK" in the inline task row
+      And the user types "E2E_TABLE_NEW_TASK" in the inline task row
       And the user presses Enter
-      Then a row named "E2E_LIST_NEW_TASK" should appear in the "Backlog" group
+      Then a row named "E2E_TABLE_NEW_TASK" should appear in the "Backlog" group
       And the inline row should close
 
-    Scenario: Pressing Escape cancels inline creation in the list view
+    Scenario: Pressing Escape cancels inline creation in the table view
       When the user clicks "Add task" in the "Todo" group
-      And the user types "E2E_LIST_CANCELLED_TASK" in the inline task row
+      And the user types "E2E_TABLE_CANCELLED_TASK" in the inline task row
       And the user presses Escape
-      Then no task named "E2E_LIST_CANCELLED_TASK" should appear in the "Todo" group
+      Then no task named "E2E_TABLE_CANCELLED_TASK" should appear in the "Todo" group
 
     Scenario: User without "Create Tasks" permission does not see group "Add task" buttons
       Given the user does not have the "Create Tasks" project permission
@@ -238,34 +249,46 @@ Feature: Integration views (board and list layouts)
       And the user has the "Manage Views" project permission in "E2E_VM_PROJECT"
       And the user has navigated to the "Product Backlog" integration inside "E2E_VM_PROJECT"
 
-    Scenario: A "New view" button is visible in the view tab bar for authorised users
-      Then a "New view" button or "+" control should be visible in the view tab bar
+    Scenario: An "Add view" button is visible to the right of the last view tab for authorised users
+      Then an "Add view" ("+") button should be visible immediately to the right of the last view tab
 
-    Scenario: Clicking "New view" opens a view creation popover with layout options
-      When the user clicks the "New view" button
+    Scenario: A "View settings" button is visible in the view toolbar for authorised users
+      Then a "View settings" button should be visible in the integration view toolbar
+
+    Scenario: Clicking "Add view" opens a view creation popover with layout options
+      When the user clicks the "Add view" button to the right of the last view tab
       Then a popover or dialog should open
+      And it should offer "Table" as a layout option
       And it should offer "Board" as a layout option
-      And it should offer "List" as a layout option
+      And it should offer "Roadmap" as a layout option
       And it should contain a "View name" field pre-filled with a default name
 
     Scenario: Creating a Board view adds a new tab in the tab bar
-      When the user clicks the "New view" button
+      When the user clicks the "Add view" button to the right of the last view tab
       And the user changes the view name to "E2E_BOARD_VIEW"
       And the user selects the "Board" layout
       And the user confirms view creation
       Then a tab labelled "E2E_BOARD_VIEW" should appear in the view tab bar
       And the kanban board layout should be active
 
-    Scenario: Creating a List view adds a new tab in the tab bar
-      When the user clicks the "New view" button
-      And the user changes the view name to "E2E_LIST_VIEW"
-      And the user selects the "List" layout
+    Scenario: Creating a Table view adds a new tab in the tab bar
+      When the user clicks the "Add view" button to the right of the last view tab
+      And the user changes the view name to "E2E_TABLE_VIEW"
+      And the user selects the "Table" layout
       And the user confirms view creation
-      Then a tab labelled "E2E_LIST_VIEW" should appear in the view tab bar
+      Then a tab labelled "E2E_TABLE_VIEW" should appear in the view tab bar
       And the tabular list layout should be active
 
+    Scenario: Creating a Roadmap view adds a new tab in the tab bar
+      When the user clicks the "Add view" button to the right of the last view tab
+      And the user changes the view name to "E2E_ROADMAP_VIEW"
+      And the user selects the "Roadmap" layout
+      And the user confirms view creation
+      Then a tab labelled "E2E_ROADMAP_VIEW" should appear in the view tab bar
+      And the roadmap timeline layout should be active
+
     Scenario: Creating a view without a name defaults to a generated name
-      When the user clicks the "New view" button
+      When the user clicks the "Add view" button to the right of the last view tab
       And the user clears the view name field
       And the user selects the "Board" layout
       And the user confirms view creation
@@ -291,9 +314,9 @@ Feature: Integration views (board and list layouts)
       When the user opens the options menu for "E2E_ONLY_VIEW"
       Then the "Delete view" option should be disabled or absent
 
-    Scenario: User without "Manage Views" permission does not see the "New view" button
+    Scenario: User without "Manage Views" permission does not see the "Add view" button
       Given the user does not have the "Manage Views" project permission
-      Then the "New view" button should not be visible in the view tab bar
+      Then the "Add view" button should not be visible to the right of the view tab bar
 
   @authenticated
   Rule: Switching and persisting the active view
@@ -306,14 +329,14 @@ Feature: Integration views (board and list layouts)
 
     Scenario: Clicking a view tab switches the active layout
       Given the user is on the "Board" view tab inside "Product Backlog"
-      When the user clicks the "List" view tab
+      When the user clicks the "Table" view tab
       Then the tabular list layout should be displayed
-      And the "List" tab should be marked as active
+      And the "Table" tab should be marked as active
 
     Scenario: The active view tab is visually distinguished from inactive tabs
       When the user is on the "Board" view tab
       Then the "Board" tab should have a distinct active indicator
-      And the "List" tab should not have the active indicator
+      And the "Table" tab should not have the active indicator
 
     Scenario: Refreshing the page preserves the last active view
       Given the user has switched to the "List" view tab
@@ -350,3 +373,115 @@ Feature: Integration views (board and list layouts)
       Given the user has applied a keyword filter "E2E_ALPHA"
       When the user clears the filter
       Then all tasks should be visible again
+
+  @authenticated
+  Rule: View settings panel
+
+    Background:
+      Given the user already has a stored authenticated session
+      And a project named "E2E_SETTINGS_PROJECT" exists
+      And the project has a "Product Backlog" integration with at least one view
+      And the user has the "View Sprints" project permission in "E2E_SETTINGS_PROJECT"
+      And the user has navigated to the "Product Backlog" integration inside "E2E_SETTINGS_PROJECT"
+
+    Scenario: Clicking the "View settings" button opens a settings panel
+      When the user clicks the "View settings" button in the view toolbar
+      Then a settings panel should appear
+      And the panel should display a "Fields" row
+      And the panel should display a "Column by" row
+      And the panel should display a "Swimlanes" row
+      And the panel should display a "Sort by" row
+      And the panel should display a "Field sum" row
+      And the panel should display a "Slice by" row
+
+    Scenario: The "Fields" row shows the currently visible field names
+      When the user clicks the "View settings" button in the view toolbar
+      Then the "Fields" row should list the names of visible fields (e.g. "Title, Assignees, Status")
+
+    Scenario: Changing "Column by" regroups task columns by a different field
+      When the user clicks the "View settings" button in the view toolbar
+      And the user changes "Column by" to "Assignee"
+      Then task groups or columns should be reorganised by assignee
+
+    Scenario: Changing "Sort by" to a field name sorts tasks automatically
+      When the user clicks the "View settings" button in the view toolbar
+      And the user changes "Sort by" to "Priority"
+      Then tasks within each group should be ordered by priority
+      And the "Sort by" row should show the value "Priority"
+
+    Scenario: Changing "Sort by" to "Manual" shows the manual value and enables drag-to-reorder
+      When the user clicks the "View settings" button in the view toolbar
+      And the user sets "Sort by" to "Manual"
+      Then the "Sort by" row should show the value "manual"
+      And task rows should become draggable for manual reordering
+
+    Scenario: Changing "Swimlanes" groups tasks into horizontal swimlane bands
+      When the user clicks the "View settings" button in the view toolbar
+      And the user changes "Swimlanes" to "Assignee"
+      Then task rows or cards should be further grouped into horizontal swimlane bands by assignee
+
+    Scenario: The "Field sum" setting defaults to "Count" showing per-group task totals
+      When the user clicks the "View settings" button in the view toolbar
+      Then the "Field sum" row should show the default value "Count"
+      And each group heading should display the number of tasks in that group
+
+    Scenario: Changing "Field sum" to a numeric field shows the aggregate in group headings
+      When the user clicks the "View settings" button in the view toolbar
+      And the user changes "Field sum" to "Story Points"
+      Then each group heading should display the total story points for tasks in that group
+
+    Scenario: Dismissing the settings panel closes it without saving changes separately
+      When the user clicks the "View settings" button in the view toolbar
+      And the settings panel is open
+      When the user clicks outside the panel or presses Escape
+      Then the settings panel should close
+
+    Scenario: View settings are persisted per view
+      Given the user has set "Sort by" to "Priority" on the "Board" view
+      When the user switches to a "Table" view and then returns to the "Board" view
+      Then the "Sort by" setting on the "Board" view should still show "Priority"
+
+  @authenticated
+  Rule: Manual task sort order within a view
+
+    Background:
+      Given the user already has a stored authenticated session
+      And a project named "E2E_MANUAL_SORT_PROJECT" exists
+      And the project has a "Product Backlog" integration with a "Table" view configured with "Sort by: Manual"
+      And the user has the "Edit Tasks" project permission in "E2E_MANUAL_SORT_PROJECT"
+      And the user has navigated to the "Product Backlog" table view inside "E2E_MANUAL_SORT_PROJECT"
+
+    Scenario: Table rows show a drag handle when the view sort order is manual
+      Then each task row should show a drag handle icon on the left side
+
+    Scenario: Dragging a task row reorders it within its status group
+      Given the integration has tasks "E2E_TASK_A", "E2E_TASK_B", "E2E_TASK_C" in the "Todo" group in that order
+      When the user drags "E2E_TASK_A" below "E2E_TASK_C" within the "Todo" group
+      Then the row order in the "Todo" group should be "E2E_TASK_B", "E2E_TASK_C", "E2E_TASK_A"
+
+    Scenario: Manual row order persists after page refresh
+      Given the user has manually reordered tasks so "E2E_FIRST_TASK" appears first in the "Todo" group
+      When the user refreshes the page
+      Then "E2E_FIRST_TASK" should still appear first in the "Todo" group
+
+    Scenario: Board view with manual sort allows vertical reordering of cards within a column
+      Given the "Product Backlog" has a "Board" view configured with "Sort by: Manual"
+      And the "Todo" column contains tasks "E2E_BOARD_A" above "E2E_BOARD_B"
+      When the user drags "E2E_BOARD_A" below "E2E_BOARD_B" within the "Todo" column
+      Then "E2E_BOARD_B" should appear above "E2E_BOARD_A" in the "Todo" column
+
+    Scenario: Manual card order in board columns persists after page refresh
+      Given the "Product Backlog" has a "Board" view configured with "Sort by: Manual"
+      And the user has manually placed "E2E_TOP_CARD" at the top of the "In Progress" column
+      When the user refreshes the page
+      Then "E2E_TOP_CARD" should still appear at the top of the "In Progress" column
+
+    Scenario: Task rows are not manually draggable when sort order is not manual
+      Given the "Product Backlog" integration has a "Table" view configured with "Sort by: Priority"
+      When the user navigates to that view
+      Then task rows should not show drag handles
+      And attempting to drag a task row should not reorder it
+
+    Scenario: User without "Edit Tasks" permission cannot manually reorder tasks
+      Given the user does not have the "Edit Tasks" project permission
+      Then task rows in the manual-sort table view should not show drag handles

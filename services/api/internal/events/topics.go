@@ -1,10 +1,10 @@
 package events
 
-// Valkey Pub/Sub channel that services/realtime subscribes to for immediate
+// ChannelRealtime is the Valkey Pub/Sub channel that services/realtime subscribes to for immediate
 // fan-out to connected Socket.IO clients.
 const ChannelRealtime = "paca.events"
 
-// Valkey Stream key used for durable analytics and audit log events.
+// StreamAnalytics is the Valkey Stream key used for durable analytics and audit log events.
 const StreamAnalytics = "paca.analytics"
 
 // Event type constants used in both Pub/Sub messages and Stream entries.

@@ -74,6 +74,7 @@ func New(cfg *config.Config) (*App, error) {
 	projectRepo := pgRepo.NewProjectRepository(db)
 	taskRepo := pgRepo.NewTaskRepository(db)
 	sprintRepo := pgRepo.NewSprintRepository(db)
+	viewRepo := pgRepo.NewViewRepository(db)
 	refreshStore := redisRepo.NewRefreshTokenStore(redisClient)
 
 	if err := db.AutoMigrate(
@@ -104,6 +105,7 @@ func New(cfg *config.Config) (*App, error) {
 	projectService := projectsvc.New(projectRepo, taskRepo)
 	taskService := tasksvc.New(taskRepo)
 	sprintService := sprintsvc.New(sprintRepo)
+	viewService := sprintsvc.NewViewService(viewRepo)
 
 	// --- Handlers -----------------------------------------------------------
 	cookieCfg := handler.CookieConfig{
@@ -123,6 +125,7 @@ func New(cfg *config.Config) (*App, error) {
 		Project:      handler.NewProjectHandler(projectService, authorizer),
 		Task:         handler.NewTaskHandler(taskService),
 		Sprint:       handler.NewSprintHandler(sprintService),
+		View:         handler.NewViewHandler(viewService),
 		Log:          log,
 	}
 

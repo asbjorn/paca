@@ -87,6 +87,15 @@ const (
 	CodeSprintNameInvalid Code = "SPRINT_NAME_INVALID"
 	// CodeSprintStatusInvalid indicates an invalid sprint status value.
 	CodeSprintStatusInvalid Code = "SPRINT_STATUS_INVALID"
+
+	// CodeViewNotFound indicates the requested sprint view does not exist.
+	CodeViewNotFound Code = "VIEW_NOT_FOUND"
+	// CodeViewNameInvalid indicates an empty or invalid view name.
+	CodeViewNameInvalid Code = "VIEW_NAME_INVALID"
+	// CodeViewTypeInvalid indicates an invalid view type value.
+	CodeViewTypeInvalid Code = "VIEW_TYPE_INVALID"
+	// CodeViewIsLastView indicates the view cannot be deleted because it is the last remaining view.
+	CodeViewIsLastView Code = "VIEW_IS_LAST_VIEW"
 )
 
 // Error carries a machine-readable Code alongside a human-readable Message.

@@ -200,6 +200,60 @@ CREATE TABLE IF NOT EXISTS custom_field_definitions (
 --                 kanban board; lower value appears first.
 -- -------------------------------------------------------------------------
 
+-- -------------------------------------------------------------------------
+-- SPRINT VIEWS
+-- Each sprint (or product backlog) can have multiple named views.
+-- view_type: table | board | roadmap
+-- config: jsonb with optional keys:
+--   fields      text[]   – ordered list of visible column names
+--   column_by   text     – field used to group columns/groups (default: status)
+--   swimlanes   text     – horizontal swimlane grouping field (null = none)
+--   sort_by     text     – "manual" or any sortable field name
+--   field_sum   text     – "count" (default) or a numeric field key
+--   slice_by    text     – extra filter dimension (null = none)
+-- -------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS sprint_views (
+    id         UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    sprint_id  UUID        NOT NULL REFERENCES sprints(id) ON DELETE CASCADE,
+    name       TEXT        NOT NULL,
+    view_type  TEXT        NOT NULL DEFAULT 'table'
+                           CHECK (view_type IN ('table','board','roadmap')),
+    config     JSONB       NOT NULL DEFAULT '{}'::jsonb,
+    position   INTEGER     NOT NULL DEFAULT 0,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_sprint_views_sprint_id ON sprint_views (sprint_id);
+
+-- -------------------------------------------------------------------------
+-- VIEW TASK POSITIONS
+-- Stores manually-defined per-view task ordering.
+-- Only relevant when sprint_views.config->>'sort_by' = 'manual'.
+-- position:  zero-based rank within the group; lower = higher in list.
+-- group_key: value of the column_by field for this task (e.g. status name,
+--            assignee id).  NULL means the view has no grouping dimension.
+-- -------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS view_task_positions (
+    id        UUID    PRIMARY KEY DEFAULT gen_random_uuid(),
+    view_id   UUID    NOT NULL REFERENCES sprint_views(id) ON DELETE CASCADE,
+    task_id   UUID    NOT NULL,
+    position  INTEGER NOT NULL DEFAULT 0,
+    group_key TEXT,
+    CONSTRAINT uq_view_task_positions_view_task UNIQUE (view_id, task_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_view_task_positions_view_id ON view_task_positions (view_id);
+
+-- -------------------------------------------------------------------------
+-- TASKS
+-- importance: unsigned integer (>=0); higher value = more important.
+-- board_position: ordering of the card within its status column on the
+--                 kanban board; lower value appears first.
+-- -------------------------------------------------------------------------
+
 CREATE TABLE IF NOT EXISTS tasks (
     id             UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
     project_id     UUID        NOT NULL REFERENCES projects(id) ON DELETE CASCADE,

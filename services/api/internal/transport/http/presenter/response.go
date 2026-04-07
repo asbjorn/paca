@@ -138,6 +138,14 @@ func statusAndCodeFor(err error) (int, apierr.Code) {
 		return http.StatusBadRequest, apierr.CodeSprintNameInvalid
 	case errors.Is(err, sprintdom.ErrSprintStatusInvalid):
 		return http.StatusBadRequest, apierr.CodeSprintStatusInvalid
+	case errors.Is(err, sprintdom.ErrViewNotFound):
+		return http.StatusNotFound, apierr.CodeViewNotFound
+	case errors.Is(err, sprintdom.ErrViewNameInvalid):
+		return http.StatusBadRequest, apierr.CodeViewNameInvalid
+	case errors.Is(err, sprintdom.ErrViewTypeInvalid):
+		return http.StatusBadRequest, apierr.CodeViewTypeInvalid
+	case errors.Is(err, sprintdom.ErrViewIsLastView):
+		return http.StatusConflict, apierr.CodeViewIsLastView
 	default:
 		return http.StatusInternalServerError, apierr.CodeInternalError
 	}
@@ -186,15 +194,20 @@ func httpStatusForCode(code apierr.Code) int {
 	case apierr.CodeTaskNotFound,
 		apierr.CodeTaskTypeNotFound,
 		apierr.CodeTaskStatusNotFound,
-		apierr.CodeSprintNotFound:
+		apierr.CodeSprintNotFound,
+		apierr.CodeViewNotFound:
 		return http.StatusNotFound
 	case apierr.CodeTaskTitleInvalid,
 		apierr.CodeTaskTypeNameInvalid,
 		apierr.CodeTaskStatusNameInvalid,
 		apierr.CodeTaskStatusCategoryInvalid,
 		apierr.CodeSprintNameInvalid,
-		apierr.CodeSprintStatusInvalid:
+		apierr.CodeSprintStatusInvalid,
+		apierr.CodeViewNameInvalid,
+		apierr.CodeViewTypeInvalid:
 		return http.StatusBadRequest
+	case apierr.CodeViewIsLastView:
+		return http.StatusConflict
 	case apierr.CodeBadRequest:
 		return http.StatusBadRequest
 	case apierr.CodePasswordChangeRequired:

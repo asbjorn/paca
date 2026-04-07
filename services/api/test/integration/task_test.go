@@ -304,6 +304,7 @@ func buildTaskTestRouterWithSprints(taskRepo *fakeTaskRepo, sprintRepo *fakeSpri
 	projectService := projectsvc.New(projectRepo, taskRepo)
 	taskService := tasksvc.New(taskRepo)
 	sprintService := sprintsvc.New(sprintRepo)
+	viewService := sprintsvc.NewViewService(newFakeViewRepoIT())
 	log := slog.New(slog.NewTextHandler(os.Stdout, nil))
 
 	return router.New(router.Deps{
@@ -316,6 +317,7 @@ func buildTaskTestRouterWithSprints(taskRepo *fakeTaskRepo, sprintRepo *fakeSpri
 		Project:      handler.NewProjectHandler(projectService, authz.NewAuthorizer(store)),
 		Task:         handler.NewTaskHandler(taskService),
 		Sprint:       handler.NewSprintHandler(sprintService),
+		View:         handler.NewViewHandler(viewService),
 		Log:          log,
 	})
 }
