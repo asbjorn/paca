@@ -1,0 +1,257 @@
+import { ChevronDown, ChevronRight, Plus } from "lucide-react";
+import { useRef, useState } from "react";
+
+import type { Task } from "@/lib/integration-api";
+import type { TaskStatus, TaskType } from "@/lib/project-api";
+
+import { TaskRow } from "./task-row";
+
+interface ListViewProps {
+	tasks: Task[];
+	statuses: TaskStatus[];
+	taskTypes: TaskType[];
+	canCreate: boolean;
+	searchQuery: string;
+	assigneeFilter: string | null;
+	onCreateTask: (statusId: string, title: string) => Promise<void>;
+	onTaskClick: (task: Task) => void;
+}
+
+interface GroupAddRowProps {
+	onAdd: (title: string) => void;
+}
+
+function GroupAddRow({ onAdd }: GroupAddRowProps) {
+	const [open, setOpen] = useState(false);
+	const [value, setValue] = useState("");
+	const inputRef = useRef<HTMLInputElement>(null);
+
+	const open_ = () => {
+		setOpen(true);
+		setTimeout(() => inputRef.current?.focus(), 0);
+	};
+
+	const submit = () => {
+		const title = value.trim();
+		if (!title) return;
+		onAdd(title);
+		setValue("");
+		setOpen(false);
+	};
+
+	const cancel = () => {
+		setValue("");
+		setOpen(false);
+	};
+
+	if (!open) {
+		return (
+			<button
+				type="button"
+				onClick={open_}
+				className="flex items-center gap-1.5 px-4 py-2 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors w-full"
+			>
+				<Plus className="size-3.5" />
+				Add task
+			</button>
+		);
+	}
+
+	return (
+		<div className="flex items-center gap-2 px-4 py-2 border-b border-border/30">
+			<input
+				ref={inputRef}
+				value={value}
+				onChange={(e) => setValue(e.target.value)}
+				onKeyDown={(e) => {
+					if (e.key === "Enter") submit();
+					if (e.key === "Escape") cancel();
+				}}
+				placeholder="Task title…"
+				className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/50"
+			/>
+			<button
+				type="button"
+				onClick={cancel}
+				className="px-2 py-0.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+			>
+				Cancel
+			</button>
+			<button
+				type="button"
+				onClick={submit}
+				disabled={!value.trim()}
+				className="px-2.5 py-0.5 rounded text-xs font-medium bg-primary text-primary-foreground disabled:opacity-40 hover:opacity-90 transition-opacity"
+			>
+				Create
+			</button>
+		</div>
+	);
+}
+
+interface StatusGroupProps {
+	status: TaskStatus;
+	tasks: Task[];
+	statuses: TaskStatus[];
+	taskTypes: TaskType[];
+	canCreate: boolean;
+	defaultCollapsed?: boolean;
+	onCreateTask: (statusId: string, title: string) => Promise<void>;
+	onTaskClick: (task: Task) => void;
+}
+
+function StatusGroup({
+	status,
+	tasks,
+	statuses,
+	taskTypes,
+	canCreate,
+	defaultCollapsed,
+	onCreateTask,
+	onTaskClick,
+}: StatusGroupProps) {
+	const [collapsed, setCollapsed] = useState(defaultCollapsed ?? false);
+
+	return (
+		<div className="border-b border-border/40 last:border-0">
+			{/* Group header */}
+			<button
+				type="button"
+				onClick={() => setCollapsed((v) => !v)}
+				className="flex w-full items-center gap-2.5 px-4 py-2.5 hover:bg-muted/30 transition-colors"
+			>
+				{collapsed ? (
+					<ChevronRight className="size-3.5 text-muted-foreground shrink-0" />
+				) : (
+					<ChevronDown className="size-3.5 text-muted-foreground shrink-0" />
+				)}
+				<span
+					className="size-2 rounded-full shrink-0"
+					style={{
+						background: status.color ?? "oklch(var(--muted-foreground))",
+					}}
+				/>
+				<span className="text-xs font-semibold uppercase tracking-wide text-foreground/80">
+					{status.name}
+				</span>
+				<span className="text-xs text-muted-foreground tabular-nums">
+					{tasks.length}
+				</span>
+			</button>
+
+			{/* Group rows */}
+			{!collapsed && (
+				<>
+					{/* Column headers */}
+					<div className="flex items-center gap-3 px-4 py-1.5 bg-muted/20 border-y border-border/30">
+						<div className="w-16 shrink-0 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60">
+							Type
+						</div>
+						<div className="hidden sm:block w-20 shrink-0 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60">
+							Priority
+						</div>
+						<div className="flex-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60">
+							Title
+						</div>
+						<div className="hidden sm:block w-24 shrink-0 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60">
+							Status
+						</div>
+						<div className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60">
+							Assignee
+						</div>
+					</div>
+
+					{tasks.length === 0 ? (
+						<div className="px-4 py-4 text-xs text-muted-foreground/50 text-center">
+							No tasks in this status
+						</div>
+					) : (
+						tasks.map((task) => (
+							<TaskRow
+								key={task.id}
+								task={task}
+								statuses={statuses}
+								taskTypes={taskTypes}
+								onClick={() => onTaskClick(task)}
+							/>
+						))
+					)}
+
+					{canCreate && (
+						<GroupAddRow
+							onAdd={(title) => onCreateTask(status.id, title)}
+						/>
+					)}
+				</>
+			)}
+		</div>
+	);
+}
+
+export function ListView({
+	tasks,
+	statuses,
+	taskTypes,
+	canCreate,
+	searchQuery,
+	assigneeFilter,
+	onCreateTask,
+	onTaskClick,
+}: ListViewProps) {
+	const filtered = tasks.filter((t) => {
+		if (searchQuery && !t.title.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+		if (assigneeFilter && t.assignee_id !== assigneeFilter) return false;
+		return true;
+	});
+
+	const sortedStatuses = [...statuses].sort((a, b) => a.position - b.position);
+
+	return (
+		<div className="flex flex-col divide-y divide-border/30 overflow-auto">
+			{sortedStatuses.map((status) => {
+				const groupTasks = filtered.filter((t) => t.status_id === status.id);
+				const isDone = status.category === "done";
+				return (
+					<StatusGroup
+						key={status.id}
+						status={status}
+						tasks={groupTasks}
+						statuses={statuses}
+						taskTypes={taskTypes}
+						canCreate={canCreate}
+						defaultCollapsed={isDone}
+						onCreateTask={onCreateTask}
+						onTaskClick={onTaskClick}
+					/>
+				);
+			})}
+
+			{/* Unassigned tasks group */}
+			{filtered.filter((t) => !t.status_id).length > 0 && (
+				<div className="border-b border-border/40 last:border-0">
+					<div className="flex items-center gap-2.5 px-4 py-2.5">
+						<ChevronDown className="size-3.5 text-muted-foreground shrink-0" />
+						<span className="size-2 rounded-full bg-muted-foreground/30 shrink-0" />
+						<span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground/50">
+							No Status
+						</span>
+						<span className="text-xs text-muted-foreground tabular-nums">
+							{filtered.filter((t) => !t.status_id).length}
+						</span>
+					</div>
+					{filtered
+						.filter((t) => !t.status_id)
+						.map((task) => (
+							<TaskRow
+								key={task.id}
+								task={task}
+								statuses={statuses}
+								taskTypes={taskTypes}
+								onClick={() => onTaskClick(task)}
+							/>
+						))}
+				</div>
+			)}
+		</div>
+	);
+}

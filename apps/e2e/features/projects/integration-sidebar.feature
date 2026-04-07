@@ -169,3 +169,92 @@ Feature: Sidebar integration navigation
       Given the global sidebar is in collapsed mode
       When the user hovers over the icon for "E2E_ICON_SPRINT" in the sidebar
       Then a tooltip labelled "E2E_ICON_SPRINT" should be visible
+
+  @authenticated
+  Rule: Creating a sprint from the sidebar
+
+    Background:
+      Given the user already has a stored authenticated session
+      And a project named "E2E_CREATE_SPRINT_PROJECT" exists
+      And the user has the "View Sprints" project permission in "E2E_CREATE_SPRINT_PROJECT"
+      And the user has the "Manage Sprints" project permission in "E2E_CREATE_SPRINT_PROJECT"
+      And the user is inside the project "E2E_CREATE_SPRINT_PROJECT"
+
+    Scenario: A "New sprint" button is always visible in the Integrations section for authorised users
+      Then a "New sprint" dashed-border button should be visible at the bottom of the Integrations section
+
+    Scenario: Clicking "New sprint" opens a sprint creation dialog
+      When the user clicks the "New sprint" button in the Integrations section
+      Then a modal dialog titled "New sprint" should appear
+      And the dialog should contain a required "Name" input field
+      And the dialog should contain an optional "Goal" input field
+      And the dialog should contain an optional "Start date" date picker
+      And the dialog should contain an optional "End date" date picker
+      And the dialog should contain a "Create sprint" submit button
+      And the dialog should contain a "Cancel" button
+
+    Scenario: Creating a sprint with only a name adds it to the sidebar
+      When the user clicks the "New sprint" button in the Integrations section
+      And the user types "E2E_NEW_SIDEBAR_SPRINT" in the sprint name field
+      And the user clicks "Create sprint"
+      Then the sidebar should show an entry for "E2E_NEW_SIDEBAR_SPRINT"
+      And the dialog should close
+
+    Scenario: Creating a sprint with all fields filled saves all data
+      When the user clicks the "New sprint" button in the Integrations section
+      And the user types "E2E_FULL_SPRINT" in the sprint name field
+      And the user types "Ship the login feature" in the sprint goal field
+      And the user sets the start date to "2026-04-14"
+      And the user sets the end date to "2026-04-28"
+      And the user clicks "Create sprint"
+      Then the sprint "E2E_FULL_SPRINT" should be created with goal "Ship the login feature"
+      And the sprint "E2E_FULL_SPRINT" should have start date "2026-04-14" and end date "2026-04-28"
+
+    Scenario: Pressing Enter in the name field submits the form
+      When the user clicks the "New sprint" button in the Integrations section
+      And the user types "E2E_ENTER_SPRINT" in the sprint name field
+      And the user presses Enter
+      Then the sidebar should show an entry for "E2E_ENTER_SPRINT"
+
+    Scenario: Cancelling the dialog does not create a sprint
+      When the user clicks the "New sprint" button in the Integrations section
+      And the user types "E2E_CANCEL_SPRINT" in the sprint name field
+      And the user clicks "Cancel"
+      Then the dialog should close
+      And no sprint named "E2E_CANCEL_SPRINT" should appear in the sidebar
+
+    Scenario: Pressing Escape dismisses the dialog without creating a sprint
+      When the user clicks the "New sprint" button in the Integrations section
+      And the user types "E2E_ESCAPE_SPRINT" in the sprint name field
+      And the user presses Escape
+      Then the dialog should close
+      And no sprint named "E2E_ESCAPE_SPRINT" should appear in the sidebar
+
+    Scenario: Submitting without a name does not create a sprint
+      When the user clicks the "New sprint" button in the Integrations section
+      And the user clicks "Create sprint" without entering a name
+      Then the dialog should remain open
+      And the name field should receive focus
+
+    Scenario: A sprint created via the dialog is created with "planned" status
+      When the user clicks the "New sprint" button in the Integrations section
+      And the user types "E2E_PLANNED_NEW_SPRINT" in the sprint name field
+      And the user clicks "Create sprint"
+      Then the sprint "E2E_PLANNED_NEW_SPRINT" should be created with status "planned"
+
+    Scenario: An optional goal is saved when provided
+      When the user clicks the "New sprint" button in the Integrations section
+      And the user types "E2E_GOAL_SPRINT" in the sprint name field
+      And the user types "Deliver login feature" in the sprint goal field
+      And the user clicks "Create sprint"
+      Then the sprint "E2E_GOAL_SPRINT" should be created with goal "Deliver login feature"
+
+    Scenario: The "New sprint" button is not visible to users without "Manage Sprints" permission
+      Given the user does not have the "Manage Sprints" project permission
+      Then the "New sprint" button should not be visible in the Integrations section
+
+    Scenario: Opening the dialog does not collapse the Integrations section
+      Given the "Integrations" section is expanded
+      When the user clicks the "New sprint" button in the Integrations section
+      Then the "Integrations" section should remain expanded
+      And the sprint creation dialog should be open
