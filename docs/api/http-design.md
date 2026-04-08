@@ -168,7 +168,7 @@ These routes already exist in the Go API service.
 | `DELETE` | `/api/v1/projects/:projectId/product-backlog/views/:viewId` | Access token (fresh) + `sprints.write` | Delete a product-backlog view. Fails with `409 VIEW_IS_LAST_VIEW` if it is the only remaining view. |
 | `GET` | `/api/v1/projects/:projectId/product-backlog/views/:viewId/task-positions` | Access token (fresh) + `tasks.read` | List manual task ordering positions within a product-backlog view. |
 | `PUT` | `/api/v1/projects/:projectId/product-backlog/views/:viewId/task-positions/:taskId` | Access token (fresh) + `tasks.write` | Set or update the manual position of a task within a product-backlog view. |
-| `GET` | `/api/v1/projects/:projectId/tasks` | Access token (fresh) + `tasks.read` | List tasks with optional filters (`sprint_id`, `status_id`, `assignee_id`). |
+| `GET` | `/api/v1/projects/:projectId/tasks` | Access token (fresh) + `tasks.read` | List tasks with optional filters (`sprint_id`, `status_id`, `assignee_id`). Pass `view_id` to include `view_position` and `view_group_key` in each task item. |
 | `POST` | `/api/v1/projects/:projectId/tasks` | Access token (fresh) + `tasks.write` | Create a task. |
 | `GET` | `/api/v1/projects/:projectId/tasks/:taskId` | Access token (fresh) + `tasks.read` | Get task detail. |
 | `PATCH` | `/api/v1/projects/:projectId/tasks/:taskId` | Access token (fresh) + `tasks.write` | Update a task. |
@@ -764,6 +764,78 @@ Request body:
 ```
 
 Success response: `204 No Content`
+
+---
+
+## Task List API
+
+### `GET /api/v1/projects/:projectId/tasks`
+
+Function:
+
+- list all non-deleted tasks for a project, with optional filtering and pagination;
+- when `view_id` is supplied, each task in the response includes its manual `view_position` and `view_group_key` from that view's ordering (these fields are omitted when the task has no recorded position in the requested view).
+
+Query parameters:
+
+| Parameter | Default | Description |
+|---|---|---|
+| `page` | `1` | 1-based page number |
+| `page_size` | `20` | Items per page (max 100) |
+| `sprint_id` | – | Filter to tasks assigned to a specific sprint |
+| `status_id` | – | Filter to tasks with a specific status |
+| `assignee_id` | – | Filter to tasks assigned to a specific user |
+| `view_id` | – | UUID of a view; enriches each task with its manual position in that view |
+
+Success response data (without `view_id`):
+
+```json
+{
+  "items": [
+    {
+      "id": "uuid",
+      "project_id": "uuid",
+      "title": "Implement feature X",
+      "importance": 3,
+      "custom_fields": {},
+      "created_at": "2026-04-01T00:00:00Z",
+      "updated_at": "2026-04-01T00:00:00Z"
+    }
+  ],
+  "total": 1,
+  "page": 1,
+  "page_size": 20
+}
+```
+
+Success response data (with `view_id`):
+
+```json
+{
+  "items": [
+    {
+      "id": "uuid",
+      "project_id": "uuid",
+      "title": "Implement feature X",
+      "importance": 3,
+      "custom_fields": {},
+      "view_position": 2,
+      "view_group_key": "status-uuid",
+      "created_at": "2026-04-01T00:00:00Z",
+      "updated_at": "2026-04-01T00:00:00Z"
+    }
+  ],
+  "total": 1,
+  "page": 1,
+  "page_size": 20
+}
+```
+
+Notes:
+
+- `view_position` and `view_group_key` are omitted (`omitempty`) when the task has no recorded position in the requested view, or when `view_id` is not provided.
+- If `view_id` refers to a view that has no stored positions, tasks are returned without position fields (200 OK, no error).
+- An invalid UUID supplied as `view_id` returns `400 BAD_REQUEST`.
 
 ---
 

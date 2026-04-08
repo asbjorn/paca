@@ -4,6 +4,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/paca/api/internal/apierr"
+	sprintdom "github.com/paca/api/internal/domain/sprint"
 	taskdom "github.com/paca/api/internal/domain/task"
 	"github.com/paca/api/internal/transport/http/dto"
 	"github.com/paca/api/internal/transport/http/middleware"
@@ -12,12 +13,15 @@ import (
 
 // TaskHandler handles task management endpoints.
 type TaskHandler struct {
-	svc taskdom.Service
+	svc     taskdom.Service
+	viewSvc sprintdom.ViewService
 }
 
-// NewTaskHandler returns a TaskHandler wired to the task service.
-func NewTaskHandler(svc taskdom.Service) *TaskHandler {
-	return &TaskHandler{svc: svc}
+// NewTaskHandler returns a TaskHandler wired to the task service and the view
+// service (used to enrich list responses with manual task positions when a
+// view_id query parameter is supplied).
+func NewTaskHandler(svc taskdom.Service, viewSvc sprintdom.ViewService) *TaskHandler {
+	return &TaskHandler{svc: svc, viewSvc: viewSvc}
 }
 
 // --- Task Types -------------------------------------------------------------
@@ -199,6 +203,9 @@ func (h *TaskHandler) DeleteTaskStatus(c *gin.Context) {
 // --- Tasks ------------------------------------------------------------------
 
 // ListTasks handles GET /projects/:projectId/tasks.
+// Optional query parameters:
+//   - view_id: UUID of a view; when supplied, each task in the response carries
+//     view_position and view_group_key from that view's manual ordering.
 func (h *TaskHandler) ListTasks(c *gin.Context) {
 	projectID, err := parseProjectID(c)
 	if err != nil {
@@ -225,6 +232,26 @@ func (h *TaskHandler) ListTasks(c *gin.Context) {
 		}
 	}
 
+	// Optional view enrichment: fetch manual task positions for the given view.
+	var posMap map[uuid.UUID]*sprintdom.ViewTaskPosition
+	if raw := c.Query("view_id"); raw != "" {
+		viewID, err := uuid.Parse(raw)
+		if err != nil {
+			presenter.Error(c, apierr.New(apierr.CodeBadRequest, "invalid view_id"))
+			return
+		}
+		positions, err := h.viewSvc.ListTaskPositions(c.Request.Context(), viewID)
+		if err != nil {
+			presenter.Error(c, err)
+			return
+		}
+		posMap = make(map[uuid.UUID]*sprintdom.ViewTaskPosition, len(positions))
+		for _, p := range positions {
+			cp := p
+			posMap[p.TaskID] = cp
+		}
+	}
+
 	tasks, total, err := h.svc.ListTasks(c.Request.Context(), projectID, filter, page, pageSize)
 	if err != nil {
 		presenter.Error(c, err)
@@ -233,7 +260,12 @@ func (h *TaskHandler) ListTasks(c *gin.Context) {
 
 	resp := make([]dto.TaskResponse, 0, len(tasks))
 	for _, t := range tasks {
-		resp = append(resp, dto.TaskFromEntity(t))
+		r := dto.TaskFromEntity(t)
+		if pos, ok := posMap[t.ID]; ok {
+			r.ViewPosition = &pos.Position
+			r.ViewGroupKey = pos.GroupKey
+		}
+		resp = append(resp, r)
 	}
 	presenter.OK(c, gin.H{"items": resp, "total": total, "page": page, "page_size": pageSize})
 }
@@ -267,18 +299,17 @@ func (h *TaskHandler) CreateTask(c *gin.Context) {
 	}
 
 	t, err := h.svc.CreateTask(c.Request.Context(), taskdom.CreateTaskInput{
-		ProjectID:     projectID,
-		TaskTypeID:    req.TaskTypeID,
-		StatusID:      req.StatusID,
-		SprintID:      req.SprintID,
-		ParentTaskID:  req.ParentTaskID,
-		Title:         req.Title,
-		Description:   req.Description,
-		Importance:    req.Importance,
-		BoardPosition: req.BoardPosition,
-		AssigneeID:    req.AssigneeID,
-		ReporterID:    req.ReporterID,
-		CustomFields:  req.CustomFields,
+		ProjectID:    projectID,
+		TaskTypeID:   req.TaskTypeID,
+		StatusID:     req.StatusID,
+		SprintID:     req.SprintID,
+		ParentTaskID: req.ParentTaskID,
+		Title:        req.Title,
+		Description:  req.Description,
+		Importance:   req.Importance,
+		AssigneeID:   req.AssigneeID,
+		ReporterID:   req.ReporterID,
+		CustomFields: req.CustomFields,
 	})
 	if err != nil {
 		presenter.Error(c, err)
@@ -301,17 +332,16 @@ func (h *TaskHandler) UpdateTask(c *gin.Context) {
 	}
 
 	t, err := h.svc.UpdateTask(c.Request.Context(), taskID, taskdom.UpdateTaskInput{
-		TaskTypeID:    req.TaskTypeID,
-		StatusID:      req.StatusID,
-		SprintID:      req.SprintID,
-		ParentTaskID:  req.ParentTaskID,
-		Title:         req.Title,
-		Description:   req.Description,
-		Importance:    req.Importance,
-		BoardPosition: req.BoardPosition,
-		AssigneeID:    req.AssigneeID,
-		ReporterID:    req.ReporterID,
-		CustomFields:  req.CustomFields,
+		TaskTypeID:   req.TaskTypeID,
+		StatusID:     req.StatusID,
+		SprintID:     req.SprintID,
+		ParentTaskID: req.ParentTaskID,
+		Title:        req.Title,
+		Description:  req.Description,
+		Importance:   req.Importance,
+		AssigneeID:   req.AssigneeID,
+		ReporterID:   req.ReporterID,
+		CustomFields: req.CustomFields,
 	})
 	if err != nil {
 		presenter.Error(c, err)

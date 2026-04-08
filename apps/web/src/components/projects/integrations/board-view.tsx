@@ -139,8 +139,7 @@ export function BoardView({
 	const tasksByStatus = (statusId: string) =>
 		filteredTasks
 			.filter((t) => t.status_id === statusId)
-			.sort((a, b) => a.board_position - b.board_position);
-
+		.sort((a, b) => a.created_at.localeCompare(b.created_at));
 	const getColumnTasks = (statusId: string): Task[] => {
 		const ids = columnOrderMap[statusId];
 		if (ids) {

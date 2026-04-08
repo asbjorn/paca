@@ -442,3 +442,145 @@ func TestE2ESprintView_Backlog(t *testing.T) {
 		}
 	})
 }
+
+// ---------------------------------------------------------------------------
+// ListTasks with view_id — view position enrichment
+// ---------------------------------------------------------------------------
+
+// TestE2ETaskList_WithViewID verifies that GET /tasks?view_id=<id> returns
+// view_position and view_group_key on each task that has a recorded manual
+// position in that view.
+func TestE2ETaskList_WithViewID(t *testing.T) {
+	env := newE2EEnv(t)
+	seedTaskMemberUser(t, env, "view-task-pos-user", "viewpospass1")
+	client, token := taskMemberLogin(t, env, "view-task-pos-user", "viewpospass1")
+	projID := createProjectForTasksViaAPI(t, env, client, token)
+	sprintID := createSprintViaAPI(t, env, client, token, projID, "Sprint ViewPos")
+
+	// Create a view for the sprint.
+	viewID := createViewViaAPI(t, env, client, token, projID, sprintID, "Position View", "table")
+
+	// Create two tasks assigned to the sprint.
+	createTaskInSprint := func(title string) string {
+		t.Helper()
+		body := jsonBody(t, map[string]any{
+			"title":     title,
+			"sprint_id": sprintID,
+		})
+		req := mustRequest(env.ctx, t, http.MethodPost,
+			fmt.Sprintf("%s/api/v1/projects/%s/tasks", env.base, projID), body)
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+token)
+		resp := mustDo(t, client, req)
+		defer func() { _ = resp.Body.Close() }()
+		assertStatus(t, resp, http.StatusCreated)
+		var env2 envelope
+		decodeJSON(t, resp, &env2)
+		data := assertDataMap(t, env2)
+		id, _ := data["id"].(string)
+		return id
+	}
+
+	task1ID := createTaskInSprint("ViewPos Task Alpha")
+	task2ID := createTaskInSprint("ViewPos Task Beta")
+
+	// Assign manual positions in the view.
+	moveTask := func(taskID string, position int, groupKey *string) {
+		t.Helper()
+		body := map[string]any{"position": position}
+		if groupKey != nil {
+			body["group_key"] = *groupKey
+		}
+		url := fmt.Sprintf("%s/api/v1/projects/%s/sprints/%s/views/%s/task-positions/%s",
+			env.base, projID, sprintID, viewID, taskID)
+		req := mustRequest(env.ctx, t, http.MethodPut, url, jsonBody(t, body))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+token)
+		resp := mustDo(t, client, req)
+		defer func() { _ = resp.Body.Close() }()
+		assertStatus(t, resp, http.StatusNoContent)
+	}
+
+	gk := "status-col-1"
+	moveTask(task1ID, 5, &gk)
+	moveTask(task2ID, 15, nil)
+
+	t.Run("without_view_id_no_view_position", func(t *testing.T) {
+		req := mustRequest(env.ctx, t, http.MethodGet,
+			fmt.Sprintf("%s/api/v1/projects/%s/tasks?sprint_id=%s", env.base, projID, sprintID), nil)
+		req.Header.Set("Authorization", "Bearer "+token)
+		resp := mustDo(t, client, req)
+		defer func() { _ = resp.Body.Close() }()
+		assertStatus(t, resp, http.StatusOK)
+		var env2 envelope
+		decodeJSON(t, resp, &env2)
+		data := assertDataMap(t, env2)
+		items, _ := data["items"].([]any)
+		for _, raw := range items {
+			item, _ := raw.(map[string]any)
+			if _, ok := item["view_position"]; ok {
+				t.Error("expected no view_position field without view_id query param")
+			}
+		}
+	})
+
+	t.Run("with_view_id_positions_enriched", func(t *testing.T) {
+		req := mustRequest(env.ctx, t, http.MethodGet,
+			fmt.Sprintf("%s/api/v1/projects/%s/tasks?sprint_id=%s&view_id=%s",
+				env.base, projID, sprintID, viewID), nil)
+		req.Header.Set("Authorization", "Bearer "+token)
+		resp := mustDo(t, client, req)
+		defer func() { _ = resp.Body.Close() }()
+		assertStatus(t, resp, http.StatusOK)
+		var env2 envelope
+		decodeJSON(t, resp, &env2)
+		data := assertDataMap(t, env2)
+		items, _ := data["items"].([]any)
+		if len(items) < 2 {
+			t.Fatalf("expected at least 2 tasks, got %d", len(items))
+		}
+		posMap := make(map[string]float64)
+		groupMap := make(map[string]any)
+		for _, raw := range items {
+			item, _ := raw.(map[string]any)
+			id, _ := item["id"].(string)
+			if pos, ok := item["view_position"]; ok {
+				posMap[id] = pos.(float64)
+			}
+			if gk, ok := item["view_group_key"]; ok {
+				groupMap[id] = gk
+			}
+		}
+		if posMap[task1ID] != 5 {
+			t.Errorf("expected task1 view_position=5, got %v", posMap[task1ID])
+		}
+		if posMap[task2ID] != 15 {
+			t.Errorf("expected task2 view_position=15, got %v", posMap[task2ID])
+		}
+		if groupMap[task1ID] != "status-col-1" {
+			t.Errorf("expected task1 view_group_key=status-col-1, got %v", groupMap[task1ID])
+		}
+		if _, hasGroup := groupMap[task2ID]; hasGroup {
+			t.Errorf("expected no view_group_key for task2, got %v", groupMap[task2ID])
+		}
+	})
+
+	t.Run("invalid_view_id_returns_400", func(t *testing.T) {
+		req := mustRequest(env.ctx, t, http.MethodGet,
+			fmt.Sprintf("%s/api/v1/projects/%s/tasks?view_id=not-a-uuid", env.base, projID), nil)
+		req.Header.Set("Authorization", "Bearer "+token)
+		resp := mustDo(t, client, req)
+		defer func() { _ = resp.Body.Close() }()
+		assertStatus(t, resp, http.StatusBadRequest)
+	})
+
+	t.Run("unknown_view_id_returns_404", func(t *testing.T) {
+		req := mustRequest(env.ctx, t, http.MethodGet,
+			fmt.Sprintf("%s/api/v1/projects/%s/tasks?view_id=%s", env.base, projID, uuid.New()), nil)
+		req.Header.Set("Authorization", "Bearer "+token)
+		resp := mustDo(t, client, req)
+		defer func() { _ = resp.Body.Close() }()
+		assertStatus(t, resp, http.StatusNotFound)
+		assertErrorCode(t, resp, "VIEW_NOT_FOUND")
+	})
+}

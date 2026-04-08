@@ -42,22 +42,21 @@ type taskStatusRecord struct {
 func (taskStatusRecord) TableName() string { return "task_statuses" }
 
 type taskRecord struct {
-	ID            string  `gorm:"primarykey;type:uuid"`
-	ProjectID     string  `gorm:"type:uuid;not null;column:project_id"`
-	TaskTypeID    *string `gorm:"type:uuid;column:task_type_id"`
-	StatusID      *string `gorm:"type:uuid;column:status_id"`
-	SprintID      *string `gorm:"type:uuid;column:sprint_id"`
-	ParentTaskID  *string `gorm:"type:uuid;column:parent_task_id"`
-	Title         string  `gorm:"not null"`
-	Description   *string `gorm:"type:text"`
-	Importance    int     `gorm:"not null;default:0"`
-	BoardPosition int     `gorm:"not null;default:0;column:board_position"`
-	AssigneeID    *string `gorm:"type:uuid;column:assignee_id"`
-	ReporterID    *string `gorm:"type:uuid;column:reporter_id"`
-	CustomFields  []byte  `gorm:"type:jsonb;not null;column:custom_fields"`
-	CreatedAt     time.Time
-	UpdatedAt     time.Time
-	DeletedAt     *time.Time `gorm:"index;column:deleted_at"`
+	ID           string  `gorm:"primarykey;type:uuid"`
+	ProjectID    string  `gorm:"type:uuid;not null;column:project_id"`
+	TaskTypeID   *string `gorm:"type:uuid;column:task_type_id"`
+	StatusID     *string `gorm:"type:uuid;column:status_id"`
+	SprintID     *string `gorm:"type:uuid;column:sprint_id"`
+	ParentTaskID *string `gorm:"type:uuid;column:parent_task_id"`
+	Title        string  `gorm:"not null"`
+	Description  *string `gorm:"type:text"`
+	Importance   int     `gorm:"not null;default:0"`
+	AssigneeID   *string `gorm:"type:uuid;column:assignee_id"`
+	ReporterID   *string `gorm:"type:uuid;column:reporter_id"`
+	CustomFields []byte  `gorm:"type:jsonb;not null;column:custom_fields"`
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+	DeletedAt    *time.Time `gorm:"index;column:deleted_at"`
 }
 
 func (taskRecord) TableName() string { return "tasks" }
@@ -247,7 +246,7 @@ func (r *TaskRepository) ListTasks(ctx context.Context, projectID uuid.UUID, fil
 	}
 
 	var records []taskRecord
-	if err := q.Order("board_position ASC, created_at ASC").
+	if err := q.Order("created_at ASC").
 		Offset(offset).Limit(limit).
 		Find(&records).Error; err != nil {
 		return nil, 0, fmt.Errorf("task repo: list: %w", err)
@@ -286,21 +285,20 @@ func (r *TaskRepository) CreateTask(ctx context.Context, t *taskdom.Task) error 
 		return fmt.Errorf("task repo: marshal custom_fields: %w", err)
 	}
 	rec := &taskRecord{
-		ID:            t.ID.String(),
-		ProjectID:     t.ProjectID.String(),
-		TaskTypeID:    uuidPtrToStrPtr(t.TaskTypeID),
-		StatusID:      uuidPtrToStrPtr(t.StatusID),
-		SprintID:      uuidPtrToStrPtr(t.SprintID),
-		ParentTaskID:  uuidPtrToStrPtr(t.ParentTaskID),
-		Title:         t.Title,
-		Description:   t.Description,
-		Importance:    t.Importance,
-		BoardPosition: t.BoardPosition,
-		AssigneeID:    uuidPtrToStrPtr(t.AssigneeID),
-		ReporterID:    uuidPtrToStrPtr(t.ReporterID),
-		CustomFields:  cf,
-		CreatedAt:     t.CreatedAt,
-		UpdatedAt:     t.UpdatedAt,
+		ID:           t.ID.String(),
+		ProjectID:    t.ProjectID.String(),
+		TaskTypeID:   uuidPtrToStrPtr(t.TaskTypeID),
+		StatusID:     uuidPtrToStrPtr(t.StatusID),
+		SprintID:     uuidPtrToStrPtr(t.SprintID),
+		ParentTaskID: uuidPtrToStrPtr(t.ParentTaskID),
+		Title:        t.Title,
+		Description:  t.Description,
+		Importance:   t.Importance,
+		AssigneeID:   uuidPtrToStrPtr(t.AssigneeID),
+		ReporterID:   uuidPtrToStrPtr(t.ReporterID),
+		CustomFields: cf,
+		CreatedAt:    t.CreatedAt,
+		UpdatedAt:    t.UpdatedAt,
 	}
 	if err := r.db.WithContext(ctx).Create(rec).Error; err != nil {
 		return fmt.Errorf("task repo: create: %w", err)
@@ -322,7 +320,6 @@ func (r *TaskRepository) UpdateTask(ctx context.Context, t *taskdom.Task) error 
 		"title":          t.Title,
 		"description":    t.Description,
 		"importance":     t.Importance,
-		"board_position": t.BoardPosition,
 		"assignee_id":    uuidPtrToStrPtr(t.AssigneeID),
 		"reporter_id":    uuidPtrToStrPtr(t.ReporterID),
 		"custom_fields":  cf,
@@ -399,22 +396,21 @@ func toTaskEntity(r *taskRecord) (*taskdom.Task, error) {
 	}
 
 	return &taskdom.Task{
-		ID:            id,
-		ProjectID:     pid,
-		TaskTypeID:    strPtrToUUIDPtr(r.TaskTypeID),
-		StatusID:      strPtrToUUIDPtr(r.StatusID),
-		SprintID:      strPtrToUUIDPtr(r.SprintID),
-		ParentTaskID:  strPtrToUUIDPtr(r.ParentTaskID),
-		Title:         r.Title,
-		Description:   r.Description,
-		Importance:    r.Importance,
-		BoardPosition: r.BoardPosition,
-		AssigneeID:    strPtrToUUIDPtr(r.AssigneeID),
-		ReporterID:    strPtrToUUIDPtr(r.ReporterID),
-		CustomFields:  cf,
-		CreatedAt:     r.CreatedAt,
-		UpdatedAt:     r.UpdatedAt,
-		DeletedAt:     r.DeletedAt,
+		ID:           id,
+		ProjectID:    pid,
+		TaskTypeID:   strPtrToUUIDPtr(r.TaskTypeID),
+		StatusID:     strPtrToUUIDPtr(r.StatusID),
+		SprintID:     strPtrToUUIDPtr(r.SprintID),
+		ParentTaskID: strPtrToUUIDPtr(r.ParentTaskID),
+		Title:        r.Title,
+		Description:  r.Description,
+		Importance:   r.Importance,
+		AssigneeID:   strPtrToUUIDPtr(r.AssigneeID),
+		ReporterID:   strPtrToUUIDPtr(r.ReporterID),
+		CustomFields: cf,
+		CreatedAt:    r.CreatedAt,
+		UpdatedAt:    r.UpdatedAt,
+		DeletedAt:    r.DeletedAt,
 	}, nil
 }
 

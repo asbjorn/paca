@@ -99,51 +99,53 @@ func TaskStatusFromEntity(s *taskdom.TaskStatus) TaskStatusResponse {
 
 // CreateTaskRequest is the body for POST /projects/:projectId/tasks.
 type CreateTaskRequest struct {
-	Title         string         `json:"title"`
-	TaskTypeID    *uuid.UUID     `json:"task_type_id"`
-	StatusID      *uuid.UUID     `json:"status_id"`
-	SprintID      *uuid.UUID     `json:"sprint_id"`
-	ParentTaskID  *uuid.UUID     `json:"parent_task_id"`
-	Description   *string        `json:"description"`
-	Importance    int            `json:"importance"`
-	BoardPosition int            `json:"board_position"`
-	AssigneeID    *uuid.UUID     `json:"assignee_id"`
-	ReporterID    *uuid.UUID     `json:"reporter_id"`
-	CustomFields  map[string]any `json:"custom_fields"`
+	Title        string         `json:"title"`
+	TaskTypeID   *uuid.UUID     `json:"task_type_id"`
+	StatusID     *uuid.UUID     `json:"status_id"`
+	SprintID     *uuid.UUID     `json:"sprint_id"`
+	ParentTaskID *uuid.UUID     `json:"parent_task_id"`
+	Description  *string        `json:"description"`
+	Importance   int            `json:"importance"`
+	AssigneeID   *uuid.UUID     `json:"assignee_id"`
+	ReporterID   *uuid.UUID     `json:"reporter_id"`
+	CustomFields map[string]any `json:"custom_fields"`
 }
 
 // UpdateTaskRequest is the body for PATCH /projects/:projectId/tasks/:taskId.
 type UpdateTaskRequest struct {
-	Title         string         `json:"title"`
-	TaskTypeID    *uuid.UUID     `json:"task_type_id"`
-	StatusID      *uuid.UUID     `json:"status_id"`
-	SprintID      *uuid.UUID     `json:"sprint_id"`
-	ParentTaskID  *uuid.UUID     `json:"parent_task_id"`
-	Description   *string        `json:"description"`
-	Importance    *int           `json:"importance"`
-	BoardPosition *int           `json:"board_position"`
-	AssigneeID    *uuid.UUID     `json:"assignee_id"`
-	ReporterID    *uuid.UUID     `json:"reporter_id"`
-	CustomFields  map[string]any `json:"custom_fields"`
+	Title        string         `json:"title"`
+	TaskTypeID   *uuid.UUID     `json:"task_type_id"`
+	StatusID     *uuid.UUID     `json:"status_id"`
+	SprintID     *uuid.UUID     `json:"sprint_id"`
+	ParentTaskID *uuid.UUID     `json:"parent_task_id"`
+	Description  *string        `json:"description"`
+	Importance   *int           `json:"importance"`
+	AssigneeID   *uuid.UUID     `json:"assignee_id"`
+	ReporterID   *uuid.UUID     `json:"reporter_id"`
+	CustomFields map[string]any `json:"custom_fields"`
 }
 
 // TaskResponse is the public representation of a task.
+// ViewPosition and ViewGroupKey are only populated when the caller supplies a
+// valid view_id query parameter on list endpoints; they reflect the task's
+// manual position within that view.
 type TaskResponse struct {
-	ID            uuid.UUID      `json:"id"`
-	ProjectID     uuid.UUID      `json:"project_id"`
-	Title         string         `json:"title"`
-	TaskTypeID    *uuid.UUID     `json:"task_type_id,omitempty"`
-	StatusID      *uuid.UUID     `json:"status_id,omitempty"`
-	SprintID      *uuid.UUID     `json:"sprint_id,omitempty"`
-	ParentTaskID  *uuid.UUID     `json:"parent_task_id,omitempty"`
-	Description   *string        `json:"description,omitempty"`
-	Importance    int            `json:"importance"`
-	BoardPosition int            `json:"board_position"`
-	AssigneeID    *uuid.UUID     `json:"assignee_id,omitempty"`
-	ReporterID    *uuid.UUID     `json:"reporter_id,omitempty"`
-	CustomFields  map[string]any `json:"custom_fields"`
-	CreatedAt     time.Time      `json:"created_at"`
-	UpdatedAt     time.Time      `json:"updated_at"`
+	ID           uuid.UUID      `json:"id"`
+	ProjectID    uuid.UUID      `json:"project_id"`
+	Title        string         `json:"title"`
+	TaskTypeID   *uuid.UUID     `json:"task_type_id,omitempty"`
+	StatusID     *uuid.UUID     `json:"status_id,omitempty"`
+	SprintID     *uuid.UUID     `json:"sprint_id,omitempty"`
+	ParentTaskID *uuid.UUID     `json:"parent_task_id,omitempty"`
+	Description  *string        `json:"description,omitempty"`
+	Importance   int            `json:"importance"`
+	AssigneeID   *uuid.UUID     `json:"assignee_id,omitempty"`
+	ReporterID   *uuid.UUID     `json:"reporter_id,omitempty"`
+	CustomFields map[string]any `json:"custom_fields"`
+	ViewPosition *int           `json:"view_position,omitempty"`
+	ViewGroupKey *string        `json:"view_group_key,omitempty"`
+	CreatedAt    time.Time      `json:"created_at"`
+	UpdatedAt    time.Time      `json:"updated_at"`
 }
 
 // TaskFromEntity maps a domain Task to a TaskResponse DTO.
@@ -153,20 +155,19 @@ func TaskFromEntity(t *taskdom.Task) TaskResponse {
 		cf = map[string]any{}
 	}
 	return TaskResponse{
-		ID:            t.ID,
-		ProjectID:     t.ProjectID,
-		Title:         t.Title,
-		TaskTypeID:    t.TaskTypeID,
-		StatusID:      t.StatusID,
-		SprintID:      t.SprintID,
-		ParentTaskID:  t.ParentTaskID,
-		Description:   t.Description,
-		Importance:    t.Importance,
-		BoardPosition: t.BoardPosition,
-		AssigneeID:    t.AssigneeID,
-		ReporterID:    t.ReporterID,
-		CustomFields:  cf,
-		CreatedAt:     t.CreatedAt,
-		UpdatedAt:     t.UpdatedAt,
+		ID:           t.ID,
+		ProjectID:    t.ProjectID,
+		Title:        t.Title,
+		TaskTypeID:   t.TaskTypeID,
+		StatusID:     t.StatusID,
+		SprintID:     t.SprintID,
+		ParentTaskID: t.ParentTaskID,
+		Description:  t.Description,
+		Importance:   t.Importance,
+		AssigneeID:   t.AssigneeID,
+		ReporterID:   t.ReporterID,
+		CustomFields: cf,
+		CreatedAt:    t.CreatedAt,
+		UpdatedAt:    t.UpdatedAt,
 	}
 }

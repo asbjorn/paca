@@ -82,33 +82,31 @@ type TaskService interface {
 
 // CreateTaskInput carries fields required to create a task.
 type CreateTaskInput struct {
-	ProjectID     uuid.UUID
-	TaskTypeID    *uuid.UUID
-	StatusID      *uuid.UUID
-	SprintID      *uuid.UUID
-	ParentTaskID  *uuid.UUID
-	Title         string
-	Description   *string
-	Importance    int
-	BoardPosition int
-	AssigneeID    *uuid.UUID
-	ReporterID    *uuid.UUID
-	CustomFields  map[string]any
+	ProjectID    uuid.UUID
+	TaskTypeID   *uuid.UUID
+	StatusID     *uuid.UUID
+	SprintID     *uuid.UUID
+	ParentTaskID *uuid.UUID
+	Title        string
+	Description  *string
+	Importance   int
+	AssigneeID   *uuid.UUID
+	ReporterID   *uuid.UUID
+	CustomFields map[string]any
 }
 
 // UpdateTaskInput carries mutable task fields.
 // String fields are applied when non-empty; pointer fields always replace the
 // current value (use nil to clear a nullable reference).
 type UpdateTaskInput struct {
-	TaskTypeID    *uuid.UUID
-	StatusID      *uuid.UUID
-	SprintID      *uuid.UUID
-	ParentTaskID  *uuid.UUID
-	Title         string
-	Description   *string
-	Importance    *int
-	BoardPosition *int
-	AssigneeID    *uuid.UUID
-	ReporterID    *uuid.UUID
-	CustomFields  map[string]any
+	TaskTypeID   *uuid.UUID
+	StatusID     *uuid.UUID
+	SprintID     *uuid.UUID
+	ParentTaskID *uuid.UUID
+	Title        string
+	Description  *string
+	Importance   *int
+	AssigneeID   *uuid.UUID
+	ReporterID   *uuid.UUID
+	CustomFields map[string]any
 }

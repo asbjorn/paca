@@ -254,8 +254,7 @@ CREATE INDEX IF NOT EXISTS idx_view_task_positions_view_id ON view_task_position
 -- -------------------------------------------------------------------------
 -- TASKS
 -- importance: unsigned integer (>=0); higher value = more important.
--- board_position: ordering of the card within its status column on the
---                 kanban board; lower value appears first.
+-- Task ordering is managed per-view via the view_task_positions table.
 -- -------------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS tasks (
@@ -268,7 +267,6 @@ CREATE TABLE IF NOT EXISTS tasks (
     title          TEXT        NOT NULL,
     description    TEXT,
     importance     INTEGER     NOT NULL DEFAULT 0 CHECK (importance >= 0),
-    board_position INTEGER     NOT NULL DEFAULT 0,
     assignee_id    UUID        REFERENCES project_members(id) ON DELETE SET NULL,
     reporter_id    UUID        REFERENCES project_members(id) ON DELETE SET NULL,
     custom_fields  JSONB       NOT NULL DEFAULT '{}'::jsonb,
@@ -277,10 +275,9 @@ CREATE TABLE IF NOT EXISTS tasks (
     deleted_at     TIMESTAMPTZ
 );
 
-CREATE INDEX IF NOT EXISTS idx_tasks_project_id     ON tasks (project_id);
-CREATE INDEX IF NOT EXISTS idx_tasks_status_id      ON tasks (status_id);
-CREATE INDEX IF NOT EXISTS idx_tasks_sprint_id      ON tasks (sprint_id);
-CREATE INDEX IF NOT EXISTS idx_tasks_deleted_at     ON tasks (deleted_at) WHERE deleted_at IS NOT NULL;
-CREATE INDEX IF NOT EXISTS idx_tasks_board_position ON tasks (status_id, board_position);
+CREATE INDEX IF NOT EXISTS idx_tasks_project_id ON tasks (project_id);
+CREATE INDEX IF NOT EXISTS idx_tasks_status_id  ON tasks (status_id);
+CREATE INDEX IF NOT EXISTS idx_tasks_sprint_id  ON tasks (sprint_id);
+CREATE INDEX IF NOT EXISTS idx_tasks_deleted_at ON tasks (deleted_at) WHERE deleted_at IS NOT NULL;
 
 COMMIT;

@@ -123,7 +123,7 @@ func New(cfg *config.Config) (*App, error) {
 		User:         handler.NewUserHandler(userService, authService),
 		GlobalRole:   handler.NewGlobalRoleHandler(globalRoleService),
 		Project:      handler.NewProjectHandler(projectService, authorizer),
-		Task:         handler.NewTaskHandler(taskService),
+		Task:         handler.NewTaskHandler(taskService, viewService),
 		Sprint:       handler.NewSprintHandler(sprintService, viewService),
 		View:         handler.NewViewHandler(viewService),
 		Log:          log,

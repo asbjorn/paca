@@ -92,7 +92,6 @@ Table tasks {
   title varchar
   description text
   importance integer [not null, default: 0, note: 'unsigned; higher = more important']
-  board_position integer [not null, default: 0, note: 'ordering within a status column on the kanban board']
   assignee_id uuid
   reporter_id uuid
   custom_fields jsonb

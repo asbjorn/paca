@@ -195,21 +195,20 @@ func (s *Service) CreateTask(ctx context.Context, in taskdom.CreateTaskInput) (*
 
 	now := time.Now()
 	t := &taskdom.Task{
-		ID:            uuid.New(),
-		ProjectID:     in.ProjectID,
-		TaskTypeID:    in.TaskTypeID,
-		StatusID:      in.StatusID,
-		SprintID:      in.SprintID,
-		ParentTaskID:  in.ParentTaskID,
-		Title:         title,
-		Description:   in.Description,
-		Importance:    in.Importance,
-		BoardPosition: in.BoardPosition,
-		AssigneeID:    in.AssigneeID,
-		ReporterID:    in.ReporterID,
-		CustomFields:  cf,
-		CreatedAt:     now,
-		UpdatedAt:     now,
+		ID:           uuid.New(),
+		ProjectID:    in.ProjectID,
+		TaskTypeID:   in.TaskTypeID,
+		StatusID:     in.StatusID,
+		SprintID:     in.SprintID,
+		ParentTaskID: in.ParentTaskID,
+		Title:        title,
+		Description:  in.Description,
+		Importance:   in.Importance,
+		AssigneeID:   in.AssigneeID,
+		ReporterID:   in.ReporterID,
+		CustomFields: cf,
+		CreatedAt:    now,
+		UpdatedAt:    now,
 	}
 
 	if err := s.repo.CreateTask(ctx, t); err != nil {
@@ -236,9 +235,7 @@ func (s *Service) UpdateTask(ctx context.Context, id uuid.UUID, in taskdom.Updat
 	if in.Importance != nil {
 		t.Importance = *in.Importance
 	}
-	if in.BoardPosition != nil {
-		t.BoardPosition = *in.BoardPosition
-	}
+
 	t.AssigneeID = in.AssigneeID
 	t.ReporterID = in.ReporterID
 	if in.CustomFields != nil {

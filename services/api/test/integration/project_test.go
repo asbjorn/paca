@@ -20,6 +20,7 @@ import (
 	jwttoken "github.com/paca/api/internal/platform/token"
 	authsvc "github.com/paca/api/internal/service/auth"
 	projectsvc "github.com/paca/api/internal/service/project"
+	sprintsvc "github.com/paca/api/internal/service/sprint"
 	tasksvc "github.com/paca/api/internal/service/task"
 	usersvc "github.com/paca/api/internal/service/user"
 	"github.com/paca/api/internal/transport/http/handler"
@@ -373,7 +374,7 @@ func buildProjectTestRouterWithTaskRepo(repo *fakeProjectRepo, store *projectPer
 		User:         handler.NewUserHandler(userService),
 		GlobalRole:   handler.NewGlobalRoleHandler(&fakeGlobalRoleService{}),
 		Project:      handler.NewProjectHandler(projectService, authz.NewAuthorizer(store)),
-		Task:         handler.NewTaskHandler(tasksvc.New(taskRepo)),
+		Task:         handler.NewTaskHandler(tasksvc.New(taskRepo), sprintsvc.NewViewService(newFakeViewRepoIT())),
 		Log:          log,
 	}), taskRepo
 }

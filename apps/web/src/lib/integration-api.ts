@@ -33,7 +33,6 @@ export interface Task {
 	parent_task_id?: string | null;
 	description?: string | null;
 	importance: number;
-	board_position: number;
 	assignee_id?: string | null;
 	reporter_id?: string | null;
 	custom_fields: Record<string, unknown>;
@@ -301,7 +300,6 @@ export async function updateTask(
 		sprint_id: string | null;
 		task_type_id: string | null;
 		assignee_id: string | null;
-		board_position: number;
 	}>,
 ): Promise<Task> {
 	const { data } = await apiClient.instance.patch<SuccessEnvelope<Task>>(
