@@ -24,11 +24,16 @@ import {
 	PopoverTrigger,
 } from "@/components/ui/popover";
 import {
-	createIntegrationView,
+	createBacklogView,
+	createView,
+	deleteBacklogView,
+	deleteView,
+	updateBacklogView,
+	updateView,
+	backlogViewsQueryOptions,
 	createTask,
-	deleteIntegrationView,
-	getIntegrationViews,
-	renameIntegrationView,
+	layoutToViewType,
+	viewsQueryOptions,
 	type IntegrationView,
 	type Task,
 	type ViewLayout,
@@ -61,19 +66,18 @@ interface IntegrationLayoutProps {
 
 // ── New View Popover ───────────────────────────────────────────────────────────
 function NewViewPopover({
-	integrationKey,
-	onCreated,
+	onSubmit,
+	isPending,
 }: {
-	integrationKey: string;
-	onCreated: (view: IntegrationView) => void;
+	onSubmit: (name: string, layout: ViewLayout) => Promise<unknown>;
+	isPending?: boolean;
 }) {
 	const [open, setOpen] = useState(false);
 	const [name, setName] = useState("");
 	const [layout, setLayout] = useState<ViewLayout>("Board");
 
-	const submit = () => {
-		const view = createIntegrationView(integrationKey, name || `New ${layout}`, layout);
-		onCreated(view);
+	const submit = async () => {
+		await onSubmit(name || `New ${layout}`, layout);
 		setName("");
 		setOpen(false);
 	};
@@ -130,9 +134,10 @@ function NewViewPopover({
 					<button
 						type="button"
 						onClick={submit}
-						className="w-full rounded-md bg-primary py-1.5 text-xs font-semibold text-primary-foreground hover:opacity-90 transition-opacity"
+						disabled={isPending}
+						className="w-full rounded-md bg-primary py-1.5 text-xs font-semibold text-primary-foreground hover:opacity-90 transition-opacity disabled:opacity-60"
 					>
-						Create view
+						{isPending ? "Creating…" : "Create view"}
 					</button>
 				</div>
 			</PopoverContent>
@@ -143,16 +148,16 @@ function NewViewPopover({
 // ── Rename Dialog ──────────────────────────────────────────────────────────────
 function RenameViewDialog({
 	view,
-	integrationKey,
 	open,
 	onOpenChange,
-	onRenamed,
+	onSubmit,
+	isPending,
 }: {
 	view: IntegrationView | null;
-	integrationKey: string;
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
-	onRenamed: (viewId: string, newName: string) => void;
+	onSubmit: (viewId: string, name: string) => Promise<unknown>;
+	isPending?: boolean;
 }) {
 	const [name, setName] = useState(view?.name ?? "");
 
@@ -160,10 +165,9 @@ function RenameViewDialog({
 		if (view) setName(view.name);
 	}, [view]);
 
-	const submit = () => {
+	const submit = async () => {
 		if (!view || !name.trim()) return;
-		renameIntegrationView(integrationKey, view.id, name.trim());
-		onRenamed(view.id, name.trim());
+		await onSubmit(view.id, name.trim());
 		onOpenChange(false);
 	};
 
@@ -185,8 +189,8 @@ function RenameViewDialog({
 					>
 						Cancel
 					</DialogClose>
-					<Button size="sm" disabled={!name.trim()} onClick={submit}>
-						Rename
+					<Button size="sm" disabled={!name.trim() || isPending} onClick={submit}>
+						{isPending ? "Renaming…" : "Rename"}
 					</Button>
 				</DialogFooter>
 			</DialogContent>
@@ -214,17 +218,42 @@ export function IntegrationLayout({
 	const { data: statuses = [] } = useQuery(taskStatusesQueryOptions(projectId));
 	const { data: taskTypes = [] } = useQuery(taskTypesQueryOptions(projectId));
 
-	const [views, setViews] = useState<IntegrationView[]>(() =>
-		getIntegrationViews(integrationKey),
+	// Load views from the API (backlog or sprint)
+	const viewsQuery = useQuery(
+		sprintId
+			? viewsQueryOptions(projectId, sprintId)
+			: backlogViewsQueryOptions(projectId),
 	);
-	const [activeViewId, setActiveViewId] = useState<string>(() => {
+
+	const FALLBACK_VIEWS: IntegrationView[] = [
+		{ id: "__default-board__", name: "Board", view_type: "board", layout: "Board" },
+		{ id: "__default-list__", name: "List", view_type: "table", layout: "List" },
+	];
+	const serverViews = viewsQuery.data ?? [];
+	const views = serverViews.length > 0 ? serverViews : (viewsQuery.isSuccess ? FALLBACK_VIEWS : []);
+
+	const viewsQueryKey = sprintId
+		? viewsQueryOptions(projectId, sprintId).queryKey
+		: backlogViewsQueryOptions(projectId).queryKey;
+
+	// Active view: prefer last-selected (stored in localStorage), fall back to first
+	const [preferredViewId, setPreferredViewId] = useState<string>(() => {
 		try {
-			const stored = localStorage.getItem(`paca:active-view:${integrationKey}`);
-			const stored_ = stored ?? "";
-			if (stored_ && views.some((v) => v.id === stored_)) return stored_;
-		} catch { /* ignore */ }
-		return views[0]?.id ?? "";
+			return localStorage.getItem(`paca:active-view:${integrationKey}`) ?? "";
+		} catch { return ""; }
 	});
+
+	const activeView = views.find((v) => v.id === preferredViewId) ?? views[0];
+	const activeViewId = activeView?.id ?? "";
+
+	// Persist active view preference
+	useEffect(() => {
+		if (!activeViewId) return;
+		try {
+			localStorage.setItem(`paca:active-view:${integrationKey}`, activeViewId);
+		} catch { /* ignore */ }
+	}, [activeViewId, integrationKey]);
+
 	const [renameTarget, setRenameTarget] = useState<IntegrationView | null>(null);
 	const [renameOpen, setRenameOpen] = useState(false);
 	const [searchQuery, setSearchQuery] = useState("");
@@ -236,20 +265,13 @@ export function IntegrationLayout({
 
 	const { data: members = [] } = useQuery(projectMembersQueryOptions(projectId));
 
-	const activeView = views.find((v) => v.id === activeViewId) ?? views[0];
-
 	const handleTaskClick = (task: Task) => {
 		setSelectedTask(task);
 		onTaskClick?.(task);
 	};
 
-	useEffect(() => {
-		try {
-			localStorage.setItem(`paca:active-view:${integrationKey}`, activeViewId);
-		} catch { /* ignore */ }
-	}, [activeViewId, integrationKey]);
-
-	const createMutation = useMutation({
+	// ── Task mutation ─────────────────────────────────────────────────────────
+	const createTaskMutation = useMutation({
 		mutationFn: (payload: { title: string; statusId: string }) =>
 			createTask(projectId, {
 				title: payload.title,
@@ -260,28 +282,44 @@ export function IntegrationLayout({
 	});
 
 	const handleCreateTask = async (statusId: string, title: string) => {
-		await createMutation.mutateAsync({ title, statusId });
+		await createTaskMutation.mutateAsync({ title, statusId });
 	};
 
-	const handleViewCreated = (view: IntegrationView) => {
-		setViews((prev) => [...prev, view]);
-		setActiveViewId(view.id);
-	};
+	// ── View mutations ────────────────────────────────────────────────────────
+	const createViewMutation = useMutation({
+		mutationFn: (payload: { name: string; layout: ViewLayout }) => {
+			const view_type = layoutToViewType(payload.layout);
+			return sprintId
+				? createView(projectId, sprintId, { name: payload.name, view_type })
+				: createBacklogView(projectId, { name: payload.name, view_type });
+		},
+		onSuccess: (view) => {
+			qc.invalidateQueries({ queryKey: viewsQueryKey });
+			setPreferredViewId(view.id);
+		},
+	});
 
-	const handleViewRenamed = (viewId: string, newName: string) => {
-		setViews((prev) => prev.map((v) => (v.id === viewId ? { ...v, name: newName } : v)));
-	};
+	const renameViewMutation = useMutation({
+		mutationFn: (payload: { viewId: string; name: string }) =>
+			sprintId
+				? updateView(projectId, sprintId, payload.viewId, { name: payload.name })
+				: updateBacklogView(projectId, payload.viewId, { name: payload.name }),
+		onSuccess: () => qc.invalidateQueries({ queryKey: viewsQueryKey }),
+	});
 
-	const handleViewDeleted = (viewId: string) => {
-		deleteIntegrationView(integrationKey, viewId);
-		setViews((prev) => {
-			const updated = prev.filter((v) => v.id !== viewId);
-			if (activeViewId === viewId && updated.length > 0) {
-				setActiveViewId(updated[0].id);
+	const deleteViewMutation = useMutation({
+		mutationFn: (viewId: string) =>
+			sprintId
+				? deleteView(projectId, sprintId, viewId)
+				: deleteBacklogView(projectId, viewId),
+		onSuccess: (_, deletedId) => {
+			qc.invalidateQueries({ queryKey: viewsQueryKey });
+			if (preferredViewId === deletedId) {
+				const remaining = views.filter((v) => v.id !== deletedId);
+				setPreferredViewId(remaining[0]?.id ?? "");
 			}
-			return updated;
-		});
-	};
+		},
+	});
 
 	return (
 		<div className="flex h-full flex-col overflow-hidden">
@@ -302,7 +340,7 @@ export function IntegrationLayout({
 							<div key={view.id} className="relative flex items-center group shrink-0">
 								<button
 									type="button"
-									onClick={() => setActiveViewId(view.id)}
+									onClick={() => setPreferredViewId(view.id)}
 									className={cn(
 										"flex items-center gap-1.5 px-3 py-2.5 text-xs font-medium transition-all duration-150 relative",
 										isActive
@@ -345,7 +383,7 @@ export function IntegrationLayout({
 										<DropdownMenuSeparator />
 										<DropdownMenuItem
 											disabled={views.length <= 1}
-											onSelect={() => handleViewDeleted(view.id)}
+											onSelect={() => deleteViewMutation.mutate(view.id)}
 											className="text-destructive focus:text-destructive"
 										>
 											Delete view
@@ -462,8 +500,8 @@ export function IntegrationLayout({
 
 					{canManageViews && (
 						<NewViewPopover
-							integrationKey={integrationKey}
-							onCreated={handleViewCreated}
+							onSubmit={(name, layout) => createViewMutation.mutateAsync({ name, layout })}
+							isPending={createViewMutation.isPending}
 						/>
 					)}
 				</div>
@@ -506,10 +544,10 @@ export function IntegrationLayout({
 			{/* Rename dialog (state-controlled) */}
 			<RenameViewDialog
 				view={renameTarget}
-				integrationKey={integrationKey}
 				open={renameOpen}
 				onOpenChange={(v) => { setRenameOpen(v); if (!v) setRenameTarget(null); }}
-				onRenamed={handleViewRenamed}
+				onSubmit={(viewId, name) => renameViewMutation.mutateAsync({ viewId, name })}
+				isPending={renameViewMutation.isPending}
 			/>
 
 			{/* Task detail panel */}

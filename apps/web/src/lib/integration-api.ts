@@ -60,98 +60,35 @@ export interface ViewConfig {
 	slice_by?: string;
 }
 
+export type ViewLayout = "Board" | "List";
+
 export interface IntegrationView {
 	id: string;
 	name: string;
 	view_type: ViewType;
+	layout: ViewLayout;
 	config?: ViewConfig;
 }
 
-// ── Client-side view storage (localStorage, used for backlog) ──────────────────
-const VIEWS_STORAGE_KEY = "paca:integration-views-v2";
-
-function getViewsStorage(): Record<string, IntegrationView[]> {
-	try {
-		const raw = localStorage.getItem(VIEWS_STORAGE_KEY);
-		return raw ? JSON.parse(raw) : {};
-	} catch {
-		return {};
-	}
+// ── View shape helpers ─────────────────────────────────────────────────────────
+function viewTypeToLayout(vt: ViewType): ViewLayout {
+	return vt === "board" ? "Board" : "List";
 }
 
-function saveViewsStorage(data: Record<string, IntegrationView[]>): void {
-	localStorage.setItem(VIEWS_STORAGE_KEY, JSON.stringify(data));
+export function layoutToViewType(l: ViewLayout): ViewType {
+	return l === "Board" ? "board" : "table";
 }
 
-export function getIntegrationViews(integrationKey: string): IntegrationView[] {
-	const store = getViewsStorage();
-	if (store[integrationKey]?.length) return store[integrationKey];
-	const defaults: IntegrationView[] = [
-		{ id: "default-board", name: "Board", view_type: "board" },
-		{ id: "default-table", name: "Table", view_type: "table" },
-	];
-	store[integrationKey] = defaults;
-	saveViewsStorage(store);
-	return defaults;
+function mapView(raw: Omit<IntegrationView, "layout">): IntegrationView {
+	return { ...raw, layout: viewTypeToLayout(raw.view_type) };
 }
 
-export function createLocalView(
-	integrationKey: string,
-	name: string,
-	viewType: ViewType,
-): IntegrationView {
-	const store = getViewsStorage();
-	const views = store[integrationKey] ?? [];
-	const id = `view-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-	const label = viewType.charAt(0).toUpperCase() + viewType.slice(1);
-	const newView: IntegrationView = {
-		id,
-		name: name || `New ${label}`,
-		view_type: viewType,
-	};
-	store[integrationKey] = [...views, newView];
-	saveViewsStorage(store);
-	return newView;
-}
-
-export function renameLocalView(
-	integrationKey: string,
-	viewId: string,
-	newName: string,
-): void {
-	const store = getViewsStorage();
-	const views = store[integrationKey] ?? [];
-	store[integrationKey] = views.map((v) =>
-		v.id === viewId ? { ...v, name: newName } : v,
-	);
-	saveViewsStorage(store);
-}
-
-export function deleteLocalView(integrationKey: string, viewId: string): void {
-	const store = getViewsStorage();
-	const views = store[integrationKey] ?? [];
-	store[integrationKey] = views.filter((v) => v.id !== viewId);
-	saveViewsStorage(store);
-}
-
-export function updateLocalViewConfig(
-	integrationKey: string,
-	viewId: string,
-	config: ViewConfig,
-): void {
-	const store = getViewsStorage();
-	const views = store[integrationKey] ?? [];
-	store[integrationKey] = views.map((v) =>
-		v.id === viewId ? { ...v, config: { ...v.config, ...config } } : v,
-	);
-	saveViewsStorage(store);
-}
-
-// ── Server-side view API ──────────────────────────────────────────────────────
+// ── View API ──────────────────────────────────────────────────────────────────
 interface ViewListResult {
-	items: IntegrationView[];
+	items: Omit<IntegrationView, "layout">[];
 }
 
+// Sprint views
 export async function listViews(
 	projectId: string,
 	sprintId: string,
@@ -159,35 +96,35 @@ export async function listViews(
 	const { data } = await apiClient.instance.get<SuccessEnvelope<ViewListResult>>(
 		`/projects/${projectId}/sprints/${sprintId}/views`,
 	);
-	return data.data.items;
+	return data.data.items.map(mapView);
 }
 
-export async function apiCreateView(
+export async function createView(
 	projectId: string,
 	sprintId: string,
 	payload: { name: string; view_type: ViewType; config?: ViewConfig },
 ): Promise<IntegrationView> {
-	const { data } = await apiClient.instance.post<SuccessEnvelope<IntegrationView>>(
+	const { data } = await apiClient.instance.post<SuccessEnvelope<Omit<IntegrationView, "layout">>>(
 		`/projects/${projectId}/sprints/${sprintId}/views`,
 		payload,
 	);
-	return data.data;
+	return mapView(data.data);
 }
 
-export async function apiUpdateView(
+export async function updateView(
 	projectId: string,
 	sprintId: string,
 	viewId: string,
 	payload: Partial<{ name: string; view_type: ViewType; config: ViewConfig }>,
 ): Promise<IntegrationView> {
-	const { data } = await apiClient.instance.patch<SuccessEnvelope<IntegrationView>>(
+	const { data } = await apiClient.instance.patch<SuccessEnvelope<Omit<IntegrationView, "layout">>>(
 		`/projects/${projectId}/sprints/${sprintId}/views/${viewId}`,
 		payload,
 	);
-	return data.data;
+	return mapView(data.data);
 }
 
-export async function apiDeleteView(
+export async function deleteView(
 	projectId: string,
 	sprintId: string,
 	viewId: string,
@@ -197,7 +134,49 @@ export async function apiDeleteView(
 	);
 }
 
-export async function apiMoveTaskPosition(
+// Backlog views
+export async function listBacklogViews(
+	projectId: string,
+): Promise<IntegrationView[]> {
+	const { data } = await apiClient.instance.get<SuccessEnvelope<ViewListResult>>(
+		`/projects/${projectId}/product-backlog/views`,
+	);
+	return data.data.items.map(mapView);
+}
+
+export async function createBacklogView(
+	projectId: string,
+	payload: { name: string; view_type: ViewType; config?: ViewConfig },
+): Promise<IntegrationView> {
+	const { data } = await apiClient.instance.post<SuccessEnvelope<Omit<IntegrationView, "layout">>>(
+		`/projects/${projectId}/product-backlog/views`,
+		payload,
+	);
+	return mapView(data.data);
+}
+
+export async function updateBacklogView(
+	projectId: string,
+	viewId: string,
+	payload: Partial<{ name: string; view_type: ViewType; config: ViewConfig }>,
+): Promise<IntegrationView> {
+	const { data } = await apiClient.instance.patch<SuccessEnvelope<Omit<IntegrationView, "layout">>>(
+		`/projects/${projectId}/product-backlog/views/${viewId}`,
+		payload,
+	);
+	return mapView(data.data);
+}
+
+export async function deleteBacklogView(
+	projectId: string,
+	viewId: string,
+): Promise<void> {
+	await apiClient.instance.delete(
+		`/projects/${projectId}/product-backlog/views/${viewId}`,
+	);
+}
+
+export async function moveTaskPosition(
 	projectId: string,
 	sprintId: string,
 	viewId: string,
@@ -365,5 +344,12 @@ export const viewsQueryOptions = (projectId: string, sprintId: string) =>
 	queryOptions({
 		queryKey: ["projects", projectId, "sprints", sprintId, "views"],
 		queryFn: () => listViews(projectId, sprintId),
+		staleTime: 30_000,
+	});
+
+export const backlogViewsQueryOptions = (projectId: string) =>
+	queryOptions({
+		queryKey: ["projects", projectId, "backlog-views"],
+		queryFn: () => listBacklogViews(projectId),
 		staleTime: 30_000,
 	});
