@@ -4,9 +4,7 @@ import { AlertCircle } from "lucide-react";
 
 import { IntegrationLayout } from "@/components/projects/integrations/integration-layout";
 import { usePermissions } from "@/hooks/use-permissions";
-import {
-	sprintQueryOptions,
-} from "@/lib/integration-api";
+import { sprintQueryOptions } from "@/lib/integration-api";
 
 export const Route = createFileRoute(
 	"/_authenticated/projects/$projectId/integrations/sprints/$sprintId",

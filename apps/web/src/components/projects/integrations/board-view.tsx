@@ -118,20 +118,25 @@ export function BoardView({
 	const [overStatusId, setOverStatusId] = useState<string | null>(null);
 	const [overCardId, setOverCardId] = useState<string | null>(null);
 	// Per-column manual order (id arrays); reset when parent tasks refresh
-	const [columnOrderMap, setColumnOrderMap] = useState<Record<string, string[]>>({});
-	useEffect(() => { setColumnOrderMap({}); }, [tasks]);
+	const [columnOrderMap, setColumnOrderMap] = useState<
+		Record<string, string[]>
+	>({});
+	useEffect(() => {
+		setColumnOrderMap({});
+	}, [tasks]);
 
 	const updateMutation = useMutation({
-		mutationFn: ({
-			taskId,
-			statusId,
-		}: { taskId: string; statusId: string }) =>
+		mutationFn: ({ taskId, statusId }: { taskId: string; statusId: string }) =>
 			updateTask(projectId, taskId, { status_id: statusId }),
 		onSuccess: () => qc.invalidateQueries({ queryKey: tasksQueryKey }),
 	});
 
 	const filteredTasks = tasks.filter((t) => {
-		if (searchQuery && !t.title.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+		if (
+			searchQuery &&
+			!t.title.toLowerCase().includes(searchQuery.toLowerCase())
+		)
+			return false;
 		if (assigneeFilter && t.assignee_id !== assigneeFilter) return false;
 		return true;
 	});
@@ -179,13 +184,26 @@ export function BoardView({
 		setOverCardId(null);
 	};
 
-	const handleDropOnCard = (e: React.DragEvent, targetStatusId: string, targetTaskId: string, targetIndex: number) => {
+	const handleDropOnCard = (
+		e: React.DragEvent,
+		targetStatusId: string,
+		targetTaskId: string,
+		targetIndex: number,
+	) => {
 		e.preventDefault();
 		e.stopPropagation();
 		const taskId = e.dataTransfer.getData("text/plain");
-		if (!taskId || !canEdit) { setDraggingId(null); setOverCardId(null); return; }
+		if (!taskId || !canEdit) {
+			setDraggingId(null);
+			setOverCardId(null);
+			return;
+		}
 		const task = tasks.find((t) => t.id === taskId);
-		if (!task) { setDraggingId(null); setOverCardId(null); return; }
+		if (!task) {
+			setDraggingId(null);
+			setOverCardId(null);
+			return;
+		}
 		if (task.status_id !== targetStatusId) {
 			updateMutation.mutate({ taskId, statusId: targetStatusId });
 		} else if (manualSort && taskId !== targetTaskId) {
@@ -196,7 +214,10 @@ export function BoardView({
 				const next = [...current];
 				const [moved] = next.splice(srcIdx, 1);
 				next.splice(targetIndex, 0, moved);
-				setColumnOrderMap((prev) => ({ ...prev, [targetStatusId]: next.map((t) => t.id) }));
+				setColumnOrderMap((prev) => ({
+					...prev,
+					[targetStatusId]: next.map((t) => t.id),
+				}));
 			}
 			onReorderTask?.(targetStatusId, taskId, targetIndex);
 		}
@@ -222,7 +243,7 @@ export function BoardView({
 				return (
 					<div
 						key={status.id}
-					className="flex w-72 shrink-0 flex-col gap-2"
+						className="flex w-72 shrink-0 flex-col gap-2"
 						onDragOver={(e) => handleDragOver(e, status.id)}
 						onDrop={(e) => handleDrop(e, status.id)}
 					>
@@ -231,8 +252,7 @@ export function BoardView({
 							<span
 								className="size-2 rounded-full shrink-0"
 								style={{
-									background:
-										status.color ?? "oklch(var(--muted-foreground))",
+									background: status.color ?? "oklch(var(--muted-foreground))",
 								}}
 							/>
 							<span className="text-xs font-semibold text-foreground/80 tracking-wide uppercase">
@@ -246,52 +266,58 @@ export function BoardView({
 						{/* Drop zone */}
 						<div
 							className={cn(
-							"flex flex-col gap-2 rounded-xl p-2 min-h-30 transition-colors duration-150",
-								isOver
-									? "bg-primary/5 ring-2 ring-primary/20"
-									: "bg-muted/20",
+								"flex flex-col gap-2 rounded-xl p-2 min-h-30 transition-colors duration-150",
+								isOver ? "bg-primary/5 ring-2 ring-primary/20" : "bg-muted/20",
 							)}
 						>
 							{columnTasks.length === 0 && !isOver && (
 								<div className="flex flex-1 flex-col items-center justify-center py-6 text-center">
-									<p className="text-xs text-muted-foreground/50">
-										No tasks
-									</p>
+									<p className="text-xs text-muted-foreground/50">No tasks</p>
 								</div>
 							)}
 
-					{columnTasks.map((task, index) => (
-						<div
-							key={task.id}
-							className={cn(
-								"relative",
-								manualSort && overCardId === task.id && draggingId !== task.id && "border-t-2 border-primary/60",
+							{columnTasks.map((task, index) => (
+								<div
+									key={task.id}
+									className={cn(
+										"relative",
+										manualSort &&
+											overCardId === task.id &&
+											draggingId !== task.id &&
+											"border-t-2 border-primary/60",
+									)}
+									onDragOver={(e) => {
+										e.preventDefault();
+										e.stopPropagation();
+										setOverStatusId(status.id);
+										if (manualSort) setOverCardId(task.id);
+									}}
+									onDrop={(e) => handleDropOnCard(e, status.id, task.id, index)}
+								>
+									<TaskCard
+										task={task}
+										statuses={statuses}
+										taskTypes={taskTypes}
+										canEdit={canEdit}
+										isDragging={draggingId === task.id}
+										onDragStart={(e) => handleDragStart(e, task.id)}
+										onDragEnd={handleDragEnd}
+										onClick={() => onTaskClick(task)}
+									/>
+								</div>
+							))}
+							{canCreate && (
+								<ColumnAddTask
+									onAdd={(title) => onCreateTask(status.id, title)}
+								/>
 							)}
-							onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setOverStatusId(status.id); if (manualSort) setOverCardId(task.id); }}
-							onDrop={(e) => handleDropOnCard(e, status.id, task.id, index)}
-						>
-							<TaskCard
-								task={task}
-								statuses={statuses}
-								taskTypes={taskTypes}
-								canEdit={canEdit}
-								isDragging={draggingId === task.id}
-								onDragStart={(e) => handleDragStart(e, task.id)}
-								onDragEnd={handleDragEnd}
-								onClick={() => onTaskClick(task)}
-							/>
 						</div>
-					))}
-					{canCreate && (
-						<ColumnAddTask onAdd={(title) => onCreateTask(status.id, title)} />
-					)}
-				</div>
-			</div>
-		);
-	})}
+					</div>
+				);
+			})}
 			{/* Catch-all column for unstatused tasks */}
 			{unassignedTasks.length > 0 && (
-			<div className="flex w-72 shrink-0 flex-col gap-2">
+				<div className="flex w-72 shrink-0 flex-col gap-2">
 					<div className="flex items-center gap-2 px-1">
 						<span className="size-2 rounded-full bg-muted-foreground/30 shrink-0" />
 						<span className="text-xs font-semibold text-foreground/50 tracking-wide uppercase">

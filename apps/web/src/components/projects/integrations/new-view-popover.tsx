@@ -6,8 +6,8 @@ import {
 	PopoverContent,
 	PopoverTrigger,
 } from "@/components/ui/popover";
-import { cn } from "@/lib/utils";
 import type { ViewLayout } from "@/lib/integration-api";
+import { cn } from "@/lib/utils";
 
 interface NewViewPopoverProps {
 	onSubmit: (name: string, layout: ViewLayout) => Promise<unknown>;
@@ -45,7 +45,12 @@ export function NewViewPopover({ onSubmit, isPending }: NewViewPopoverProps) {
 				<Plus className="size-3.5" />
 				<span className="hidden sm:inline">Add view</span>
 			</PopoverTrigger>
-			<PopoverContent side="bottom" align="end" className="w-64 p-0 gap-0" sideOffset={6}>
+			<PopoverContent
+				side="bottom"
+				align="end"
+				className="w-64 p-0 gap-0"
+				sideOffset={6}
+			>
 				<div className="p-3 border-b border-border/50">
 					<p className="text-xs font-semibold">New view</p>
 				</div>

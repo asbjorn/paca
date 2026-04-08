@@ -15,7 +15,14 @@ interface TaskRowProps {
 	isDragging?: boolean;
 }
 
-export function TaskRow({ task, statuses, taskTypes, onClick, showDragHandle, isDragging }: TaskRowProps) {
+export function TaskRow({
+	task,
+	statuses,
+	taskTypes,
+	onClick,
+	showDragHandle,
+	isDragging,
+}: TaskRowProps) {
 	const taskType = taskTypes.find((t) => t.id === task.task_type_id);
 	const status = statuses.find((s) => s.id === task.status_id);
 
@@ -57,8 +64,13 @@ export function TaskRow({ task, statuses, taskTypes, onClick, showDragHandle, is
 					const p = getPriority(task.importance);
 					return task.importance > 0 ? (
 						<>
-							<span className="size-2 rounded-full shrink-0" style={{ background: p.color }} />
-							<span className="text-xs truncate" style={{ color: p.color }}>{p.label}</span>
+							<span
+								className="size-2 rounded-full shrink-0"
+								style={{ background: p.color }}
+							/>
+							<span className="text-xs truncate" style={{ color: p.color }}>
+								{p.label}
+							</span>
 						</>
 					) : (
 						<span className="text-xs text-muted-foreground/40">—</span>
@@ -67,7 +79,9 @@ export function TaskRow({ task, statuses, taskTypes, onClick, showDragHandle, is
 			</div>
 
 			{/* Title */}
-			<span className="flex-1 text-sm text-foreground truncate">{task.title}</span>
+			<span className="flex-1 text-sm text-foreground truncate">
+				{task.title}
+			</span>
 
 			{/* Status */}
 			<div className="hidden sm:flex w-24 shrink-0 items-center gap-1.5">
@@ -75,9 +89,13 @@ export function TaskRow({ task, statuses, taskTypes, onClick, showDragHandle, is
 					<>
 						<span
 							className="size-2 rounded-full shrink-0"
-							style={{ background: status.color ?? "oklch(var(--muted-foreground))" }}
+							style={{
+								background: status.color ?? "oklch(var(--muted-foreground))",
+							}}
 						/>
-						<span className="text-xs text-muted-foreground truncate">{status.name}</span>
+						<span className="text-xs text-muted-foreground truncate">
+							{status.name}
+						</span>
 					</>
 				) : (
 					<span className="text-xs text-muted-foreground/40">—</span>

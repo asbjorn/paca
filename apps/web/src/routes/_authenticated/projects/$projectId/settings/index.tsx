@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import {
 	AlertTriangle,
+	Check,
 	Edit2,
 	Key,
 	LayoutList,
@@ -12,8 +13,9 @@ import {
 	Shield,
 	Tag,
 	Trash2,
+	X,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { DeleteProjectRoleDialog } from "@/components/projects/roles/DeleteProjectRoleDialog";
 import { ProjectRoleFormDialog } from "@/components/projects/roles/ProjectRoleFormDialog";
 import { DeleteTaskStatusDialog } from "@/components/projects/task-statuses/DeleteTaskStatusDialog";
@@ -1026,6 +1028,622 @@ function DangerZone({ projectId }: { projectId: string }) {
 	);
 }
 
+// ── Custom Fields Section ─────────────────────────────────────────────────────
+
+type FieldType = "Text" | "Number" | "Date" | "Checkbox" | "Select";
+
+interface CustomFieldDef {
+	id: string;
+	display_name: string;
+	field_key: string;
+	field_type: FieldType;
+	required: boolean;
+	options: string[];
+	created_at: string;
+}
+
+const FIELD_TYPE_OPTIONS: FieldType[] = [
+	"Text",
+	"Number",
+	"Date",
+	"Checkbox",
+	"Select",
+];
+
+function slugify(s: string): string {
+	return s
+		.toLowerCase()
+		.replace(/\s+/g, "_")
+		.replace(/[^a-z0-9_]/g, "")
+		.replace(/_+/g, "_")
+		.slice(0, 64);
+}
+
+function CreateCustomFieldDialog({
+	open,
+	onOpenChange,
+	onCreate,
+}: {
+	open: boolean;
+	onOpenChange: (v: boolean) => void;
+	onCreate: (field: CustomFieldDef) => void;
+}) {
+	const [displayName, setDisplayName] = useState("");
+	const [fieldKey, setFieldKey] = useState("");
+	const [keyManuallyEdited, setKeyManuallyEdited] = useState(false);
+	const [fieldType, setFieldType] = useState<FieldType>("Text");
+	const [required, setRequired] = useState(false);
+	const [options, setOptions] = useState<string[]>([]);
+	const [newOption, setNewOption] = useState("");
+
+	const reset = () => {
+		setDisplayName("");
+		setFieldKey("");
+		setKeyManuallyEdited(false);
+		setFieldType("Text");
+		setRequired(false);
+		setOptions([]);
+		setNewOption("");
+	};
+
+	const handleDisplayName = (v: string) => {
+		setDisplayName(v);
+		if (!keyManuallyEdited) setFieldKey(slugify(v));
+	};
+
+	const handleCreate = () => {
+		if (!displayName.trim()) return;
+		onCreate({
+			id: crypto.randomUUID(),
+			display_name: displayName.trim(),
+			field_key: fieldKey || slugify(displayName),
+			field_type: fieldType,
+			required,
+			options,
+			created_at: new Date().toISOString(),
+		});
+		reset();
+		onOpenChange(false);
+	};
+
+	if (!open) return null;
+
+	return (
+		<div
+			className="fixed inset-0 z-50 flex items-center justify-center"
+			onClick={() => onOpenChange(false)}
+		>
+			<div className="fixed inset-0 bg-black/20 backdrop-blur-[2px]" />
+			<div
+				className="relative z-10 w-full max-w-md rounded-2xl border border-border/60 bg-popover p-6 shadow-2xl"
+				onClick={(e) => e.stopPropagation()}
+			>
+				<h2 className="font-[Syne] text-base font-bold mb-4">
+					Create custom field
+				</h2>
+
+				<div className="space-y-4">
+					{/* Display name */}
+					<div className="space-y-1.5">
+						<Label htmlFor="cf-display-name">
+							Display name <span className="text-destructive">*</span>
+						</Label>
+						<Input
+							id="cf-display-name"
+							value={displayName}
+							onChange={(e) => handleDisplayName(e.target.value)}
+							placeholder="e.g. Release Tag"
+							autoFocus
+						/>
+					</div>
+
+					{/* Field key */}
+					<div className="space-y-1.5">
+						<Label htmlFor="cf-field-key">
+							Field key <span className="text-destructive">*</span>
+						</Label>
+						<Input
+							id="cf-field-key"
+							value={fieldKey}
+							onChange={(e) => {
+								setKeyManuallyEdited(true);
+								setFieldKey(slugify(e.target.value));
+							}}
+							placeholder="release_tag"
+							className="font-mono text-sm"
+						/>
+						<p className="text-[10px] text-muted-foreground/60">
+							Used as the identifier in the API and data exports.
+						</p>
+					</div>
+
+					{/* Field type */}
+					<div className="space-y-1.5">
+						<Label>Field type</Label>
+						<div className="flex flex-wrap gap-1.5">
+							{FIELD_TYPE_OPTIONS.map((ft) => (
+								<button
+									key={ft}
+									type="button"
+									onClick={() => setFieldType(ft)}
+									className={cn(
+										"rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors",
+										fieldType === ft
+											? "border-primary bg-primary/10 text-primary"
+											: "border-border/60 text-muted-foreground hover:border-border hover:bg-muted/50",
+									)}
+								>
+									{ft}
+								</button>
+							))}
+						</div>
+					</div>
+
+					{/* Options editor — only for Select type */}
+					{fieldType === "Select" && (
+						<div className="space-y-1.5">
+							<Label>Options</Label>
+							<div className="space-y-1">
+								{options.map((opt, i) => (
+									<div
+										key={opt + i.toString()}
+										className="flex items-center gap-2"
+									>
+										<Input
+											value={opt}
+											onChange={(e) => {
+												const updated = [...options];
+												updated[i] = e.target.value;
+												setOptions(updated);
+											}}
+											className="text-xs h-8"
+										/>
+										<button
+											type="button"
+											onClick={() =>
+												setOptions(options.filter((_, j) => j !== i))
+											}
+											className="shrink-0 text-muted-foreground hover:text-destructive transition-colors"
+										>
+											<X className="size-3.5" />
+										</button>
+									</div>
+								))}
+								<div className="flex gap-2">
+									<Input
+										value={newOption}
+										onChange={(e) => setNewOption(e.target.value)}
+										onKeyDown={(e) => {
+											if (e.key === "Enter" && newOption.trim()) {
+												setOptions([...options, newOption.trim()]);
+												setNewOption("");
+											}
+										}}
+										placeholder="Add option…"
+										className="text-xs h-8"
+									/>
+									<button
+										type="button"
+										disabled={!newOption.trim()}
+										onClick={() => {
+											setOptions([...options, newOption.trim()]);
+											setNewOption("");
+										}}
+										className="flex items-center gap-1 rounded-md bg-muted px-2.5 text-xs font-medium text-muted-foreground hover:bg-muted/80 disabled:opacity-40 transition-colors"
+									>
+										<Plus className="size-3" />
+										Add
+									</button>
+								</div>
+							</div>
+						</div>
+					)}
+
+					{/* Required toggle */}
+					<div className="flex items-center justify-between rounded-xl border border-border/50 bg-muted/20 px-4 py-3">
+						<div>
+							<p className="text-sm font-medium">Required</p>
+							<p className="text-[11px] text-muted-foreground/70">
+								Users must fill this field when creating or editing a task.
+							</p>
+						</div>
+						<button
+							type="button"
+							role="switch"
+							aria-checked={required}
+							onClick={() => setRequired(!required)}
+							className={cn(
+								"relative inline-flex h-5 w-9 items-center rounded-full border-2 transition-colors",
+								required
+									? "border-primary bg-primary"
+									: "border-border bg-muted",
+							)}
+						>
+							<span
+								className={cn(
+									"inline-block size-3.5 rounded-full bg-white shadow transition-transform",
+									required ? "translate-x-4" : "translate-x-0.5",
+								)}
+							/>
+						</button>
+					</div>
+				</div>
+
+				<div className="mt-5 flex justify-end gap-2">
+					<Button
+						variant="outline"
+						size="sm"
+						onClick={() => {
+							reset();
+							onOpenChange(false);
+						}}
+					>
+						Cancel
+					</Button>
+					<Button
+						size="sm"
+						disabled={!displayName.trim()}
+						onClick={handleCreate}
+					>
+						Create field
+					</Button>
+				</div>
+			</div>
+		</div>
+	);
+}
+
+function EditCustomFieldDialog({
+	field,
+	open,
+	onOpenChange,
+	onSave,
+}: {
+	field: CustomFieldDef | null;
+	open: boolean;
+	onOpenChange: (v: boolean) => void;
+	onSave: (updated: CustomFieldDef) => void;
+}) {
+	const [displayName, setDisplayName] = useState(field?.display_name ?? "");
+	const [options, setOptions] = useState<string[]>(field?.options ?? []);
+	const [newOption, setNewOption] = useState("");
+
+	useEffect(() => {
+		setDisplayName(field?.display_name ?? "");
+		setOptions(field?.options ?? []);
+	}, [field]);
+
+	if (!open || !field) return null;
+
+	const handleSave = () => {
+		if (!displayName.trim()) return;
+		onSave({ ...field, display_name: displayName.trim(), options });
+		onOpenChange(false);
+	};
+
+	return (
+		<div
+			className="fixed inset-0 z-50 flex items-center justify-center"
+			onClick={() => onOpenChange(false)}
+		>
+			<div className="fixed inset-0 bg-black/20 backdrop-blur-[2px]" />
+			<div
+				className="relative z-10 w-full max-w-md rounded-2xl border border-border/60 bg-popover p-6 shadow-2xl"
+				onClick={(e) => e.stopPropagation()}
+			>
+				<h2 className="font-[Syne] text-base font-bold mb-4">
+					Edit custom field
+				</h2>
+				<div className="space-y-4">
+					<div className="space-y-1.5">
+						<Label htmlFor="cf-edit-name">Display name</Label>
+						<Input
+							id="cf-edit-name"
+							value={displayName}
+							onChange={(e) => setDisplayName(e.target.value)}
+							autoFocus
+						/>
+					</div>
+					<div className="space-y-1.5">
+						<Label>Field key</Label>
+						<Input
+							value={field.field_key}
+							disabled
+							className="font-mono text-sm opacity-60"
+						/>
+						<p className="text-[10px] text-muted-foreground/60">
+							Field key cannot be changed after creation.
+						</p>
+					</div>
+					{field.field_type === "Select" && (
+						<div className="space-y-1.5">
+							<Label>Options</Label>
+							<div className="space-y-1">
+								{options.map((opt, i) => (
+									<div
+										key={opt + i.toString()}
+										className="flex items-center gap-2"
+									>
+										<Input
+											value={opt}
+											onChange={(e) => {
+												const updated = [...options];
+												updated[i] = e.target.value;
+												setOptions(updated);
+											}}
+											className="text-xs h-8"
+										/>
+										<button
+											type="button"
+											onClick={() =>
+												setOptions(options.filter((_, j) => j !== i))
+											}
+											className="shrink-0 text-muted-foreground hover:text-destructive"
+										>
+											<X className="size-3.5" />
+										</button>
+									</div>
+								))}
+								<div className="flex gap-2">
+									<Input
+										value={newOption}
+										onChange={(e) => setNewOption(e.target.value)}
+										onKeyDown={(e) => {
+											if (e.key === "Enter" && newOption.trim()) {
+												setOptions([...options, newOption.trim()]);
+												setNewOption("");
+											}
+										}}
+										placeholder="Add option…"
+										className="text-xs h-8"
+									/>
+									<button
+										type="button"
+										disabled={!newOption.trim()}
+										onClick={() => {
+											setOptions([...options, newOption.trim()]);
+											setNewOption("");
+										}}
+										className="flex items-center gap-1 rounded-md bg-muted px-2.5 text-xs font-medium text-muted-foreground hover:bg-muted/80 disabled:opacity-40"
+									>
+										<Plus className="size-3" />
+										Add
+									</button>
+								</div>
+							</div>
+						</div>
+					)}
+				</div>
+				<div className="mt-5 flex justify-end gap-2">
+					<Button
+						variant="outline"
+						size="sm"
+						onClick={() => onOpenChange(false)}
+					>
+						Cancel
+					</Button>
+					<Button size="sm" disabled={!displayName.trim()} onClick={handleSave}>
+						Save changes
+					</Button>
+				</div>
+			</div>
+		</div>
+	);
+}
+
+function CustomFieldsSettings({
+	projectId,
+	canWrite,
+}: {
+	projectId: string;
+	canWrite: boolean;
+}) {
+	// In the UI-first phase, fields are stored in local component state.
+	// Once the API is ready, replace these with useQuery/useMutation hooks.
+	const [fields, setFields] = useState<CustomFieldDef[]>([]);
+	const [createOpen, setCreateOpen] = useState(false);
+	const [editField, setEditField] = useState<CustomFieldDef | null>(null);
+	const [deleteConfirm, setDeleteConfirm] = useState<CustomFieldDef | null>(
+		null,
+	);
+
+	const handleCreate = (field: CustomFieldDef) => {
+		setFields((f) => [...f, field]);
+	};
+
+	const handleSave = (updated: CustomFieldDef) => {
+		setFields((f) => f.map((cf) => (cf.id === updated.id ? updated : cf)));
+	};
+
+	const handleDelete = (field: CustomFieldDef) => {
+		setFields((f) => f.filter((cf) => cf.id !== field.id));
+		setDeleteConfirm(null);
+	};
+
+	return (
+		<div className="rounded-xl border border-border/60 bg-card p-6">
+			<div className="flex items-start justify-between mb-1">
+				<div>
+					<h3 className="font-[Syne] text-base font-semibold">Custom Fields</h3>
+					<p className="text-xs text-muted-foreground mt-0.5 max-w-xs">
+						Define project-level custom task fields that appear in the task
+						detail alongside built-in fields.
+					</p>
+				</div>
+				{canWrite && (
+					<Button
+						size="sm"
+						variant="outline"
+						className="gap-1.5 border-border/60 shrink-0"
+						onClick={() => setCreateOpen(true)}
+					>
+						<Plus className="size-3.5" />
+						New field
+					</Button>
+				)}
+			</div>
+
+			{fields.length === 0 ? (
+				<div className="mt-4 flex flex-col items-center gap-4 rounded-xl border border-dashed border-border/60 bg-muted/10 py-14 text-center">
+					<div className="flex size-11 items-center justify-center rounded-xl bg-muted">
+						<Plus className="size-5 text-muted-foreground/60" />
+					</div>
+					<div>
+						<p className="text-sm font-medium">No custom fields yet</p>
+						<p className="mt-1 text-xs text-muted-foreground max-w-xs mx-auto">
+							Custom fields let you capture data specific to your workflow —
+							sprints, severity levels, release tags, and more.
+						</p>
+					</div>
+					{canWrite && (
+						<Button
+							size="sm"
+							variant="outline"
+							onClick={() => setCreateOpen(true)}
+						>
+							<Plus className="size-4 mr-1" />
+							Create first field
+						</Button>
+					)}
+				</div>
+			) : (
+				<div className="mt-4 overflow-x-auto rounded-xl border">
+					<Table>
+						<TableHeader>
+							<TableRow className="bg-muted/40 hover:bg-muted/40">
+								<TableHead className="px-5 text-xs font-semibold uppercase tracking-wide">
+									Display name
+								</TableHead>
+								<TableHead className="px-5 text-xs font-semibold uppercase tracking-wide">
+									Field key
+								</TableHead>
+								<TableHead className="px-5 text-xs font-semibold uppercase tracking-wide">
+									Type
+								</TableHead>
+								<TableHead className="px-5 text-xs font-semibold uppercase tracking-wide">
+									Required
+								</TableHead>
+								{canWrite && <TableHead className="w-20 px-5" />}
+							</TableRow>
+						</TableHeader>
+						<TableBody>
+							{fields.map((field) => (
+								<TableRow key={field.id} className="group">
+									<TableCell className="px-5 font-medium">
+										{field.display_name}
+									</TableCell>
+									<TableCell className="px-5 font-mono text-xs text-muted-foreground">
+										{field.field_key}
+									</TableCell>
+									<TableCell className="px-5">
+										<span className="inline-flex items-center rounded-md border border-border/40 bg-muted/40 px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
+											{field.field_type}
+										</span>
+									</TableCell>
+									<TableCell className="px-5">
+										{field.required ? (
+											<span className="inline-flex items-center gap-1 text-emerald-600 text-xs font-medium">
+												<Check className="size-3" />
+												Yes
+											</span>
+										) : (
+											<span className="text-xs text-muted-foreground/50">
+												No
+											</span>
+										)}
+									</TableCell>
+									{canWrite && (
+										<TableCell className="px-5">
+											<div className="flex items-center justify-end gap-0.5 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100">
+												<Button
+													variant="ghost"
+													size="icon-sm"
+													onClick={() => setEditField(field)}
+													title="Edit field"
+													aria-label="Edit field"
+												>
+													<Edit2 className="size-3.5" />
+												</Button>
+												<Button
+													variant="ghost"
+													size="icon-sm"
+													className="text-destructive hover:text-destructive hover:bg-destructive/10"
+													onClick={() => setDeleteConfirm(field)}
+													title="Delete field"
+													aria-label="Delete field"
+												>
+													<Trash2 className="size-3.5" />
+												</Button>
+											</div>
+										</TableCell>
+									)}
+								</TableRow>
+							))}
+						</TableBody>
+					</Table>
+				</div>
+			)}
+
+			<CreateCustomFieldDialog
+				open={createOpen}
+				onOpenChange={setCreateOpen}
+				onCreate={handleCreate}
+			/>
+
+			<EditCustomFieldDialog
+				field={editField}
+				open={!!editField}
+				onOpenChange={(v) => {
+					if (!v) setEditField(null);
+				}}
+				onSave={handleSave}
+			/>
+
+			{/* Delete confirmation */}
+			{deleteConfirm && (
+				<div
+					className="fixed inset-0 z-50 flex items-center justify-center"
+					onClick={() => setDeleteConfirm(null)}
+				>
+					<div className="fixed inset-0 bg-black/20 backdrop-blur-[2px]" />
+					<div
+						className="relative z-10 w-full max-w-sm rounded-2xl border border-border/60 bg-popover p-6 shadow-2xl"
+						onClick={(e) => e.stopPropagation()}
+					>
+						<h2 className="font-[Syne] text-base font-bold mb-2">
+							Delete custom field?
+						</h2>
+						<p className="text-sm text-muted-foreground mb-5">
+							Deleting{" "}
+							<span className="font-semibold">
+								{deleteConfirm.display_name}
+							</span>{" "}
+							will remove it from all task detail views. Existing values will be
+							lost.
+						</p>
+						<div className="flex justify-end gap-2">
+							<Button
+								variant="outline"
+								size="sm"
+								onClick={() => setDeleteConfirm(null)}
+							>
+								Cancel
+							</Button>
+							<Button
+								size="sm"
+								variant="destructive"
+								onClick={() => handleDelete(deleteConfirm)}
+							>
+								Delete field
+							</Button>
+						</div>
+					</div>
+				</div>
+			)}
+		</div>
+	);
+}
+
 // ── Settings Page ─────────────────────────────────────────────────────────────
 
 const NAV_ITEMS = [
@@ -1033,6 +1651,7 @@ const NAV_ITEMS = [
 	{ id: "roles", label: "Roles", icon: Shield },
 	{ id: "task-statuses", label: "Task Statuses", icon: LayoutList },
 	{ id: "task-types", label: "Task Types", icon: Tag },
+	{ id: "custom-fields", label: "Custom Fields", icon: Plus },
 	{ id: "danger", label: "Danger Zone", icon: AlertTriangle },
 ] as const;
 
@@ -1083,7 +1702,12 @@ function SettingsPage() {
 		: NAV_ITEMS.filter((i) => i.id !== "danger");
 
 	const [activeSection, setActiveSection] = useState<
-		"general" | "roles" | "task-statuses" | "task-types" | "danger"
+		| "general"
+		| "roles"
+		| "task-statuses"
+		| "task-types"
+		| "custom-fields"
+		| "danger"
 	>("general");
 
 	return (
@@ -1178,6 +1802,12 @@ function SettingsPage() {
 							<TaskTypesSettings
 								projectId={projectId}
 								canWrite={canManageTasks}
+							/>
+						)}
+						{activeSection === "custom-fields" && (
+							<CustomFieldsSettings
+								projectId={projectId}
+								canWrite={canEditProject}
 							/>
 						)}
 						{activeSection === "danger" && canDelete && (

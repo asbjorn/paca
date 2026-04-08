@@ -21,15 +21,6 @@ import {
 import { type ComponentType, useRef, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
-import {
-	DropdownMenu,
-	DropdownMenuContent,
-	DropdownMenuGroup,
-	DropdownMenuItem,
-	DropdownMenuLabel,
-	DropdownMenuSeparator,
-	DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import {
 	Dialog,
@@ -39,6 +30,15 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@/components/ui/dialog";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuGroup,
+	DropdownMenuItem,
+	DropdownMenuLabel,
+	DropdownMenuSeparator,
+	DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
 	Sidebar,
 	SidebarContent,
@@ -273,7 +273,11 @@ function ProjectIntegrationsSection({ projectId }: { projectId: string }) {
 	const qc = useQueryClient();
 	const [collapsed, setCollapsed] = useState(() => {
 		try {
-			return localStorage.getItem(`paca:sidebar-integrations-collapsed:${projectId}`) === "true";
+			return (
+				localStorage.getItem(
+					`paca:sidebar-integrations-collapsed:${projectId}`,
+				) === "true"
+			);
 		} catch {
 			return false;
 		}
@@ -331,193 +335,204 @@ function ProjectIntegrationsSection({ projectId }: { projectId: string }) {
 		setCollapsed((prev) => {
 			const next = !prev;
 			try {
-				localStorage.setItem(`paca:sidebar-integrations-collapsed:${projectId}`, String(next));
-			} catch { /* ignore */ }
+				localStorage.setItem(
+					`paca:sidebar-integrations-collapsed:${projectId}`,
+					String(next),
+				);
+			} catch {
+				/* ignore */
+			}
 			return next;
 		});
 	};
 
 	const handleCreate = () => {
 		const name = sprintName.trim();
-		if (!name) { nameRef.current?.focus(); return; }
+		if (!name) {
+			nameRef.current?.focus();
+			return;
+		}
 		createMutation.mutate(name);
 	};
 
 	return (
 		<>
-		<SidebarGroup>
-			<SidebarGroupLabel
-				className="flex cursor-pointer items-center justify-between hover:text-sidebar-foreground transition-colors"
-				onClick={toggle}
-			>
-				<span>Integrations</span>
-				<ChevronRight
-					className={cn(
-						"size-3.5 transition-transform duration-200 text-sidebar-foreground/40",
-						!collapsed && "rotate-90",
-					)}
-				/>
-			</SidebarGroupLabel>
+			<SidebarGroup>
+				<SidebarGroupLabel
+					className="flex cursor-pointer items-center justify-between hover:text-sidebar-foreground transition-colors"
+					onClick={toggle}
+				>
+					<span>Integrations</span>
+					<ChevronRight
+						className={cn(
+							"size-3.5 transition-transform duration-200 text-sidebar-foreground/40",
+							!collapsed && "rotate-90",
+						)}
+					/>
+				</SidebarGroupLabel>
 
-			{!collapsed && (
-				<SidebarGroupContent>
-					<SidebarMenu>
-						{/* Product Backlog — always shown */}
-						<SidebarMenuItem>
-							<SidebarMenuButton
-								isActive={isBacklogActive}
-								tooltip="Product Backlog"
-								render={<Link to={backlogHref} />}
-								className={cn(
-									"relative transition-all duration-150",
-									isBacklogActive
-										? "bg-primary/10 text-primary font-medium before:absolute before:left-0 before:inset-y-2 before:w-0.75 before:rounded-full before:bg-primary"
-										: "hover:bg-sidebar-accent/60",
-								)}
-							>
-								<BookOpen className="size-4" />
-								<span>Product Backlog</span>
-							</SidebarMenuButton>
-						</SidebarMenuItem>
-
-						{/* Open sprints */}
-						{openSprints.map((sprint) => {
-							const sprintHref = `/projects/${projectId}/integrations/sprints/${sprint.id}`;
-							const isActive = location.startsWith(sprintHref);
-							return (
-								<SidebarMenuItem key={sprint.id}>
-									<SidebarMenuButton
-										isActive={isActive}
-										tooltip={sprint.name}
-										render={<Link to={sprintHref} />}
-										className={cn(
-											"relative transition-all duration-150",
-											isActive
-												? "bg-primary/10 text-primary font-medium before:absolute before:left-0 before:inset-y-2 before:w-0.75 before:rounded-full before:bg-primary"
-												: "hover:bg-sidebar-accent/60",
-										)}
-									>
-										<KanbanSquare className="size-4" />
-										<span className="flex-1 truncate">{sprint.name}</span>
-										{sprint.status === "active" && (
-											<span className="ml-auto flex size-1.5 shrink-0 rounded-full bg-emerald-500" />
-										)}
-									</SidebarMenuButton>
-								</SidebarMenuItem>
-							);
-						})}
-
-						{/* New sprint button — always visible to authorised users */}
-						{canCreateSprint && (
+				{!collapsed && (
+					<SidebarGroupContent>
+						<SidebarMenu>
+							{/* Product Backlog — always shown */}
 							<SidebarMenuItem>
-								{/* Expanded sidebar: dashed bordered button with label */}
-								<button
-									type="button"
-									onClick={() => setCreateOpen(true)}
-									className="group-data-[collapsible=icon]:hidden flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs font-medium text-muted-foreground border border-dashed border-sidebar-border hover:border-primary/40 hover:text-primary hover:bg-primary/5 transition-all duration-150"
-								>
-									<Plus className="size-3.5 shrink-0" />
-									<span>New sprint</span>
-								</button>
-								{/* Icon-only sidebar: plain icon button with tooltip */}
 								<SidebarMenuButton
-									tooltip="New sprint"
-									onClick={() => setCreateOpen(true)}
-									className="hidden group-data-[collapsible=icon]:flex"
+									isActive={isBacklogActive}
+									tooltip="Product Backlog"
+									render={<Link to={backlogHref} />}
+									className={cn(
+										"relative transition-all duration-150",
+										isBacklogActive
+											? "bg-primary/10 text-primary font-medium before:absolute before:left-0 before:inset-y-2 before:w-0.75 before:rounded-full before:bg-primary"
+											: "hover:bg-sidebar-accent/60",
+									)}
 								>
-									<Plus className="size-4" />
+									<BookOpen className="size-4" />
+									<span>Product Backlog</span>
 								</SidebarMenuButton>
 							</SidebarMenuItem>
-						)}
-					</SidebarMenu>
-				</SidebarGroupContent>
+
+							{/* Open sprints */}
+							{openSprints.map((sprint) => {
+								const sprintHref = `/projects/${projectId}/integrations/sprints/${sprint.id}`;
+								const isActive = location.startsWith(sprintHref);
+								return (
+									<SidebarMenuItem key={sprint.id}>
+										<SidebarMenuButton
+											isActive={isActive}
+											tooltip={sprint.name}
+											render={<Link to={sprintHref} />}
+											className={cn(
+												"relative transition-all duration-150",
+												isActive
+													? "bg-primary/10 text-primary font-medium before:absolute before:left-0 before:inset-y-2 before:w-0.75 before:rounded-full before:bg-primary"
+													: "hover:bg-sidebar-accent/60",
+											)}
+										>
+											<KanbanSquare className="size-4" />
+											<span className="flex-1 truncate">{sprint.name}</span>
+											{sprint.status === "active" && (
+												<span className="ml-auto flex size-1.5 shrink-0 rounded-full bg-emerald-500" />
+											)}
+										</SidebarMenuButton>
+									</SidebarMenuItem>
+								);
+							})}
+
+							{/* New sprint button — always visible to authorised users */}
+							{canCreateSprint && (
+								<SidebarMenuItem>
+									{/* Expanded sidebar: dashed bordered button with label */}
+									<button
+										type="button"
+										onClick={() => setCreateOpen(true)}
+										className="group-data-[collapsible=icon]:hidden flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs font-medium text-muted-foreground border border-dashed border-sidebar-border hover:border-primary/40 hover:text-primary hover:bg-primary/5 transition-all duration-150"
+									>
+										<Plus className="size-3.5 shrink-0" />
+										<span>New sprint</span>
+									</button>
+									{/* Icon-only sidebar: plain icon button with tooltip */}
+									<SidebarMenuButton
+										tooltip="New sprint"
+										onClick={() => setCreateOpen(true)}
+										className="hidden group-data-[collapsible=icon]:flex"
+									>
+										<Plus className="size-4" />
+									</SidebarMenuButton>
+								</SidebarMenuItem>
+							)}
+						</SidebarMenu>
+					</SidebarGroupContent>
+				)}
+			</SidebarGroup>
+
+			{/* Create sprint dialog — rendered outside the sidebar DOM tree via portal */}
+			{canCreateSprint && (
+				<Dialog open={createOpen} onOpenChange={setCreateOpen}>
+					<DialogContent className="sm:max-w-md">
+						<DialogHeader>
+							<DialogTitle>New sprint</DialogTitle>
+						</DialogHeader>
+
+						<div className="flex flex-col gap-4 py-2">
+							{/* Name */}
+							<div className="flex flex-col gap-1.5">
+								<label className="text-sm font-medium">
+									Name <span className="text-destructive">*</span>
+								</label>
+								<input
+									ref={nameRef}
+									value={sprintName}
+									onChange={(e) => setSprintName(e.target.value)}
+									onKeyDown={(e) => {
+										if (e.key === "Enter") handleCreate();
+									}}
+									placeholder="Sprint name…"
+									autoFocus
+									className="rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/30 placeholder:text-muted-foreground/50"
+								/>
+							</div>
+
+							{/* Goal */}
+							<div className="flex flex-col gap-1.5">
+								<label className="text-sm font-medium text-muted-foreground">
+									Goal <span className="text-xs font-normal">(optional)</span>
+								</label>
+								<textarea
+									value={sprintGoal}
+									onChange={(e) => setSprintGoal(e.target.value)}
+									placeholder="What should this sprint achieve?"
+									rows={3}
+									className="rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/30 placeholder:text-muted-foreground/50 resize-none"
+								/>
+							</div>
+
+							{/* Dates */}
+							<div className="grid grid-cols-2 gap-3">
+								<div className="flex flex-col gap-1.5">
+									<label className="text-sm font-medium text-muted-foreground">
+										Start date{" "}
+										<span className="text-xs font-normal">(optional)</span>
+									</label>
+									<input
+										type="date"
+										value={startDate}
+										onChange={(e) => setStartDate(e.target.value)}
+										className="rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/30"
+									/>
+								</div>
+								<div className="flex flex-col gap-1.5">
+									<label className="text-sm font-medium text-muted-foreground">
+										End date{" "}
+										<span className="text-xs font-normal">(optional)</span>
+									</label>
+									<input
+										type="date"
+										value={endDate}
+										onChange={(e) => setEndDate(e.target.value)}
+										className="rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/30"
+									/>
+								</div>
+							</div>
+						</div>
+
+						<DialogFooter>
+							<DialogClose render={<Button variant="outline" />}>
+								Cancel
+							</DialogClose>
+							<Button
+								onClick={handleCreate}
+								disabled={!sprintName.trim() || createMutation.isPending}
+							>
+								{createMutation.isPending ? "Creating…" : "Create sprint"}
+							</Button>
+						</DialogFooter>
+					</DialogContent>
+				</Dialog>
 			)}
-		</SidebarGroup>
-
-		{/* Create sprint dialog — rendered outside the sidebar DOM tree via portal */}
-		{canCreateSprint && (
-			<Dialog open={createOpen} onOpenChange={setCreateOpen}>
-				<DialogContent className="sm:max-w-md">
-					<DialogHeader>
-						<DialogTitle>New sprint</DialogTitle>
-					</DialogHeader>
-
-					<div className="flex flex-col gap-4 py-2">
-						{/* Name */}
-						<div className="flex flex-col gap-1.5">
-							<label className="text-sm font-medium">
-								Name <span className="text-destructive">*</span>
-							</label>
-							<input
-								ref={nameRef}
-								value={sprintName}
-								onChange={(e) => setSprintName(e.target.value)}
-								onKeyDown={(e) => { if (e.key === "Enter") handleCreate(); }}
-								placeholder="Sprint name…"
-								autoFocus
-								className="rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/30 placeholder:text-muted-foreground/50"
-							/>
-						</div>
-
-						{/* Goal */}
-						<div className="flex flex-col gap-1.5">
-							<label className="text-sm font-medium text-muted-foreground">
-								Goal <span className="text-xs font-normal">(optional)</span>
-							</label>
-							<textarea
-								value={sprintGoal}
-								onChange={(e) => setSprintGoal(e.target.value)}
-								placeholder="What should this sprint achieve?"
-								rows={3}
-								className="rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/30 placeholder:text-muted-foreground/50 resize-none"
-							/>
-						</div>
-
-						{/* Dates */}
-						<div className="grid grid-cols-2 gap-3">
-							<div className="flex flex-col gap-1.5">
-								<label className="text-sm font-medium text-muted-foreground">
-									Start date <span className="text-xs font-normal">(optional)</span>
-								</label>
-								<input
-									type="date"
-									value={startDate}
-									onChange={(e) => setStartDate(e.target.value)}
-									className="rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/30"
-								/>
-							</div>
-							<div className="flex flex-col gap-1.5">
-								<label className="text-sm font-medium text-muted-foreground">
-									End date <span className="text-xs font-normal">(optional)</span>
-								</label>
-								<input
-									type="date"
-									value={endDate}
-									onChange={(e) => setEndDate(e.target.value)}
-									className="rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/30"
-								/>
-							</div>
-						</div>
-					</div>
-
-					<DialogFooter>
-						<DialogClose render={<Button variant="outline" />}>
-							Cancel
-						</DialogClose>
-						<Button
-							onClick={handleCreate}
-							disabled={!sprintName.trim() || createMutation.isPending}
-						>
-							{createMutation.isPending ? "Creating…" : "Create sprint"}
-						</Button>
-					</DialogFooter>
-				</DialogContent>
-			</Dialog>
-		)}
 		</>
 	);
 }
-
 
 // ── Theme Switcher ─────────────────────────────────────────────────────────────
 const THEME_MODES = [

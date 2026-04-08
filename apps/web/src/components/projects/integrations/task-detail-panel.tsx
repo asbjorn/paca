@@ -32,7 +32,10 @@ export function TaskDetailPanel({
 
 	return (
 		<Sheet open={open} onOpenChange={onOpenChange}>
-			<SheetContent side="right" className="sm:max-w-md overflow-y-auto gap-0 p-0">
+			<SheetContent
+				side="right"
+				className="sm:max-w-md overflow-y-auto gap-0 p-0"
+			>
 				{task && (
 					<>
 						<SheetHeader className="border-b border-border/50 p-5 pb-4 gap-2">
@@ -42,7 +45,9 @@ export function TaskDetailPanel({
 									<span
 										className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold leading-tight"
 										style={{
-											backgroundColor: taskType.color ? `${taskType.color}22` : "oklch(var(--muted))",
+											backgroundColor: taskType.color
+												? `${taskType.color}22`
+												: "oklch(var(--muted))",
 											color: taskType.color ?? "inherit",
 										}}
 									>
@@ -53,7 +58,10 @@ export function TaskDetailPanel({
 									<span className="inline-flex items-center gap-1 rounded-full border border-border/50 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
 										<span
 											className="size-1.5 rounded-full shrink-0"
-											style={{ background: status.color ?? "oklch(var(--muted-foreground))" }}
+											style={{
+												background:
+													status.color ?? "oklch(var(--muted-foreground))",
+											}}
 										/>
 										{status.name}
 									</span>
@@ -96,10 +104,14 @@ export function TaskDetailPanel({
 											<div className="flex size-5 items-center justify-center rounded-full bg-primary/15 text-primary text-[9px] font-bold ring-1 ring-border/50">
 												<User className="size-3" />
 											</div>
-											<span className="text-xs text-muted-foreground">Assigned</span>
+											<span className="text-xs text-muted-foreground">
+												Assigned
+											</span>
 										</div>
 									) : (
-										<span className="text-xs text-muted-foreground/50">Unassigned</span>
+										<span className="text-xs text-muted-foreground/50">
+											Unassigned
+										</span>
 									)}
 								</div>
 
@@ -110,7 +122,9 @@ export function TaskDetailPanel({
 											<GitBranch className="size-3.5" />
 											Sprint
 										</div>
-										<span className="text-xs text-muted-foreground font-mono truncate">{task.sprint_id}</span>
+										<span className="text-xs text-muted-foreground font-mono truncate">
+											{task.sprint_id}
+										</span>
 									</div>
 								)}
 

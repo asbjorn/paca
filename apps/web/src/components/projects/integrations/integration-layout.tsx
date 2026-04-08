@@ -1,5 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, KanbanSquare, List, Map, Search, SlidersHorizontal, X } from "lucide-react";
+import {
+	ChevronDown,
+	KanbanSquare,
+	List,
+	Map,
+	Search,
+	SlidersHorizontal,
+	X,
+} from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
@@ -18,21 +26,21 @@ import {
 	backlogTasksQueryOptions,
 	backlogViewsQueryOptions,
 	createBacklogView,
+	createTask,
 	createView,
 	deleteBacklogView,
 	deleteView,
-	updateBacklogView,
-	updateView,
-	createTask,
+	type IntegrationView,
 	layoutToViewType,
 	moveBacklogTaskPosition,
 	moveTaskPosition,
 	sprintTasksQueryOptions,
-	viewsQueryOptions,
-	type IntegrationView,
 	type Task,
+	updateBacklogView,
+	updateView,
 	type ViewConfig,
 	type ViewLayout,
+	viewsQueryOptions,
 } from "@/lib/integration-api";
 import {
 	projectMembersQueryOptions,
@@ -46,7 +54,7 @@ import { ListView } from "./list-view";
 import { NewViewPopover } from "./new-view-popover";
 import { RenameViewDialog } from "./rename-view-dialog";
 import { RoadmapView } from "./roadmap-view";
-import { TaskDetailPanel } from "./task-detail-panel";
+import { TaskDetailModal } from "./task-detail-modal";
 import { ViewSettingsPanel } from "./view-settings-panel";
 
 interface IntegrationLayoutProps {
@@ -95,25 +103,43 @@ export function IntegrationLayout({
 	// Seed default views the first time the query succeeds with an empty list.
 	const seedingRef = useRef(false);
 	useEffect(() => {
-		if (!viewsQuery.isSuccess || serverViews.length > 0 || seedingRef.current) return;
+		if (!viewsQuery.isSuccess || serverViews.length > 0 || seedingRef.current)
+			return;
 		seedingRef.current = true;
 		const seed = sprintId
 			? Promise.all([
-				createView(projectId, sprintId, { name: "Board", view_type: "board" }),
-				createView(projectId, sprintId, { name: "Table", view_type: "table" }),
-			])
+					createView(projectId, sprintId, {
+						name: "Board",
+						view_type: "board",
+					}),
+					createView(projectId, sprintId, {
+						name: "Table",
+						view_type: "table",
+					}),
+				])
 			: Promise.all([
-				createBacklogView(projectId, { name: "Board", view_type: "board" }),
-				createBacklogView(projectId, { name: "Table", view_type: "table" }),
-			]);
-		seed.then(() => qc.invalidateQueries({ queryKey: viewsQueryKey })).catch(console.error);
-	}, [viewsQuery.isSuccess, serverViews.length, sprintId, projectId, qc, viewsQueryKey]);
+					createBacklogView(projectId, { name: "Board", view_type: "board" }),
+					createBacklogView(projectId, { name: "Table", view_type: "table" }),
+				]);
+		seed
+			.then(() => qc.invalidateQueries({ queryKey: viewsQueryKey }))
+			.catch(console.error);
+	}, [
+		viewsQuery.isSuccess,
+		serverViews.length,
+		sprintId,
+		projectId,
+		qc,
+		viewsQueryKey,
+	]);
 
 	// Active view: prefer last-selected (stored in localStorage), fall back to first
 	const [preferredViewId, setPreferredViewId] = useState<string>(() => {
 		try {
 			return localStorage.getItem(`paca:active-view:${integrationKey}`) ?? "";
-		} catch { return ""; }
+		} catch {
+			return "";
+		}
 	});
 
 	const activeView = views.find((v) => v.id === preferredViewId) ?? views[0];
@@ -124,16 +150,24 @@ export function IntegrationLayout({
 		if (!activeViewId) return;
 		try {
 			localStorage.setItem(`paca:active-view:${integrationKey}`, activeViewId);
-		} catch { /* ignore */ }
+		} catch {
+			/* ignore */
+		}
 	}, [activeViewId, integrationKey]);
 
-	const [renameTarget, setRenameTarget] = useState<IntegrationView | null>(null);
+	const [renameTarget, setRenameTarget] = useState<IntegrationView | null>(
+		null,
+	);
 	const [renameOpen, setRenameOpen] = useState(false);
 	const [settingsOpen, setSettingsOpen] = useState(false);
 	// Previewed view config (updated by the settings panel before Save)
-	const [previewConfig, setPreviewConfig] = useState<ViewConfig | undefined>(undefined);
+	const [previewConfig, setPreviewConfig] = useState<ViewConfig | undefined>(
+		undefined,
+	);
 	const activeViewConfig = previewConfig ?? activeView?.config;
-	const isManualSort = !activeViewConfig?.sort_by || activeViewConfig?.sort_by?.toLowerCase() === "manual";
+	const isManualSort =
+		!activeViewConfig?.sort_by ||
+		activeViewConfig?.sort_by?.toLowerCase() === "manual";
 	const [searchQuery, setSearchQuery] = useState("");
 	const [searchOpen, setSearchOpen] = useState(false);
 	const searchRef = useRef<HTMLInputElement>(null);
@@ -169,11 +203,40 @@ export function IntegrationLayout({
 		});
 	}, [isManualSort, tasks]);
 
-	const { data: members = [] } = useQuery(projectMembersQueryOptions(projectId));
+	const { data: members = [] } = useQuery(
+		projectMembersQueryOptions(projectId),
+	);
+
+	// Restore task from URL param once tasks are loaded
+	const restoredFromUrl = useRef(false);
+	useEffect(() => {
+		if (restoredFromUrl.current || tasks.length === 0) return;
+		try {
+			const url = new URL(window.location.href);
+			const taskId = url.searchParams.get("taskId");
+			if (taskId) {
+				const found = tasks.find((t) => t.id === taskId);
+				if (found) {
+					setSelectedTask(found);
+					restoredFromUrl.current = true;
+				}
+			}
+		} catch {
+			/* ignore */
+		}
+	}, [tasks]);
 
 	const handleTaskClick = (task: Task) => {
 		setSelectedTask(task);
 		onTaskClick?.(task);
+		// Update URL with task id as search param (non-navigating)
+		try {
+			const url = new URL(window.location.href);
+			url.searchParams.set("taskId", task.id);
+			window.history.pushState({}, "", url.toString());
+		} catch {
+			/* ignore */
+		}
 	};
 
 	// ── Task mutation ─────────────────────────────────────────────────────────
@@ -218,9 +281,17 @@ export function IntegrationLayout({
 			}
 			const payload = { position, group_key: groupKey };
 			const run = sprintId
-				? moveTaskPosition(projectId, sprintId, effectiveViewId, taskId, payload)
+				? moveTaskPosition(
+						projectId,
+						sprintId,
+						effectiveViewId,
+						taskId,
+						payload,
+					)
 				: moveBacklogTaskPosition(projectId, effectiveViewId, taskId, payload);
-			run.then(() => qc.invalidateQueries({ queryKey: tasksBaseQueryKey })).catch(console.error);
+			run
+				.then(() => qc.invalidateQueries({ queryKey: tasksBaseQueryKey }))
+				.catch(console.error);
 		},
 		[effectiveViewId, sortedTasks, sprintId, projectId, qc, tasksBaseQueryKey],
 	);
@@ -242,7 +313,9 @@ export function IntegrationLayout({
 	const renameViewMutation = useMutation({
 		mutationFn: (payload: { viewId: string; name: string }) =>
 			sprintId
-				? updateView(projectId, sprintId, payload.viewId, { name: payload.name })
+				? updateView(projectId, sprintId, payload.viewId, {
+						name: payload.name,
+					})
 				: updateBacklogView(projectId, payload.viewId, { name: payload.name }),
 		onSuccess: () => qc.invalidateQueries({ queryKey: viewsQueryKey }),
 	});
@@ -250,8 +323,12 @@ export function IntegrationLayout({
 	const updateViewConfigMutation = useMutation({
 		mutationFn: (payload: { viewId: string; config: ViewConfig }) =>
 			sprintId
-				? updateView(projectId, sprintId, payload.viewId, { config: payload.config })
-				: updateBacklogView(projectId, payload.viewId, { config: payload.config }),
+				? updateView(projectId, sprintId, payload.viewId, {
+						config: payload.config,
+					})
+				: updateBacklogView(projectId, payload.viewId, {
+						config: payload.config,
+					}),
 		onSuccess: () => {
 			// After save, clear preview so the view uses the server-returned config
 			setPreviewConfig(undefined);
@@ -277,7 +354,9 @@ export function IntegrationLayout({
 		<div className="flex h-full flex-col overflow-hidden">
 			{/* Header */}
 			<div className="shrink-0 border-b border-border/50 px-6 py-4">
-				<h1 className="font-[Syne] text-xl font-bold tracking-tight">{title}</h1>
+				<h1 className="font-[Syne] text-xl font-bold tracking-tight">
+					{title}
+				</h1>
 				{description && (
 					<p className="mt-0.5 text-sm text-muted-foreground">{description}</p>
 				)}
@@ -355,7 +434,9 @@ export function IntegrationLayout({
 					{/* Add view — sits immediately after the last tab */}
 					{canManageViews && (
 						<NewViewPopover
-							onSubmit={(name, layout) => createViewMutation.mutateAsync({ name, layout })}
+							onSubmit={(name, layout) =>
+								createViewMutation.mutateAsync({ name, layout })
+							}
 							isPending={createViewMutation.isPending}
 						/>
 					)}
@@ -381,7 +462,10 @@ export function IntegrationLayout({
 							/>
 							<button
 								type="button"
-								onClick={() => { setSearchOpen(false); setSearchQuery(""); }}
+								onClick={() => {
+									setSearchOpen(false);
+									setSearchQuery("");
+								}}
 								className="text-muted-foreground hover:text-foreground"
 							>
 								<X className="size-3" />
@@ -414,14 +498,22 @@ export function IntegrationLayout({
 						>
 							<SlidersHorizontal className="size-3.5" />
 						</PopoverTrigger>
-						<PopoverContent side="bottom" align="end" className="w-52 p-0" sideOffset={6}>
+						<PopoverContent
+							side="bottom"
+							align="end"
+							className="w-52 p-0"
+							sideOffset={6}
+						>
 							<div className="p-2 border-b border-border/50">
 								<p className="text-xs font-semibold">Filter by assignee</p>
 							</div>
 							<div className="flex flex-col py-1 max-h-52 overflow-y-auto">
 								<button
 									type="button"
-									onClick={() => { setAssigneeFilter(null); setFilterOpen(false); }}
+									onClick={() => {
+										setAssigneeFilter(null);
+										setFilterOpen(false);
+									}}
 									className={cn(
 										"flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-muted/40 transition-colors text-left",
 										!assigneeFilter && "text-primary font-medium",
@@ -433,27 +525,38 @@ export function IntegrationLayout({
 									<button
 										key={m.user_id}
 										type="button"
-										onClick={() => { setAssigneeFilter(m.user_id); setFilterOpen(false); }}
+										onClick={() => {
+											setAssigneeFilter(m.user_id);
+											setFilterOpen(false);
+										}}
 										className={cn(
 											"flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-muted/40 transition-colors text-left",
-											assigneeFilter === m.user_id && "text-primary font-medium",
+											assigneeFilter === m.user_id &&
+												"text-primary font-medium",
 										)}
 									>
 										<div className="flex size-5 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary text-[9px] font-bold">
 											{(m.full_name || m.username).slice(0, 1).toUpperCase()}
 										</div>
-										<span className="truncate">{m.full_name || m.username}</span>
+										<span className="truncate">
+											{m.full_name || m.username}
+										</span>
 									</button>
 								))}
 								{members.length === 0 && (
-									<p className="px-3 py-2 text-xs text-muted-foreground/50">No members</p>
+									<p className="px-3 py-2 text-xs text-muted-foreground/50">
+										No members
+									</p>
 								)}
 							</div>
 							{assigneeFilter && (
 								<div className="border-t border-border/50 p-2">
 									<button
 										type="button"
-										onClick={() => { setAssigneeFilter(null); setFilterOpen(false); }}
+										onClick={() => {
+											setAssigneeFilter(null);
+											setFilterOpen(false);
+										}}
 										className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
 									>
 										<X className="size-3" />
@@ -499,7 +602,9 @@ export function IntegrationLayout({
 						tasksQueryKey={tasksBaseQueryKey}
 						onCreateTask={handleCreateTask}
 						onTaskClick={handleTaskClick}
-						manualSort={isManualSort}					onReorderTask={effectiveViewId ? handleReorderTask : undefined}					/>
+						manualSort={isManualSort}
+						onReorderTask={effectiveViewId ? handleReorderTask : undefined}
+					/>
 				) : activeView?.layout === "Roadmap" ? (
 					<RoadmapView
 						tasks={tasks}
@@ -519,7 +624,9 @@ export function IntegrationLayout({
 						assigneeFilter={assigneeFilter}
 						onCreateTask={handleCreateTask}
 						onTaskClick={handleTaskClick}
-						manualSort={isManualSort}					onReorderTask={effectiveViewId ? handleReorderTask : undefined}					/>
+						manualSort={isManualSort}
+						onReorderTask={effectiveViewId ? handleReorderTask : undefined}
+					/>
 				)}
 			</div>
 
@@ -527,18 +634,37 @@ export function IntegrationLayout({
 			<RenameViewDialog
 				view={renameTarget}
 				open={renameOpen}
-				onOpenChange={(v) => { setRenameOpen(v); if (!v) setRenameTarget(null); }}
-				onSubmit={(viewId, name) => renameViewMutation.mutateAsync({ viewId, name })}
+				onOpenChange={(v) => {
+					setRenameOpen(v);
+					if (!v) setRenameTarget(null);
+				}}
+				onSubmit={(viewId, name) =>
+					renameViewMutation.mutateAsync({ viewId, name })
+				}
 				isPending={renameViewMutation.isPending}
 			/>
 
-			{/* Task detail panel */}
-			<TaskDetailPanel
+			{/* Task detail modal */}
+			<TaskDetailModal
 				task={selectedTask}
 				open={!!selectedTask}
-				onOpenChange={(v) => { if (!v) setSelectedTask(null); }}
+				onOpenChange={(v) => {
+					if (!v) {
+						setSelectedTask(null);
+						// Remove taskId from URL
+						try {
+							const url = new URL(window.location.href);
+							url.searchParams.delete("taskId");
+							window.history.pushState({}, "", url.toString());
+						} catch {
+							/* ignore */
+						}
+					}
+				}}
+				projectId={projectId}
 				statuses={statuses}
 				taskTypes={taskTypes}
+				members={members}
 			/>
 		</div>
 	);

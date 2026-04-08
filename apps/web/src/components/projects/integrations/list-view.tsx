@@ -130,7 +130,9 @@ function StatusGroup({
 	const handleDrop = (targetTask: Task, targetIndex: number) => {
 		const currentDraggingId = draggingId;
 		if (!currentDraggingId || currentDraggingId === targetTask.id) return;
-		const sourceIndex = orderedTasks.findIndex((t) => t.id === currentDraggingId);
+		const sourceIndex = orderedTasks.findIndex(
+			(t) => t.id === currentDraggingId,
+		);
 		if (sourceIndex === -1) return;
 		// Optimistic local reorder
 		const updated = [...orderedTasks];
@@ -202,7 +204,9 @@ function StatusGroup({
 								key={task.id}
 								className={cn(
 									"relative",
-									dragOverId === task.id && draggingId !== task.id && "border-t-2 border-primary/60",
+									dragOverId === task.id &&
+										draggingId !== task.id &&
+										"border-t-2 border-primary/60",
 								)}
 								draggable={manualSort}
 								onDragStart={(e) => {
@@ -210,9 +214,20 @@ function StatusGroup({
 									e.dataTransfer.setData("text/plain", task.id);
 									setDraggingId(task.id);
 								}}
-								onDragEnd={() => { setDraggingId(null); setDragOverId(null); }}
-								onDragOver={(e) => { if (manualSort) { e.preventDefault(); setDragOverId(task.id); } }}
-								onDrop={(e) => { e.preventDefault(); handleDrop(task, index); }}
+								onDragEnd={() => {
+									setDraggingId(null);
+									setDragOverId(null);
+								}}
+								onDragOver={(e) => {
+									if (manualSort) {
+										e.preventDefault();
+										setDragOverId(task.id);
+									}
+								}}
+								onDrop={(e) => {
+									e.preventDefault();
+									handleDrop(task, index);
+								}}
 							>
 								<TaskRow
 									task={task}
@@ -227,9 +242,7 @@ function StatusGroup({
 					)}
 
 					{canCreate && (
-						<GroupAddRow
-							onAdd={(title) => onCreateTask(status.id, title)}
-						/>
+						<GroupAddRow onAdd={(title) => onCreateTask(status.id, title)} />
 					)}
 				</>
 			)}
@@ -250,7 +263,11 @@ export function ListView({
 	onReorderTask,
 }: ListViewProps) {
 	const filtered = tasks.filter((t) => {
-		if (searchQuery && !t.title.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+		if (
+			searchQuery &&
+			!t.title.toLowerCase().includes(searchQuery.toLowerCase())
+		)
+			return false;
 		if (assigneeFilter && t.assignee_id !== assigneeFilter) return false;
 		return true;
 	});
@@ -272,8 +289,10 @@ export function ListView({
 						canCreate={canCreate}
 						defaultCollapsed={isDone}
 						onCreateTask={onCreateTask}
-						onTaskClick={onTaskClick}					manualSort={manualSort}
-					onReorderTask={onReorderTask}					/>
+						onTaskClick={onTaskClick}
+						manualSort={manualSort}
+						onReorderTask={onReorderTask}
+					/>
 				);
 			})}
 

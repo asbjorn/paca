@@ -176,9 +176,7 @@ export function TaskStatusFormDialog({
 							onValueChange={(v) => setCategory(v as StatusCategory)}
 						>
 							<SelectTrigger id="status-category" className="w-full">
-							<SelectValue>
-								{STATUS_CATEGORY_LABELS[category]}
-							</SelectValue>
+								<SelectValue>{STATUS_CATEGORY_LABELS[category]}</SelectValue>
 							</SelectTrigger>
 							<SelectContent>
 								{STATUS_CATEGORIES.map((cat) => (

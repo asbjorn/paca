@@ -6,10 +6,7 @@ import {
 	PopoverContent,
 	PopoverTrigger,
 } from "@/components/ui/popover";
-import {
-	type IntegrationView,
-	type ViewConfig,
-} from "@/lib/integration-api";
+import type { IntegrationView, ViewConfig } from "@/lib/integration-api";
 import { cn } from "@/lib/utils";
 
 const SORT_OPTIONS = ["Manual", "Priority", "Title", "Created"];
@@ -27,10 +24,18 @@ interface ViewSettingsPanelProps {
 	isPending?: boolean;
 }
 
-function SettingRow({ label, children }: { label: string; children: React.ReactNode }) {
+function SettingRow({
+	label,
+	children,
+}: {
+	label: string;
+	children: React.ReactNode;
+}) {
 	return (
 		<div className="flex items-center justify-between gap-3 py-1.5">
-			<span className="text-xs text-muted-foreground shrink-0 w-20">{label}</span>
+			<span className="text-xs text-muted-foreground shrink-0 w-20">
+				{label}
+			</span>
 			{children}
 		</div>
 	);
@@ -55,7 +60,9 @@ function SettingSelect({
 		>
 			<option value="">{placeholder}</option>
 			{options.map((o) => (
-				<option key={o} value={o.toLowerCase()}>{o}</option>
+				<option key={o} value={o.toLowerCase()}>
+					{o}
+				</option>
 			))}
 		</select>
 	);
@@ -77,7 +84,9 @@ function SortSelect({
 			className="flex-1 rounded-md border border-border bg-background px-2 py-1 text-xs outline-none focus:ring-2 focus:ring-primary/30 min-w-0"
 		>
 			{options.map((o) => (
-				<option key={o} value={o.toLowerCase()}>{o}</option>
+				<option key={o} value={o.toLowerCase()}>
+					{o}
+				</option>
 			))}
 		</select>
 	);
@@ -140,7 +149,12 @@ export function ViewSettingsPanel({
 			>
 				<Settings className="size-3.5" />
 			</PopoverTrigger>
-			<PopoverContent side="bottom" align="end" className="w-72 p-0 gap-0" sideOffset={6}>
+			<PopoverContent
+				side="bottom"
+				align="end"
+				className="w-72 p-0 gap-0"
+				sideOffset={6}
+			>
 				<div className="px-3 py-2.5 border-b border-border/50">
 					<p className="text-xs font-semibold">View settings</p>
 				</div>
@@ -151,19 +165,43 @@ export function ViewSettingsPanel({
 						</span>
 					</SettingRow>
 					<SettingRow label="Column by">
-						<SettingSelect value={draft.column_by} options={COLUMN_BY_OPTIONS} onChange={(v) => update({ column_by: v })} placeholder="Status" />
+						<SettingSelect
+							value={draft.column_by}
+							options={COLUMN_BY_OPTIONS}
+							onChange={(v) => update({ column_by: v })}
+							placeholder="Status"
+						/>
 					</SettingRow>
 					<SettingRow label="Swimlanes">
-						<SettingSelect value={draft.swimlanes} options={SWIMLANE_OPTIONS} onChange={(v) => update({ swimlanes: v })} placeholder="None" />
+						<SettingSelect
+							value={draft.swimlanes}
+							options={SWIMLANE_OPTIONS}
+							onChange={(v) => update({ swimlanes: v })}
+							placeholder="None"
+						/>
 					</SettingRow>
 					<SettingRow label="Sort by">
-						<SortSelect value={draft.sort_by} options={SORT_OPTIONS} onChange={(v) => update({ sort_by: v })} />
+						<SortSelect
+							value={draft.sort_by}
+							options={SORT_OPTIONS}
+							onChange={(v) => update({ sort_by: v })}
+						/>
 					</SettingRow>
 					<SettingRow label="Field sum">
-						<SettingSelect value={draft.field_sum} options={FIELD_SUM_OPTIONS} onChange={(v) => update({ field_sum: v })} placeholder="Count" />
+						<SettingSelect
+							value={draft.field_sum}
+							options={FIELD_SUM_OPTIONS}
+							onChange={(v) => update({ field_sum: v })}
+							placeholder="Count"
+						/>
 					</SettingRow>
 					<SettingRow label="Slice by">
-						<SettingSelect value={draft.slice_by} options={SLICE_BY_OPTIONS} onChange={(v) => update({ slice_by: v })} placeholder="None" />
+						<SettingSelect
+							value={draft.slice_by}
+							options={SLICE_BY_OPTIONS}
+							onChange={(v) => update({ slice_by: v })}
+							placeholder="None"
+						/>
 					</SettingRow>
 				</div>
 				<div className="flex items-center justify-end gap-2 px-3 py-2.5 border-t border-border/50">

@@ -98,9 +98,9 @@ export async function listViews(
 	projectId: string,
 	sprintId: string,
 ): Promise<IntegrationView[]> {
-	const { data } = await apiClient.instance.get<SuccessEnvelope<ViewListResult>>(
-		`/projects/${projectId}/sprints/${sprintId}/views`,
-	);
+	const { data } = await apiClient.instance.get<
+		SuccessEnvelope<ViewListResult>
+	>(`/projects/${projectId}/sprints/${sprintId}/views`);
 	return data.data.items.map(mapView);
 }
 
@@ -109,10 +109,9 @@ export async function createView(
 	sprintId: string,
 	payload: { name: string; view_type: ViewType; config?: ViewConfig },
 ): Promise<IntegrationView> {
-	const { data } = await apiClient.instance.post<SuccessEnvelope<Omit<IntegrationView, "layout">>>(
-		`/projects/${projectId}/sprints/${sprintId}/views`,
-		payload,
-	);
+	const { data } = await apiClient.instance.post<
+		SuccessEnvelope<Omit<IntegrationView, "layout">>
+	>(`/projects/${projectId}/sprints/${sprintId}/views`, payload);
 	return mapView(data.data);
 }
 
@@ -122,10 +121,9 @@ export async function updateView(
 	viewId: string,
 	payload: Partial<{ name: string; view_type: ViewType; config: ViewConfig }>,
 ): Promise<IntegrationView> {
-	const { data } = await apiClient.instance.patch<SuccessEnvelope<Omit<IntegrationView, "layout">>>(
-		`/projects/${projectId}/sprints/${sprintId}/views/${viewId}`,
-		payload,
-	);
+	const { data } = await apiClient.instance.patch<
+		SuccessEnvelope<Omit<IntegrationView, "layout">>
+	>(`/projects/${projectId}/sprints/${sprintId}/views/${viewId}`, payload);
 	return mapView(data.data);
 }
 
@@ -143,9 +141,9 @@ export async function deleteView(
 export async function listBacklogViews(
 	projectId: string,
 ): Promise<IntegrationView[]> {
-	const { data } = await apiClient.instance.get<SuccessEnvelope<ViewListResult>>(
-		`/projects/${projectId}/product-backlog/views`,
-	);
+	const { data } = await apiClient.instance.get<
+		SuccessEnvelope<ViewListResult>
+	>(`/projects/${projectId}/product-backlog/views`);
 	return data.data.items.map(mapView);
 }
 
@@ -153,10 +151,9 @@ export async function createBacklogView(
 	projectId: string,
 	payload: { name: string; view_type: ViewType; config?: ViewConfig },
 ): Promise<IntegrationView> {
-	const { data } = await apiClient.instance.post<SuccessEnvelope<Omit<IntegrationView, "layout">>>(
-		`/projects/${projectId}/product-backlog/views`,
-		payload,
-	);
+	const { data } = await apiClient.instance.post<
+		SuccessEnvelope<Omit<IntegrationView, "layout">>
+	>(`/projects/${projectId}/product-backlog/views`, payload);
 	return mapView(data.data);
 }
 
@@ -165,10 +162,9 @@ export async function updateBacklogView(
 	viewId: string,
 	payload: Partial<{ name: string; view_type: ViewType; config: ViewConfig }>,
 ): Promise<IntegrationView> {
-	const { data } = await apiClient.instance.patch<SuccessEnvelope<Omit<IntegrationView, "layout">>>(
-		`/projects/${projectId}/product-backlog/views/${viewId}`,
-		payload,
-	);
+	const { data } = await apiClient.instance.patch<
+		SuccessEnvelope<Omit<IntegrationView, "layout">>
+	>(`/projects/${projectId}/product-backlog/views/${viewId}`, payload);
 	return mapView(data.data);
 }
 
@@ -309,6 +305,16 @@ export async function createTask(
 	return data.data;
 }
 
+export async function getTask(
+	projectId: string,
+	taskId: string,
+): Promise<Task> {
+	const { data } = await apiClient.instance.get<SuccessEnvelope<Task>>(
+		`/projects/${projectId}/tasks/${taskId}`,
+	);
+	return data.data;
+}
+
 export async function updateTask(
 	projectId: string,
 	taskId: string,
@@ -328,6 +334,13 @@ export async function updateTask(
 }
 
 // ── Query Options ─────────────────────────────────────────────────────────────
+
+export const taskQueryOptions = (projectId: string, taskId: string) =>
+	queryOptions({
+		queryKey: ["projects", projectId, "tasks", taskId],
+		queryFn: () => getTask(projectId, taskId),
+		staleTime: 15_000,
+	});
 
 export const sprintsQueryOptions = (projectId: string) =>
 	queryOptions({

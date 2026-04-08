@@ -35,7 +35,11 @@ export function RoadmapView({
 	onTaskClick,
 }: RoadmapViewProps) {
 	const filtered = tasks.filter((t) => {
-		if (searchQuery && !t.title.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+		if (
+			searchQuery &&
+			!t.title.toLowerCase().includes(searchQuery.toLowerCase())
+		)
+			return false;
 		if (assigneeFilter && t.assignee_id !== assigneeFilter) return false;
 		return true;
 	});
@@ -47,7 +51,9 @@ export function RoadmapView({
 		new Date(t.created_at).getTime(),
 		new Date(t.updated_at).getTime(),
 	]);
-	const minMs = timestamps.length ? Math.min(...timestamps) : Date.now() - 30 * 86400_000;
+	const minMs = timestamps.length
+		? Math.min(...timestamps)
+		: Date.now() - 30 * 86400_000;
 	const maxMs = timestamps.length ? Math.max(...timestamps) : Date.now();
 	const rangeMs = Math.max(maxMs - minMs, 7 * 86400_000); // at least 7 days
 
@@ -73,7 +79,9 @@ export function RoadmapView({
 			<div className="shrink-0 border-b border-border/40 bg-muted/10">
 				<div className="flex items-center gap-3 px-4 py-2 border-b border-border/30">
 					<CalendarDays className="size-3.5 text-muted-foreground" />
-					<span className="text-xs font-medium text-muted-foreground">Timeline (based on activity)</span>
+					<span className="text-xs font-medium text-muted-foreground">
+						Timeline (based on activity)
+					</span>
 				</div>
 				<div className="relative h-7 overflow-hidden px-4">
 					{months.map((m) => (
@@ -92,25 +100,37 @@ export function RoadmapView({
 			<div className="flex-1 overflow-auto">
 				{!hasVisibleTasks ? (
 					<div className="flex h-full items-center justify-center">
-						<p className="text-sm text-muted-foreground/50">No tasks to display</p>
+						<p className="text-sm text-muted-foreground/50">
+							No tasks to display
+						</p>
 					</div>
 				) : (
 					sortedStatuses.map((status) => {
-						const groupTasks = filtered.filter((t) => t.status_id === status.id);
+						const groupTasks = filtered.filter(
+							(t) => t.status_id === status.id,
+						);
 						if (groupTasks.length === 0) return null;
 
 						return (
-							<div key={status.id} className="border-b border-border/40 last:border-0">
+							<div
+								key={status.id}
+								className="border-b border-border/40 last:border-0"
+							>
 								{/* Group header */}
 								<div className="flex items-center gap-2 px-4 py-2 bg-muted/20 border-b border-border/30">
 									<span
 										className="size-2 rounded-full shrink-0"
-										style={{ background: status.color ?? "oklch(var(--muted-foreground))" }}
+										style={{
+											background:
+												status.color ?? "oklch(var(--muted-foreground))",
+										}}
 									/>
 									<span className="text-xs font-semibold uppercase tracking-wide text-foreground/80">
 										{status.name}
 									</span>
-									<span className="text-xs text-muted-foreground tabular-nums">{groupTasks.length}</span>
+									<span className="text-xs text-muted-foreground tabular-nums">
+										{groupTasks.length}
+									</span>
 								</div>
 
 								{/* Rows: task info + timeline bar */}
@@ -134,7 +154,10 @@ export function RoadmapView({
 												{type && (
 													<span
 														className="shrink-0 size-1.5 rounded-full"
-														style={{ background: type.color ?? "oklch(var(--muted-foreground))" }}
+														style={{
+															background:
+																type.color ?? "oklch(var(--muted-foreground))",
+														}}
 													/>
 												)}
 												<span className="truncate text-xs">{task.title}</span>
