@@ -142,7 +142,7 @@ Table sprint_views {
     per-project or system defaults.
 
     fields      array<string>  Ordered list of visible column names.
-                               e.g. ["title","assignees","status","priority"]
+                               e.g. ["title","assignees","status","importance"]
     column_by   string         Field used to group board columns or table
                                groups.  e.g. "status" (default), "assignee".
     swimlanes   string|null    Field used to create horizontal swimlane bands
@@ -150,7 +150,7 @@ Table sprint_views {
     sort_by     string         "manual" = user-defined drag order stored in
                                view_task_positions.  Any other value is a
                                field name used for automatic sort.
-                               e.g. "priority", "created_at", "manual".
+                               e.g. "importance", "created_at", "manual".
     field_sum   string         Aggregate shown in group/column headings.
                                "count" (default) = number of tasks.  Can be
                                any numeric custom field key.
