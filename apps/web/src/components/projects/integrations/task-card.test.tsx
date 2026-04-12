@@ -170,8 +170,8 @@ describe("TaskCard", () => {
 				taskTypes={NO_TYPES}
 			/>,
 		);
-		// assigned state: filled rounded circle with bg-primary/15
-		const assigneeEl = container.querySelector(".bg-primary\\/15");
+		// assigned state: filled avatar circle with ring-primary/20
+		const assigneeEl = container.querySelector(".ring-primary\\/20");
 		expect(assigneeEl).toBeInTheDocument();
 	});
 });

@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, Plus } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { getTaskTypeIconComponent } from "@/components/projects/task-types/task-type-icons";
 import {
@@ -9,11 +9,38 @@ import {
 	DropdownMenuItem,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { type Task, updateTask } from "@/lib/integration-api";
-import type { ProjectMember, TaskStatus, TaskType } from "@/lib/project-api";
+import { type Task, type ViewConfig, updateTask } from "@/lib/integration-api";
+import type {
+	CustomFieldDefinition,
+	ProjectMember,
+	TaskStatus,
+	TaskType,
+} from "@/lib/project-api";
 import { cn } from "@/lib/utils";
 
+import { getImportanceBucketBounds } from "./priority";
 import { TaskCard } from "./task-card";
+import {
+	type ColumnGroupDef,
+	DEFAULT_VISIBLE_FIELDS,
+	buildColumnDropUpdate,
+	computeFieldSum,
+	computeImportanceForReorder,
+	getColumnGroupDefs,
+	getSwimlaneDefs,
+	getTaskColumnKeys,
+	getTaskSwimlaneKey,
+} from "./view-utils";
+
+// ── Props ────────────────────────────────────────────────────────────────────
+
+type MoveToColumnUpdate = Partial<{
+	status_id: string | null;
+	assignee_id: string | null;
+	importance: number;
+	task_type_id: string | null;
+	custom_fields: Record<string, unknown>;
+}>;
 
 interface BoardViewProps {
 	projectId: string;
@@ -21,6 +48,8 @@ interface BoardViewProps {
 	statuses: TaskStatus[];
 	taskTypes: TaskType[];
 	members: ProjectMember[];
+	customFields?: CustomFieldDefinition[];
+	viewConfig?: ViewConfig;
 	canCreate: boolean;
 	canEdit: boolean;
 	searchQuery: string;
@@ -30,18 +59,16 @@ interface BoardViewProps {
 		statusId: string,
 		title: string,
 		taskTypeId?: string | null,
+		extraFields?: MoveToColumnUpdate,
 	) => Promise<void>;
 	onTaskClick: (task: Task) => void;
-	onUpdateTask?: (
-		taskId: string,
-		payload: Partial<{
-			task_type_id: string | null;
-			assignee_id: string | null;
-		}>,
-	) => void;
+	onUpdateTask?: (taskId: string, payload: MoveToColumnUpdate) => void;
+	onMoveToColumn?: (taskId: string, update: MoveToColumnUpdate) => void;
 	manualSort?: boolean;
-	onReorderTask?: (statusId: string, taskId: string, newIndex: number) => void;
+	onReorderTask?: (groupKey: string, taskId: string, newIndex: number) => void;
 }
+
+// ── Add task row inside a status column ──────────────────────────────────────
 
 interface ColumnAddProps {
 	taskTypes: TaskType[];
@@ -100,44 +127,34 @@ function ColumnAddTask({ taskTypes, onAdd }: ColumnAddProps) {
 				{taskTypes.length > 0 && selectedType && (
 					<DropdownMenu>
 						<DropdownMenuTrigger
-							className="flex items-center gap-1 rounded-lg px-1.5 py-0.5 text-[11px] font-semibold transition-all duration-150 hover:bg-muted/60 shrink-0"
+							className={cn(
+								"flex items-center gap-1 rounded-lg px-1.5 py-1 text-[11px] font-semibold transition-all duration-150 hover:bg-muted/60 shrink-0",
+							)}
 							style={
 								selectedType.color ? { color: selectedType.color } : undefined
 							}
 						>
 							{SelectedIcon ? (
-								<SelectedIcon className="size-3.5 opacity-70" />
+								<SelectedIcon className="size-3" />
 							) : (
-								<span className="text-[10px] font-bold">
-									{selectedType.name.slice(0, 2)}
-								</span>
+								<span className="size-3 rounded-full bg-current opacity-60" />
 							)}
-							<ChevronDown className="size-3 text-muted-foreground/60" />
+							<span>{selectedType?.name ?? "Task"}</span>
+							<ChevronDown className="size-2.5 opacity-60" />
 						</DropdownMenuTrigger>
-						<DropdownMenuContent
-							align="start"
-							className="w-40 rounded-xl border border-border/40 shadow-lg p-1"
-						>
+						<DropdownMenuContent align="start" sideOffset={2}>
 							{taskTypes.map((tt) => {
-								const Icon = getTaskTypeIconComponent(tt.icon);
+								const Icon = getTaskTypeIconComponent(tt.icon ?? null);
 								return (
 									<DropdownMenuItem
 										key={tt.id}
-										onClick={() => setSelectedTypeId(tt.id)}
-										className={cn(
-											"flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] hover:bg-muted/60 transition-colors duration-100",
-											selectedType.id === tt.id && "bg-muted/40",
-										)}
+										onSelect={() => setSelectedTypeId(tt.id)}
+										style={tt.color ? { color: tt.color } : undefined}
 									>
 										{Icon ? (
-											<Icon
-												className="size-3.5 shrink-0 text-muted-foreground/80"
-												style={tt.color ? { color: tt.color } : undefined}
-											/>
+											<Icon className="size-3 mr-1.5" />
 										) : (
-											<span className="size-3.5 shrink-0 text-[10px] font-bold">
-												{tt.name.slice(0, 2)}
-											</span>
+											<span className="size-3 rounded-full bg-current opacity-60 mr-1.5" />
 										)}
 										{tt.name}
 									</DropdownMenuItem>
@@ -146,9 +163,6 @@ function ColumnAddTask({ taskTypes, onAdd }: ColumnAddProps) {
 						</DropdownMenuContent>
 					</DropdownMenu>
 				)}
-				<span className="text-[11px] text-muted-foreground/60 truncate">
-					{selectedType?.name ?? "Task"}
-				</span>
 			</div>
 			<input
 				ref={inputRef}
@@ -182,12 +196,16 @@ function ColumnAddTask({ taskTypes, onAdd }: ColumnAddProps) {
 	);
 }
 
+// ── Board view ────────────────────────────────────────────────────────────────
+
 export function BoardView({
 	projectId,
 	tasks,
 	statuses,
 	taskTypes,
 	members,
+	customFields = [],
+	viewConfig,
 	canCreate,
 	canEdit,
 	searchQuery,
@@ -196,64 +214,127 @@ export function BoardView({
 	onCreateTask,
 	onTaskClick,
 	onUpdateTask,
+	onMoveToColumn,
 	manualSort,
 	onReorderTask,
 }: BoardViewProps) {
 	const qc = useQueryClient();
 	const [draggingId, setDraggingId] = useState<string | null>(null);
-	const [overStatusId, setOverStatusId] = useState<string | null>(null);
+	const [overColumnKey, setOverColumnKey] = useState<string | null>(null);
 	const [overCardId, setOverCardId] = useState<string | null>(null);
+	// Tracks which swimlane band is being hovered: "colKey|swimKey"
+	const [overSwimKey, setOverSwimKey] = useState<string | null>(null);
 	const [columnOrderMap, setColumnOrderMap] = useState<
 		Record<string, string[]>
 	>({});
-	// biome-ignore lint/correctness/useExhaustiveDependencies: intentionally reset local order whenever the task list is refreshed from the server
+
+	// biome-ignore lint/correctness/useExhaustiveDependencies: reset local order when server tasks change
 	useEffect(() => {
 		setColumnOrderMap({});
 	}, [tasks]);
 
+	// Generic field-update for drag between columns
 	const updateMutation = useMutation({
 		mutationFn: ({
 			taskId,
-			statusId,
-			sprintId,
+			update,
 		}: {
 			taskId: string;
-			statusId: string;
-			sprintId: string | null | undefined;
-		}) =>
-			updateTask(projectId, taskId, {
-				status_id: statusId,
-				sprint_id: sprintId ?? null,
-			}),
+			update: MoveToColumnUpdate;
+		}) => updateTask(projectId, taskId, update),
 		onSuccess: () => qc.invalidateQueries({ queryKey: tasksQueryKey }),
 	});
 
-	const filteredTasks = tasks.filter((t) => {
-		if (
-			searchQuery &&
-			!t.title.toLowerCase().includes(searchQuery.toLowerCase())
-		)
-			return false;
-		if (assigneeFilter && t.assignee_id !== assigneeFilter) return false;
-		return true;
-	});
-
-	const tasksByStatus = (statusId: string) => {
-		const col = filteredTasks.filter((t) => t.status_id === statusId);
-		if (manualSort) return col;
-		return col.sort((a, b) => a.created_at.localeCompare(b.created_at));
+	// Inline field update handler used by TaskCard — delegates to onMoveToColumn
+	// (which does proper cache invalidation) or falls back to updateMutation.
+	const handleInlineUpdate = (taskId: string, payload: MoveToColumnUpdate) => {
+		if (onUpdateTask) {
+			onUpdateTask(taskId, payload);
+		} else if (onMoveToColumn) {
+			onMoveToColumn(taskId, payload);
+		} else {
+			updateMutation.mutate({ taskId, update: payload });
+		}
 	};
-	const getColumnTasks = (statusId: string): Task[] => {
-		const ids = columnOrderMap[statusId];
+
+	// ── View context ──────────────────────────────────────────────────────────
+
+	const columnBy = viewConfig?.column_by ?? "status";
+	const swimlaneBy = viewConfig?.swimlanes;
+	const fieldSum = viewConfig?.field_sum;
+	const isStatusGrouping = !viewConfig?.column_by || viewConfig.column_by === "status";
+	const visibleFields: string[] =
+		viewConfig?.fields && viewConfig.fields.length > 0
+			? viewConfig.fields
+			: DEFAULT_VISIBLE_FIELDS;
+
+	const viewCtx = useMemo(
+		() => ({ statuses, taskTypes, members, customFields }),
+		[statuses, taskTypes, members, customFields],
+	);
+
+	// Static column definitions (all possible values)
+	const columnDefs = useMemo(
+		() => getColumnGroupDefs(columnBy, viewCtx),
+		[columnBy, viewCtx],
+	);
+
+	// Swimlane definitions
+	const swimlaneDefs = useMemo(
+		() => getSwimlaneDefs(swimlaneBy, viewCtx),
+		[swimlaneBy, viewCtx],
+	);
+
+	// ── Filtering ─────────────────────────────────────────────────────────────
+
+	const filteredTasks = useMemo(
+		() =>
+			tasks.filter((t) => {
+				if (
+					searchQuery &&
+					!t.title.toLowerCase().includes(searchQuery.toLowerCase())
+				)
+					return false;
+				if (assigneeFilter && t.assignee_id !== assigneeFilter) return false;
+				return true;
+			}),
+		[tasks, searchQuery, assigneeFilter],
+	);
+
+	// ── Column tasks helper ───────────────────────────────────────────────────
+
+	const getColumnTasks = (colKey: string): Task[] => {
+		// For manual-sort status columns, respect saved order
+		const ids = columnOrderMap[colKey];
+		let col: Task[];
+
 		if (ids) {
-			return ids
+			col = ids
 				.map((id) => filteredTasks.find((t) => t.id === id))
 				.filter((t): t is Task => t !== undefined);
+		} else {
+			// For multi_select columns a task may appear in multiple
+			col = filteredTasks.filter((t) =>
+				getTaskColumnKeys(t, columnBy, viewCtx).includes(colKey),
+			);
 		}
-		return tasksByStatus(statusId);
+		return col;
 	};
 
-	const unassignedTasks = filteredTasks.filter((t) => !t.status_id);
+	// ── Swimlane task helper ──────────────────────────────────────────────────
+
+	const getSwimlaneColumnTasks = (
+		colKey: string,
+		swimKey: string,
+	): Task[] => {
+		const colTasks = getColumnTasks(colKey);
+		if (swimKey === "__all") return colTasks;
+		return colTasks.filter(
+			(t) => getTaskSwimlaneKey(t, swimlaneBy, viewCtx) === swimKey,
+		);
+	};
+
+	// ── Drag handlers ────────────────────────────────────────────────────────
 
 	const handleDragStart = (e: React.DragEvent, taskId: string) => {
 		if (!canEdit) return;
@@ -265,28 +346,45 @@ export function BoardView({
 
 	const handleDragEnd = () => {
 		setDraggingId(null);
-		setOverStatusId(null);
+		setOverColumnKey(null);
 		setOverCardId(null);
+		setOverSwimKey(null);
 	};
 
-	const handleDrop = (e: React.DragEvent, statusId: string) => {
+	const handleDropOnColumn = (e: React.DragEvent, colDef: ColumnGroupDef) => {
 		e.preventDefault();
 		const taskId = e.dataTransfer.getData("text/plain");
 		if (!taskId || !canEdit) return;
+
 		const task = tasks.find((t) => t.id === taskId);
-		if (task && task.status_id !== statusId) {
-			updateMutation.mutate({ taskId, statusId, sprintId: task.sprint_id });
+		if (!task) {
+			setDraggingId(null);
+			setOverColumnKey(null);
+			return;
+		}
+
+		// Check if the task is already in this column
+		const currentKeys = getTaskColumnKeys(task, columnBy, viewCtx);
+		if (!currentKeys.includes(colDef.key)) {
+			const update = buildColumnDropUpdate(columnBy, colDef.fieldValue, customFields);
+			if (onMoveToColumn) {
+				onMoveToColumn(taskId, update);
+			} else {
+				updateMutation.mutate({ taskId, update });
+			}
 		}
 		setDraggingId(null);
-		setOverStatusId(null);
+		setOverColumnKey(null);
 		setOverCardId(null);
+		setOverSwimKey(null);
 	};
 
 	const handleDropOnCard = (
 		e: React.DragEvent,
-		targetStatusId: string,
+		colDef: ColumnGroupDef,
 		targetTaskId: string,
 		targetIndex: number,
+		swimDef?: ColumnGroupDef,
 	) => {
 		e.preventDefault();
 		e.stopPropagation();
@@ -294,22 +392,82 @@ export function BoardView({
 		if (!taskId || !canEdit) {
 			setDraggingId(null);
 			setOverCardId(null);
+			setOverSwimKey(null);
 			return;
 		}
 		const task = tasks.find((t) => t.id === taskId);
 		if (!task) {
 			setDraggingId(null);
 			setOverCardId(null);
+			setOverSwimKey(null);
 			return;
 		}
-		if (task.status_id !== targetStatusId) {
-			updateMutation.mutate({
-				taskId,
-				statusId: targetStatusId,
-				sprintId: task.sprint_id,
-			});
-		} else if (manualSort && taskId !== targetTaskId) {
-			const current = getColumnTasks(targetStatusId);
+
+		const updates: MoveToColumnUpdate = {};
+		const currentColKeys = getTaskColumnKeys(task, columnBy, viewCtx);
+		const colChanged = !currentColKeys.includes(colDef.key);
+
+		if (colChanged) {
+			const colUpdate = buildColumnDropUpdate(columnBy, colDef.fieldValue, customFields);
+			Object.assign(updates, colUpdate);
+		}
+
+		// Update swimlane field if task dropped onto a different band
+		if (swimDef && swimDef.key !== "__all" && swimlaneBy && swimlaneBy !== "none") {
+			const currentSwimKey = getTaskSwimlaneKey(task, swimlaneBy, viewCtx);
+			if (currentSwimKey !== swimDef.key) {
+				const swimUpdate = buildColumnDropUpdate(swimlaneBy, swimDef.fieldValue, customFields);
+				if (swimUpdate.custom_fields && updates.custom_fields) {
+					updates.custom_fields = { ...updates.custom_fields, ...swimUpdate.custom_fields };
+				} else {
+					Object.assign(updates, swimUpdate);
+				}
+			}
+		}
+
+		if (Object.keys(updates).length > 0) {
+			if (onMoveToColumn) {
+				onMoveToColumn(taskId, updates);
+			} else {
+				updateMutation.mutate({ taskId, update: updates });
+			}
+	} else if (
+			viewConfig?.sort_by === "importance" &&
+			taskId !== targetTaskId &&
+			!colChanged
+		) {
+			// Drag-reorder within an importance-sorted column → compute midpoint value.
+			// Use swimlane-scoped tasks so that the targetIndex (relative to the band)
+			// matches the task list passed to the algorithm, preventing index mismatches.
+			const relevantTasks = swimDef
+				? getSwimlaneColumnTasks(colDef.key, swimDef.key)
+				: getColumnTasks(colDef.key);
+			const srcIdx = relevantTasks.findIndex((t) => t.id === taskId);
+			if (srcIdx !== -1) {
+				// Clamp result to the current bucket when the swimlane or column is
+				// grouped by importance, so the task never jumps to a different band.
+				const bucketBounds =
+					swimDef && swimlaneBy === "importance" && swimDef.key !== "__all"
+						? getImportanceBucketBounds(Number(swimDef.key))
+						: columnBy === "importance"
+							? getImportanceBucketBounds(Number(colDef.key))
+							: undefined;
+				const newImportance = computeImportanceForReorder(
+					relevantTasks,
+					srcIdx,
+					targetIndex,
+					bucketBounds,
+				);
+				const update = { importance: newImportance };
+				if (onMoveToColumn) {
+					onMoveToColumn(taskId, update);
+				} else {
+					updateMutation.mutate({ taskId, update });
+				}
+			}
+		} else if (manualSort && taskId !== targetTaskId && !colChanged) {
+			// Reorder within same column
+			const current = getColumnTasks(colDef.key);
 			const srcIdx = current.findIndex((t) => t.id === taskId);
 			if (srcIdx !== -1) {
 				const next = [...current];
@@ -317,148 +475,298 @@ export function BoardView({
 				next.splice(targetIndex, 0, moved);
 				setColumnOrderMap((prev) => ({
 					...prev,
-					[targetStatusId]: next.map((t) => t.id),
+					[colDef.key]: next.map((t) => t.id),
 				}));
 			}
-			onReorderTask?.(targetStatusId, taskId, targetIndex);
+			if (isStatusGrouping) {
+				onReorderTask?.(colDef.key, taskId, targetIndex);
+			}
 		}
 		setDraggingId(null);
-		setOverStatusId(null);
+		setOverColumnKey(null);
 		setOverCardId(null);
+		setOverSwimKey(null);
 	};
 
-	const handleDragOver = (e: React.DragEvent, statusId: string) => {
+	/** Handles dropping a card directly onto a swimlane band (updates swimlane + column field). */
+	const handleDropOnSwimlaneBand = (
+		e: React.DragEvent,
+		colDef: ColumnGroupDef,
+		swimDef: ColumnGroupDef,
+	) => {
 		e.preventDefault();
-		e.dataTransfer.dropEffect = "move";
-		setOverStatusId(statusId);
+		e.stopPropagation();
+		const taskId = e.dataTransfer.getData("text/plain");
+		if (!taskId || !canEdit) {
+			setDraggingId(null);
+			setOverSwimKey(null);
+			return;
+		}
+		const task = tasks.find((t) => t.id === taskId);
+		if (!task) {
+			setDraggingId(null);
+			setOverSwimKey(null);
+			return;
+		}
+
+		const updates: MoveToColumnUpdate = {};
+
+		// Update column field if moved to a different column
+		const currentColKeys = getTaskColumnKeys(task, columnBy, viewCtx);
+		if (!currentColKeys.includes(colDef.key)) {
+			const colUpdate = buildColumnDropUpdate(columnBy, colDef.fieldValue, customFields);
+			Object.assign(updates, colUpdate);
+		}
+
+		// Update swimlane field if moved to a different band
+		if (swimDef.key !== "__all" && swimlaneBy && swimlaneBy !== "none") {
+			const currentSwimKey = getTaskSwimlaneKey(task, swimlaneBy, viewCtx);
+			if (currentSwimKey !== swimDef.key) {
+				const swimUpdate = buildColumnDropUpdate(swimlaneBy, swimDef.fieldValue, customFields);
+				if (swimUpdate.custom_fields && updates.custom_fields) {
+					updates.custom_fields = { ...updates.custom_fields, ...swimUpdate.custom_fields };
+				} else {
+					Object.assign(updates, swimUpdate);
+				}
+			}
+		}
+
+		if (Object.keys(updates).length > 0) {
+			if (onMoveToColumn) {
+				onMoveToColumn(taskId, updates);
+			} else {
+				updateMutation.mutate({ taskId, update: updates });
+			}
+		}
+		setDraggingId(null);
+		setOverColumnKey(null);
+		setOverCardId(null);
+		setOverSwimKey(null);
 	};
 
-	const sortedStatuses = [...statuses].sort((a, b) => a.position - b.position);
+	// ── Dynamic column defs (for number/text/date fields with no preset values) ──
+
+	const effectiveColumnDefs: ColumnGroupDef[] = useMemo(() => {
+		if (columnDefs.length > 0) return columnDefs;
+		// Build columns from unique task values (for number/text fields)
+		const seen = new Set<string>();
+		const dynamic: ColumnGroupDef[] = [];
+		for (const t of filteredTasks) {
+			for (const k of getTaskColumnKeys(t, columnBy, viewCtx)) {
+				if (!seen.has(k)) {
+					seen.add(k);
+					dynamic.push({ key: k, label: k === "__none" ? "None" : k, fieldValue: k });
+				}
+			}
+		}
+		// Ensure __none column exists
+		if (!seen.has("__none")) {
+			dynamic.push({ key: "__none", label: "None", fieldValue: null });
+		}
+		return dynamic;
+	}, [columnDefs, filteredTasks, columnBy, viewCtx]);
+
+	// ── Helpers ───────────────────────────────────────────────────────────────
+
+	const hasSwimlanes = Boolean(swimlaneBy && swimlaneBy !== "none");
+
+	/** Renders the cards inside one [column × swimlane] cell. */
+	const renderCellCards = (colDef: ColumnGroupDef, swimDef: ColumnGroupDef) => {
+		const swimOverKey = `${colDef.key}|${swimDef.key}`;
+		const laneTasks = getSwimlaneColumnTasks(colDef.key, swimDef.key);
+		const isOver =
+			overSwimKey === swimOverKey ||
+			(!hasSwimlanes && overColumnKey === colDef.key);
+
+		return (
+			// biome-ignore lint/a11y/noStaticElementInteractions: drag-and-drop drop zone
+			<div
+				className={cn(
+					"flex flex-col gap-2 rounded-xl p-2 min-h-28 transition-all duration-200",
+					isOver
+						? "bg-primary/8 ring-2 ring-primary/20"
+						: "bg-muted/40 dark:bg-black/30",
+				)}
+				onDragOver={(e) => {
+					e.preventDefault();
+					e.dataTransfer.dropEffect = "move";
+					setOverColumnKey(colDef.key);
+					setOverSwimKey(swimOverKey);
+				}}
+				onDragLeave={(e) => {
+					if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+						setOverSwimKey(null);
+					}
+				}}
+				onDrop={(e) =>
+					hasSwimlanes
+						? handleDropOnSwimlaneBand(e, colDef, swimDef)
+						: handleDropOnColumn(e, colDef)
+				}
+			>
+				{laneTasks.length === 0 && (
+					<div className="flex flex-1 flex-col items-center justify-center py-6 text-muted-foreground/30">
+						<p className="text-[11px]">No tasks</p>
+					</div>
+				)}
+				{laneTasks.map((task, index) => (
+					// biome-ignore lint/a11y/noStaticElementInteractions: drag-and-drop card slot
+					<div
+						key={task.id}
+						className={cn(
+							"relative",
+							(manualSort || viewConfig?.sort_by === "importance") &&
+								overCardId === task.id &&
+								draggingId !== task.id &&
+								"border-t-2 border-primary/60",
+						)}
+						onDragOver={(e) => {
+							e.preventDefault();
+							e.stopPropagation();
+							setOverColumnKey(colDef.key);
+							setOverSwimKey(swimOverKey);
+						if (manualSort || viewConfig?.sort_by === "importance") setOverCardId(task.id);
+						}}
+						onDrop={(e) =>
+							handleDropOnCard(
+								e,
+								colDef,
+								task.id,
+								index,
+								hasSwimlanes ? swimDef : undefined,
+							)
+						}
+					>
+						<TaskCard
+							task={task}
+							statuses={statuses}
+							taskTypes={taskTypes}
+							members={members}
+							customFields={customFields}
+							visibleFields={visibleFields}
+							canEdit={canEdit}
+							isDragging={draggingId === task.id}
+							onDragStart={(e) => handleDragStart(e, task.id)}
+							onDragEnd={handleDragEnd}
+							onClick={() => onTaskClick(task)}
+							onUpdate={canEdit ? handleInlineUpdate : undefined}
+						/>
+					</div>
+				))}
+				{canCreate && isStatusGrouping && colDef.key !== "__none" && (
+					<ColumnAddTask
+						taskTypes={taskTypes}
+						onAdd={(title, typeId) => {
+							const extra: MoveToColumnUpdate = {};
+							if (hasSwimlanes && swimDef.key !== "__all" && swimlaneBy && swimlaneBy !== "none") {
+								const swimUpdate = buildColumnDropUpdate(swimlaneBy, swimDef.fieldValue, customFields);
+								Object.assign(extra, swimUpdate);
+							}
+							onCreateTask(
+								colDef.key,
+								title,
+								typeId,
+								Object.keys(extra).length > 0 ? extra : undefined,
+							);
+						}}
+					/>
+				)}
+			</div>
+		);
+	};
+
+	// ── Render ────────────────────────────────────────────────────────────────
+
+	/** Column header chip — used both in swimlane and non-swimlane layouts. */
+	const renderColHeader = (colDef: ColumnGroupDef) => {
+		const colTasks = getColumnTasks(colDef.key);
+		const sumValue = computeFieldSum(colTasks, fieldSum, customFields);
+		return (
+			<div className="flex items-center gap-2 px-2 pb-1">
+				{colDef.color && (
+					<span
+						className="size-1.75 rounded-full shrink-0"
+						style={{
+							background: colDef.color,
+							boxShadow: `0 0 6px ${colDef.color}40`,
+						}}
+					/>
+				)}
+				<span className="text-[11px] font-bold text-foreground/80 tracking-[0.08em] uppercase flex-1 truncate">
+					{colDef.label}
+				</span>
+				<span className="rounded-full bg-muted/60 px-2 py-0.5 text-[10px] font-bold text-muted-foreground/70 tabular-nums">
+					{fieldSum && fieldSum !== "count" ? sumValue : colTasks.length}
+				</span>
+			</div>
+		);
+	};
+
+	if (hasSwimlanes) {
+		// ── Swimlanes-outer layout: swimlane rows → column cells inside ──────
+		// Shared singleton swimlane def for "no swimlane" filter
+		const noSwim: ColumnGroupDef = { key: "__all", label: "", fieldValue: null };
+		// Only use defined defs; filter out the __all sentinel
+		const visibleSwimDefs = swimlaneDefs.filter((s) => s.key !== "__all");
+
+		return (
+			<div className="flex flex-1 min-h-0 flex-col overflow-auto">
+				<div className="min-w-max px-6 pt-5 pb-8 flex flex-col gap-0">
+					{/* Sticky column-header row */}
+					<div className="flex gap-4 pb-2 sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b border-border/20 mb-1">
+						{/* Swimlane label placeholder to align with row labels */}
+						<div className="w-36 shrink-0" />
+						{effectiveColumnDefs.map((colDef) => (
+							<div key={colDef.key} className="w-72 shrink-0">
+								{renderColHeader(colDef)}
+							</div>
+						))}
+					</div>
+
+					{/* One row per swimlane */}
+					{(visibleSwimDefs.length > 0 ? visibleSwimDefs : [noSwim]).map((swimDef) => (
+						<div key={swimDef.key} className="flex gap-4 py-3 border-b border-border/15 last:border-0">
+							{/* Swimlane label */}
+							<div className="w-36 shrink-0 flex items-start pt-1 gap-2">
+								{swimDef.color && (
+									<span
+										className="size-1.5 rounded-full mt-1.5 shrink-0"
+										style={{ background: swimDef.color }}
+									/>
+								)}
+								<span className="text-[11px] font-bold uppercase tracking-[0.08em] text-foreground/70 wrap-break-word leading-snug">
+									{swimDef.label}
+								</span>
+							</div>
+
+							{/* Column cells */}
+							{effectiveColumnDefs.map((colDef) => (
+								<div key={colDef.key} className="w-72 shrink-0">
+									{renderCellCards(colDef, swimDef)}
+								</div>
+							))}
+						</div>
+					))}
+				</div>
+			</div>
+		);
+	}
+
+	// ── No-swimlane layout: horizontal columns ────────────────────────────────
+	const noSwimAll: ColumnGroupDef = { key: "__all", label: "", fieldValue: null };
 
 	return (
 		<div className="flex flex-1 min-h-0 gap-4 overflow-x-auto px-6 py-5 pb-8">
-			{sortedStatuses.map((status) => {
-				const columnTasks = getColumnTasks(status.id);
-				const isOver = overStatusId === status.id;
-
-				return (
-					// biome-ignore lint/a11y/noStaticElementInteractions: drag-and-drop column requires pointer events; keyboard reorder is handled separately
-					<div
-						key={status.id}
-						data-status-id={status.id}
-						className="flex w-72 shrink-0 flex-col gap-2.5"
-						onDragOver={(e) => handleDragOver(e, status.id)}
-						onDrop={(e) => handleDrop(e, status.id)}
-					>
-						{/* Column header */}
-						<div className="flex items-center gap-2 px-2">
-							<span
-								className="size-1.75 rounded-full shrink-0"
-								style={{
-									background: status.color ?? "oklch(var(--muted-foreground))",
-									boxShadow: status.color
-										? `0 0 6px ${status.color}40`
-										: undefined,
-								}}
-							/>
-							<span className="text-[11px] font-bold text-foreground/80 tracking-[0.08em] uppercase">
-								{status.name}
-							</span>
-							<span className="ml-auto rounded-full bg-muted/60 px-2 py-0.5 text-[10px] font-bold text-muted-foreground/70 tabular-nums">
-								{columnTasks.length}
-							</span>
-						</div>
-
-						{/* Drop zone */}
-						<div
-							className={cn(
-								"flex flex-col gap-2 rounded-xl p-2 min-h-30 transition-all duration-200",
-								isOver
-									? "bg-primary/8 ring-2 ring-primary/20"
-									: "bg-muted/40 dark:bg-black/30",
-							)}
-						>
-							{columnTasks.length === 0 && (
-								<div className="flex flex-1 flex-col items-center justify-center py-8 text-muted-foreground/40">
-									<p className="text-[12px] font-medium">No tasks</p>
-								</div>
-							)}
-
-							{columnTasks.map((task, index) => (
-								// biome-ignore lint/a11y/noStaticElementInteractions: drag-and-drop card slot; pointer events only
-								<div
-									key={task.id}
-									className={cn(
-										"relative",
-										manualSort &&
-											overCardId === task.id &&
-											draggingId !== task.id &&
-											"border-t-2 border-primary/60",
-									)}
-									onDragOver={(e) => {
-										e.preventDefault();
-										e.stopPropagation();
-										setOverStatusId(status.id);
-										if (manualSort) setOverCardId(task.id);
-									}}
-									onDrop={(e) => handleDropOnCard(e, status.id, task.id, index)}
-								>
-									<TaskCard
-										task={task}
-										statuses={statuses}
-										taskTypes={taskTypes}
-										members={members}
-										canEdit={canEdit}
-										isDragging={draggingId === task.id}
-										onDragStart={(e) => handleDragStart(e, task.id)}
-										onDragEnd={handleDragEnd}
-										onClick={() => onTaskClick(task)}
-										onUpdate={onUpdateTask}
-									/>
-								</div>
-							))}
-							{canCreate && (
-								<ColumnAddTask
-									taskTypes={taskTypes}
-									onAdd={(title, typeId) =>
-										onCreateTask(status.id, title, typeId)
-									}
-								/>
-							)}
-						</div>
-					</div>
-				);
-			})}
-			{/* Catch-all column for unstatused tasks */}
-			{unassignedTasks.length > 0 && (
-				<div className="flex w-72 shrink-0 flex-col gap-2.5">
-					<div className="flex items-center gap-2 px-2">
-						<span className="size-1.75 rounded-full bg-muted-foreground/30 shrink-0" />
-						<span className="text-[11px] font-bold text-muted-foreground/50 tracking-[0.08em] uppercase">
-							No Status
-						</span>
-						<span className="ml-auto rounded-full bg-muted/60 px-2 py-0.5 text-[10px] font-bold text-muted-foreground/70 tabular-nums">
-							{unassignedTasks.length}
-						</span>
-					</div>
-					<div className="flex flex-col gap-2 rounded-xl bg-muted/30 dark:bg-black/30 p-2">
-						{unassignedTasks.map((task) => (
-							<TaskCard
-								key={task.id}
-								task={task}
-								statuses={statuses}
-								taskTypes={taskTypes}
-								members={members}
-								canEdit={false}
-								isDragging={draggingId === task.id}
-								onDragStart={(e) => handleDragStart(e, task.id)}
-								onDragEnd={handleDragEnd}
-								onClick={() => onTaskClick(task)}
-							/>
-						))}
-					</div>
+			{effectiveColumnDefs.map((colDef) => (
+				<div
+					key={colDef.key}
+					data-column-key={colDef.key}
+					className="flex w-72 shrink-0 flex-col gap-2.5"
+				>
+					{renderColHeader(colDef)}
+					{renderCellCards(colDef, noSwimAll)}
 				</div>
-			)}
+			))}
 		</div>
 	);
 }

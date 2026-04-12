@@ -9,7 +9,7 @@ import {
 import type { Task } from "@/lib/integration-api";
 import type { TaskStatus, TaskType } from "@/lib/project-api";
 
-import { PRIORITY_LABELS } from "./priority";
+import { getPriority } from "./priority";
 
 interface TaskDetailPanelProps {
 	task: Task | null;
@@ -28,7 +28,7 @@ export function TaskDetailPanel({
 }: TaskDetailPanelProps) {
 	const status = statuses.find((s) => s.id === task?.status_id);
 	const taskType = taskTypes.find((t) => t.id === task?.task_type_id);
-	const priority = PRIORITY_LABELS[task?.importance ?? 0] ?? PRIORITY_LABELS[0];
+	const priority = getPriority(task?.importance ?? 0);
 
 	return (
 		<Sheet open={open} onOpenChange={onOpenChange}>

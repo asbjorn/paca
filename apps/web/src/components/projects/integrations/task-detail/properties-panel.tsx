@@ -1,6 +1,7 @@
 import {
 	ArrowRight,
 	BookOpen,
+	Check,
 	Clock,
 	KanbanSquare,
 	Link2,
@@ -10,11 +11,24 @@ import { useEffect, useState } from "react";
 import type { Sprint, Task } from "@/lib/integration-api";
 import type { ProjectMember, TaskStatus, TaskType } from "@/lib/project-api";
 import { getTaskTypeIconComponent } from "../../task-types/task-type-icons";
+import {
+	IMPORTANCE_BUCKET_VALUES,
+	PRIORITY_LEVELS,
+	getImportanceBucket,
+	getPriority,
+} from "../priority";
 import type { PriorityMeta } from "../priority";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { AddFieldDialog } from "./add-field-dialog";
 import { FieldRow, FieldValue } from "./primitives";
 import type { SelectOption, UserOption } from "./property-field";
 import { PropertyField } from "./property-field";
+import { NumberEditor } from "./property-field/number-editor";
 import type { CustomFieldDef } from "./types";
 
 type UpdatePayload = Partial<{
@@ -176,13 +190,78 @@ export function PropertiesPanel({
 					showUnassigned
 				/>
 
-				<PropertyField
-					label="Importance"
-					mode="number"
-					numberValue={task.importance ?? 0}
-					onNumberChange={(v) => onUpdate?.({ importance: v })}
-					canEdit={canEdit}
-				/>
+				<FieldRow label="Importance">
+					{canEdit ? (
+						<div className="flex items-center gap-2 flex-wrap">
+							<DropdownMenu>
+								<DropdownMenuTrigger className="inline-flex items-center gap-1.5 rounded-full border border-border/30 bg-muted/30 px-3 py-1 text-[12px] font-semibold text-muted-foreground hover:bg-muted/50 hover:border-border/50 transition-all duration-150">
+									{(() => {
+										const bucket = getImportanceBucket(task.importance ?? 0);
+										const level = PRIORITY_LEVELS.find((l) => l.value === bucket);
+										return level ? (
+											<>
+												<span
+													className="size-1.5 rounded-full shrink-0"
+													style={{ background: level.color }}
+												/>
+												{level.label}
+											</>
+										) : (
+											"None"
+										);
+									})()}
+								</DropdownMenuTrigger>
+								<DropdownMenuContent align="start">
+									{PRIORITY_LEVELS.map((level) => {
+										const currentBucket = getImportanceBucket(task.importance ?? 0);
+										return (
+											<DropdownMenuItem
+												key={level.value}
+												onClick={() =>
+													onUpdate?.({
+														importance: IMPORTANCE_BUCKET_VALUES[level.value] ?? 0,
+													})
+												}
+											>
+												<span
+													className="size-2 rounded-full shrink-0 mr-2"
+													style={{ background: level.color }}
+												/>
+												<span style={{ color: level.color }}>{level.label}</span>
+												{currentBucket === level.value && (
+													<Check className="size-3.5 text-primary ml-auto" />
+												)}
+											</DropdownMenuItem>
+										);
+									})}
+								</DropdownMenuContent>
+							</DropdownMenu>
+							<NumberEditor
+								key={task.importance ?? 0}
+								value={task.importance ?? 0}
+								onChange={(v) => onUpdate?.({ importance: v })}
+							/>
+						</div>
+					) : (
+						(() => {
+							const p = getPriority(task.importance ?? 0);
+							return (
+								<div className="flex items-center gap-2 text-[13px] font-medium">
+									<span
+										className="size-2 rounded-full shrink-0"
+										style={{ background: p.color }}
+									/>
+									<span style={{ color: p.color }}>{p.label}</span>
+									{(task.importance ?? 0) > 0 && (
+										<span className="text-muted-foreground tabular-nums">
+											({task.importance})
+										</span>
+									)}
+								</div>
+							);
+						})()
+					)}
+				</FieldRow>
 
 				<PropertyField
 					label="Tags"
