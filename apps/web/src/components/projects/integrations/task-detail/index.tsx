@@ -84,8 +84,8 @@ export function TaskDetailModal({
 	const status = statuses.find((s) => s.id === task?.status_id);
 	const taskType = taskTypes.find((t) => t.id === task?.task_type_id);
 	const priority = getPriority(task?.importance ?? 0);
-	const assignee = members.find((m) => m.user_id === task?.assignee_id);
-	const reporter = members.find((m) => m.user_id === task?.reporter_id);
+	const assignee = members.find((m) => m.id === task?.assignee_id);
+	const reporter = members.find((m) => m.id === task?.reporter_id);
 
 	// ── Title inline edit ─────────────────────────────────────────────────────
 	const [editingTitle, setEditingTitle] = useState(false);

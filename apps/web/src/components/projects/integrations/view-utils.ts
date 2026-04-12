@@ -58,9 +58,9 @@ export function getColumnGroupDefs(
 	if (columnBy === "assignee") {
 		return [
 			...ctx.members.map((m) => ({
-				key: m.user_id,
+				key: m.id,
 				label: m.full_name || m.username,
-				fieldValue: m.user_id,
+				fieldValue: m.id,
 			})),
 			{ key: "__unassigned", label: "Unassigned", fieldValue: null },
 		];

@@ -368,7 +368,7 @@ export function TaskRow({
 
 			case "assignee": {
 				const assignee = task.assignee_id
-					? members.find((m) => m.user_id === task.assignee_id)
+					? members.find((m) => m.id === task.assignee_id)
 					: undefined;
 				return canEditField && members.length > 0 ? (
 					<div
@@ -415,11 +415,11 @@ export function TaskRow({
 								</button>
 								{members.map((m) => (
 									<button
-										key={m.user_id}
-										type="button"
-										className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] hover:bg-muted/60 transition-colors duration-100"
-										onClick={() =>
-											onUpdateTaskField(task.id, { assignee_id: m.user_id })
+									key={m.id}
+									type="button"
+									className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] hover:bg-muted/60 transition-colors duration-100"
+									onClick={() =>
+										onUpdateTaskField(task.id, { assignee_id: m.id })
 										}
 									>
 										<div className="flex size-5 items-center justify-center rounded-full bg-linear-to-br from-primary/20 to-primary/10 text-primary text-[9px] font-bold">
@@ -428,7 +428,7 @@ export function TaskRow({
 										<span className="flex-1 text-left truncate">
 											{m.full_name || m.username}
 										</span>
-										{m.user_id === assignee?.user_id && (
+										{m.id === task.assignee_id && (
 											<Check className="size-3.5 text-primary" />
 										)}
 									</button>
@@ -458,7 +458,7 @@ export function TaskRow({
 
 			case "reporter": {
 				const reporter = task.reporter_id
-					? members.find((m) => m.user_id === task.reporter_id)
+					? members.find((m) => m.id === task.reporter_id)
 					: undefined;
 				return (
 					<div

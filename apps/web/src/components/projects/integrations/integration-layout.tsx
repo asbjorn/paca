@@ -694,15 +694,15 @@ export function IntegrationLayout({
 								</button>
 								{members.map((m) => (
 									<button
-										key={m.user_id}
+										key={m.id}
 										type="button"
 										onClick={() => {
-											setAssigneeFilter(m.user_id);
+											setAssigneeFilter(m.id);
 											setFilterOpen(false);
 										}}
 										className={cn(
 											"flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] hover:bg-muted/60 transition-colors duration-100 text-left",
-											assigneeFilter === m.user_id &&
+											assigneeFilter === m.id &&
 												"text-primary font-medium",
 										)}
 									>

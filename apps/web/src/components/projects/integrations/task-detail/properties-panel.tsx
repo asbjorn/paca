@@ -63,7 +63,7 @@ interface PropertiesPanelProps {
 
 function toUserOption(m: ProjectMember): UserOption {
 	return {
-		value: m.user_id,
+		value: m.id,
 		label: m.full_name || m.username,
 		initials: (m.full_name || m.username).slice(0, 1).toUpperCase(),
 	};
