@@ -47,6 +47,11 @@ type ViewService interface {
 	// MoveTask updates the manual position of a task within a view.
 	MoveTask(ctx context.Context, viewID uuid.UUID, in MoveTaskInput) error
 
+	// BulkMoveTasks updates the manual positions of multiple tasks in a view
+	// within a single transaction.  Useful when a drag materialises null-positioned
+	// neighbours alongside the moved task.
+	BulkMoveTasks(ctx context.Context, viewID uuid.UUID, items []MoveTaskInput) error
+
 	// ListTaskPositions returns the manual ordering for all tasks in a view.
 	ListTaskPositions(ctx context.Context, viewID uuid.UUID) ([]*ViewTaskPosition, error)
 
@@ -67,7 +72,7 @@ type CreateViewInput struct {
 	Name      string
 	ViewType  ViewType
 	Config    ViewConfig
-	Position  int
+	Position  float64
 }
 
 // UpdateViewInput carries mutable view fields.
@@ -75,12 +80,12 @@ type UpdateViewInput struct {
 	Name     *string
 	ViewType *ViewType
 	Config   *ViewConfig
-	Position *int
+	Position *float64
 }
 
 // MoveTaskInput requests a change to a task's manual position in a view.
 type MoveTaskInput struct {
 	TaskID   uuid.UUID
-	Position int
+	Position float64
 	GroupKey *string
 }

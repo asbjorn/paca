@@ -203,6 +203,37 @@ func (h *ViewHandler) MoveTask(c *gin.Context) {
 	presenter.NoContent(c)
 }
 
+// BulkMoveTasks handles PUT /views/:viewId/task-positions.
+// Upserts the manual positions of multiple tasks in a view within a single
+// database transaction.
+func (h *ViewHandler) BulkMoveTasks(c *gin.Context) {
+	viewID, err := parseViewID(c)
+	if err != nil {
+		presenter.Error(c, err)
+		return
+	}
+
+	var req dto.BulkMoveTasksRequest
+	if !middleware.BindJSON(c, &req) {
+		return
+	}
+
+	items := make([]sprintdom.MoveTaskInput, 0, len(req.Items))
+	for _, item := range req.Items {
+		items = append(items, sprintdom.MoveTaskInput{
+			TaskID:   item.TaskID,
+			Position: item.Position,
+			GroupKey: item.GroupKey,
+		})
+	}
+
+	if err := h.svc.BulkMoveTasks(c.Request.Context(), viewID, items); err != nil {
+		presenter.Error(c, err)
+		return
+	}
+	presenter.NoContent(c)
+}
+
 // parseViewID extracts and validates the :viewId path parameter.
 func parseViewID(c *gin.Context) (uuid.UUID, error) {
 	id, err := uuid.Parse(c.Param("viewId"))

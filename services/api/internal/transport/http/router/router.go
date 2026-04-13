@@ -341,6 +341,10 @@ func New(deps Deps) *gin.Engine {
 							),
 							deps.View.ListTaskPositions,
 						)
+						views.PUT("/:viewId/task-positions",
+							httpmw.RequirePermissions(deps.Authorizer, httpmw.ProjectScopeFromParam("projectId"), authz.PermissionTasksWrite),
+							deps.View.BulkMoveTasks,
+						)
 						views.PUT("/:viewId/task-positions/:taskId",
 							httpmw.RequirePermissions(deps.Authorizer, httpmw.ProjectScopeFromParam("projectId"), authz.PermissionTasksWrite),
 							deps.View.MoveTask,
@@ -400,6 +404,10 @@ func New(deps Deps) *gin.Engine {
 								httpmw.PermissionGroup{Scope: httpmw.ProjectScopeFromParam("projectId"), Permissions: []authz.Permission{authz.PermissionTasksRead}},
 							),
 							deps.View.ListTaskPositions,
+						)
+						backlogViews.PUT("/:viewId/task-positions",
+							httpmw.RequirePermissions(deps.Authorizer, httpmw.ProjectScopeFromParam("projectId"), authz.PermissionTasksWrite),
+							deps.View.BulkMoveTasks,
 						)
 						backlogViews.PUT("/:viewId/task-positions/:taskId",
 							httpmw.RequirePermissions(deps.Authorizer, httpmw.ProjectScopeFromParam("projectId"), authz.PermissionTasksWrite),

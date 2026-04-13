@@ -71,7 +71,7 @@ func (h *SprintHandler) CreateSprint(c *gin.Context) {
 	defaultViews := []struct {
 		name     string
 		vt       sprintdom.ViewType
-		position int
+		position float64
 	}{
 		{name: "Board", vt: sprintdom.ViewTypeBoard, position: 0},
 		{name: "Table", vt: sprintdom.ViewTypeTable, position: 1},

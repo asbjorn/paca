@@ -75,7 +75,7 @@ type SprintView struct {
 	Name      string
 	ViewType  ViewType
 	Config    ViewConfig
-	Position  int
+	Position  float64
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
@@ -86,6 +86,6 @@ type ViewTaskPosition struct {
 	ID       uuid.UUID
 	ViewID   uuid.UUID
 	TaskID   uuid.UUID
-	Position int
+	Position float64
 	GroupKey *string
 }

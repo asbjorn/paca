@@ -36,6 +36,10 @@ type ViewRepository interface {
 	// within a view.
 	UpsertTaskPosition(ctx context.Context, pos *ViewTaskPosition) error
 
+	// BulkUpsertTaskPositions stores or updates multiple task positions within a
+	// view in a single transaction.
+	BulkUpsertTaskPositions(ctx context.Context, positions []*ViewTaskPosition) error
+
 	// ListTaskPositions returns all manual positions for a view, ordered by
 	// position ASC.
 	ListTaskPositions(ctx context.Context, viewID uuid.UUID) ([]*ViewTaskPosition, error)
@@ -48,5 +52,5 @@ type ViewRepository interface {
 // ViewReorderItem carries the new position for a single view.
 type ViewReorderItem struct {
 	ID       uuid.UUID
-	Position int
+	Position float64
 }

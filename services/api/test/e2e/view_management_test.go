@@ -507,3 +507,141 @@ func TestE2EBacklogTaskPositionManagement(t *testing.T) {
 		}
 	})
 }
+
+func TestE2EBulkTaskPositionManagement(t *testing.T) {
+	env := newE2EEnv(t)
+	seedTaskMemberUser(t, env, "bulk-pos-user", "bulkpass1")
+	client, token := taskMemberLogin(t, env, "bulk-pos-user", "bulkpass1")
+	projID := createProjectForTasksViaAPI(t, env, client, token)
+	sprintID := createSprintViaAPI(t, env, client, token, projID, "Sprint for Bulk Positions")
+	viewID := createViewViaAPI(t, env, client, token, projID, sprintID, "Bulk Position View", "table")
+
+	// Fixed UUIDs — do not need to exist as actual tasks for position tracking
+	task1 := "11111111-1111-1111-1111-111111111111"
+	task2 := "22222222-2222-2222-2222-222222222222"
+	task3 := "33333333-3333-3333-3333-333333333333"
+
+	bulkURL := fmt.Sprintf("%s/api/v1/projects/%s/sprints/%s/views/%s/task-positions",
+		env.base, projID, sprintID, viewID)
+
+	t.Run("bulk_move_three_tasks", func(t *testing.T) {
+		body := jsonBody(t, map[string]any{
+			"items": []map[string]any{
+				{"task_id": task1, "position": 65536, "group_key": "todo"},
+				{"task_id": task2, "position": 131072, "group_key": "todo"},
+				{"task_id": task3, "position": 196608, "group_key": "in-progress"},
+			},
+		})
+		req := mustRequest(env.ctx, t, http.MethodPut, bulkURL, body)
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+token)
+		resp := mustDo(t, client, req)
+		defer func() { _ = resp.Body.Close() }()
+		assertStatus(t, resp, http.StatusNoContent)
+	})
+
+	t.Run("list_shows_all_three", func(t *testing.T) {
+		req := mustRequest(env.ctx, t, http.MethodGet, bulkURL, nil)
+		req.Header.Set("Authorization", "Bearer "+token)
+		resp := mustDo(t, client, req)
+		defer func() { _ = resp.Body.Close() }()
+		assertStatus(t, resp, http.StatusOK)
+		var env2 envelope
+		decodeJSON(t, resp, &env2)
+		data := assertDataMap(t, env2)
+		items, _ := data["items"].([]any)
+		if len(items) != 3 {
+			t.Fatalf("expected 3 positions, got %d", len(items))
+		}
+	})
+
+	t.Run("bulk_upsert_overwrites_position", func(t *testing.T) {
+		body := jsonBody(t, map[string]any{
+			"items": []map[string]any{
+				{"task_id": task1, "position": 32768, "group_key": "done"},
+			},
+		})
+		req := mustRequest(env.ctx, t, http.MethodPut, bulkURL, body)
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+token)
+		resp := mustDo(t, client, req)
+		defer func() { _ = resp.Body.Close() }()
+		assertStatus(t, resp, http.StatusNoContent)
+
+		// Verify task1 was updated and the other two still exist
+		req2 := mustRequest(env.ctx, t, http.MethodGet, bulkURL, nil)
+		req2.Header.Set("Authorization", "Bearer "+token)
+		resp2 := mustDo(t, client, req2)
+		defer func() { _ = resp2.Body.Close() }()
+		assertStatus(t, resp2, http.StatusOK)
+		var env2 envelope
+		decodeJSON(t, resp2, &env2)
+		data := assertDataMap(t, env2)
+		items, _ := data["items"].([]any)
+		if len(items) != 3 {
+			t.Fatalf("expected 3 positions after upsert, got %d", len(items))
+		}
+		for _, raw := range items {
+			item, _ := raw.(map[string]any)
+			if item["task_id"] == task1 {
+				if item["group_key"] != "done" {
+					t.Errorf("task1 group_key: expected done, got %v", item["group_key"])
+				}
+			}
+		}
+	})
+
+	t.Run("empty_items_rejected", func(t *testing.T) {
+		body := jsonBody(t, map[string]any{"items": []any{}})
+		req := mustRequest(env.ctx, t, http.MethodPut, bulkURL, body)
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+token)
+		resp := mustDo(t, client, req)
+		defer func() { _ = resp.Body.Close() }()
+		assertStatus(t, resp, http.StatusBadRequest)
+	})
+}
+
+func TestE2EBulkBacklogTaskPositionManagement(t *testing.T) {
+	env := newE2EEnv(t)
+	seedTaskMemberUser(t, env, "bulk-backlog-user", "bulkblpass1")
+	client, token := taskMemberLogin(t, env, "bulk-backlog-user", "bulkblpass1")
+	projID := createProjectForTasksViaAPI(t, env, client, token)
+	viewID := createBacklogViewViaAPI(t, env, client, token, projID, "Bulk Backlog View", "table")
+
+	task1 := "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+	task2 := "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"
+
+	bulkURL := fmt.Sprintf("%s/api/v1/projects/%s/product-backlog/views/%s/task-positions",
+		env.base, projID, viewID)
+
+	t.Run("bulk_move", func(t *testing.T) {
+		body := jsonBody(t, map[string]any{
+			"items": []map[string]any{
+				{"task_id": task1, "position": 65536, "group_key": "todo"},
+				{"task_id": task2, "position": 131072},
+			},
+		})
+		req := mustRequest(env.ctx, t, http.MethodPut, bulkURL, body)
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+token)
+		resp := mustDo(t, client, req)
+		defer func() { _ = resp.Body.Close() }()
+		assertStatus(t, resp, http.StatusNoContent)
+	})
+
+	t.Run("list_shows_both", func(t *testing.T) {
+		req := mustRequest(env.ctx, t, http.MethodGet, bulkURL, nil)
+		req.Header.Set("Authorization", "Bearer "+token)
+		resp := mustDo(t, client, req)
+		defer func() { _ = resp.Body.Close() }()
+		assertStatus(t, resp, http.StatusOK)
+		var env2 envelope
+		decodeJSON(t, resp, &env2)
+		data := assertDataMap(t, env2)
+		items, _ := data["items"].([]any)
+		if len(items) != 2 {
+			t.Fatalf("expected 2 backlog positions, got %d", len(items))
+		}
+	})
+}

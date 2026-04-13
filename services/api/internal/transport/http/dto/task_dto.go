@@ -257,7 +257,7 @@ type TaskResponse struct {
 	StartDate    *time.Time     `json:"start_date,omitempty"`
 	DueDate      *time.Time     `json:"due_date,omitempty"`
 	Tags         []string       `json:"tags"`
-	ViewPosition *int           `json:"view_position,omitempty"`
+	ViewPosition *float64       `json:"view_position,omitempty"`
 	ViewGroupKey *string        `json:"view_group_key,omitempty"`
 	CreatedAt    time.Time      `json:"created_at"`
 	UpdatedAt    time.Time      `json:"updated_at"`

@@ -141,6 +141,16 @@ func (r *fakeViewRepoIT) UpsertTaskPosition(_ context.Context, pos *sprintdom.Vi
 	return nil
 }
 
+func (r *fakeViewRepoIT) BulkUpsertTaskPositions(_ context.Context, positions []*sprintdom.ViewTaskPosition) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for _, pos := range positions {
+		cp := *pos
+		r.positions[viewPosKey(pos.ViewID, pos.TaskID)] = &cp
+	}
+	return nil
+}
+
 func (r *fakeViewRepoIT) ListTaskPositions(_ context.Context, viewID uuid.UUID) ([]*sprintdom.ViewTaskPosition, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -462,6 +472,216 @@ func TestIntegrationViews_TaskPositions(t *testing.T) {
 	pos := env.Data.Items[0]
 	if pos["task_id"] != taskID {
 		t.Errorf("task_id mismatch: %v", pos["task_id"])
+	}
+}
+
+func TestIntegrationViews_BulkMoveTasks(t *testing.T) {
+	projectID := uuid.New()
+	store := &projectPermStore{
+		projectPerms: map[uuid.UUID][]authz.Permission{
+			projectID: {
+				authz.PermissionSprintsRead,
+				authz.PermissionSprintsWrite,
+				authz.PermissionTasksRead,
+				authz.PermissionTasksWrite,
+			},
+		},
+	}
+	sprintRepo := newFakeSprintRepoIT()
+	viewRepo := newFakeViewRepoIT()
+	r := buildViewTestRouter(viewRepo, sprintRepo, store)
+	tok := issueViewToken(t, uuid.NewString())
+	sprintID := seedSprintIT(t, sprintRepo, projectID)
+	base := fmt.Sprintf("/api/v1/projects/%s/sprints/%s/views", projectID, sprintID)
+
+	// Create a view to work with
+	createW := serve(r, authedJSONReq(t.Context(), http.MethodPost, base, tok, map[string]any{
+		"name":      "Bulk Test",
+		"view_type": "table",
+	}))
+	if createW.Code != http.StatusCreated {
+		t.Fatalf("create view: expected 201, got %d", createW.Code)
+	}
+	viewID := viewIDFrom(t, createW.Body.Bytes())
+	bulkURL := fmt.Sprintf("%s/%s/task-positions", base, viewID)
+	listURL := bulkURL
+
+	task1 := uuid.NewString()
+	task2 := uuid.NewString()
+	task3 := uuid.NewString()
+
+	// --- happy path: bulk upsert three tasks ---
+	w := serve(r, authedJSONReq(t.Context(), http.MethodPut, bulkURL, tok, map[string]any{
+		"items": []map[string]any{
+			{"task_id": task1, "position": 65536, "group_key": "todo"},
+			{"task_id": task2, "position": 131072, "group_key": "todo"},
+			{"task_id": task3, "position": 196608, "group_key": "in-progress"},
+		},
+	}))
+	if w.Code != http.StatusNoContent {
+		t.Fatalf("bulk move: expected 204, got %d (%s)", w.Code, w.Body.String())
+	}
+
+	// Verify all three are stored
+	listW := serve(r, authedJSONReq(t.Context(), http.MethodGet, listURL, tok, nil))
+	if listW.Code != http.StatusOK {
+		t.Fatalf("list positions: expected 200, got %d", listW.Code)
+	}
+	var env struct {
+		Data struct {
+			Items []map[string]any `json:"items"`
+		} `json:"data"`
+	}
+	if err := json.NewDecoder(listW.Body).Decode(&env); err != nil {
+		t.Fatalf("decode list: %v", err)
+	}
+	if len(env.Data.Items) != 3 {
+		t.Fatalf("expected 3 positions, got %d", len(env.Data.Items))
+	}
+
+	// --- upsert overwrites existing positions ---
+	w2 := serve(r, authedJSONReq(t.Context(), http.MethodPut, bulkURL, tok, map[string]any{
+		"items": []map[string]any{
+			{"task_id": task1, "position": 32768, "group_key": "done"},
+		},
+	}))
+	if w2.Code != http.StatusNoContent {
+		t.Fatalf("upsert existing: expected 204, got %d (%s)", w2.Code, w2.Body.String())
+	}
+
+	// task1 updated + task2/task3 still present = 3 total
+	listW2 := serve(r, authedJSONReq(t.Context(), http.MethodGet, listURL, tok, nil))
+	var env2 struct {
+		Data struct {
+			Items []map[string]any `json:"items"`
+		} `json:"data"`
+	}
+	if err := json.NewDecoder(listW2.Body).Decode(&env2); err != nil {
+		t.Fatalf("decode list2: %v", err)
+	}
+	if len(env2.Data.Items) != 3 {
+		t.Fatalf("expected 3 positions after upsert, got %d", len(env2.Data.Items))
+	}
+	// Find task1 and confirm its group_key was overwritten
+	for _, item := range env2.Data.Items {
+		if item["task_id"] == task1 {
+			if item["group_key"] != "done" {
+				t.Errorf("task1 group_key: expected done, got %v", item["group_key"])
+			}
+		}
+	}
+}
+
+func TestIntegrationViews_BulkMoveTasks_EmptyItems(t *testing.T) {
+	projectID := uuid.New()
+	store := &projectPermStore{
+		projectPerms: map[uuid.UUID][]authz.Permission{
+			projectID: {authz.PermissionSprintsRead, authz.PermissionSprintsWrite, authz.PermissionTasksWrite},
+		},
+	}
+	sprintRepo := newFakeSprintRepoIT()
+	viewRepo := newFakeViewRepoIT()
+	r := buildViewTestRouter(viewRepo, sprintRepo, store)
+	tok := issueViewToken(t, uuid.NewString())
+	sprintID := seedSprintIT(t, sprintRepo, projectID)
+	base := fmt.Sprintf("/api/v1/projects/%s/sprints/%s/views", projectID, sprintID)
+
+	createW := serve(r, authedJSONReq(t.Context(), http.MethodPost, base, tok, map[string]any{
+		"name": "V", "view_type": "table",
+	}))
+	viewID := viewIDFrom(t, createW.Body.Bytes())
+	bulkURL := fmt.Sprintf("%s/%s/task-positions", base, viewID)
+
+	w := serve(r, authedJSONReq(t.Context(), http.MethodPut, bulkURL, tok, map[string]any{
+		"items": []map[string]any{},
+	}))
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("empty items: expected 400, got %d (%s)", w.Code, w.Body.String())
+	}
+}
+
+func TestIntegrationViews_BulkMoveTasks_AuthzGuard(t *testing.T) {
+	projectID := uuid.New()
+	// TasksRead only — no TasksWrite
+	store := &projectPermStore{
+		projectPerms: map[uuid.UUID][]authz.Permission{
+			projectID: {authz.PermissionSprintsRead, authz.PermissionTasksRead},
+		},
+	}
+	sprintRepo := newFakeSprintRepoIT()
+	viewRepo := newFakeViewRepoIT()
+	r := buildViewTestRouter(viewRepo, sprintRepo, store)
+	tok := issueViewToken(t, uuid.NewString())
+	sprintID := seedSprintIT(t, sprintRepo, projectID)
+	base := fmt.Sprintf("/api/v1/projects/%s/sprints/%s/views", projectID, sprintID)
+
+	bulkURL := fmt.Sprintf("%s/%s/task-positions", base, uuid.NewString())
+	w := serve(r, authedJSONReq(t.Context(), http.MethodPut, bulkURL, tok, map[string]any{
+		"items": []map[string]any{
+			{"task_id": uuid.NewString(), "position": 1000},
+		},
+	}))
+	if w.Code != http.StatusForbidden {
+		t.Fatalf("authz guard: expected 403, got %d", w.Code)
+	}
+}
+
+func TestIntegrationBacklogViews_BulkMoveTasks(t *testing.T) {
+	projectID := uuid.New()
+	store := &projectPermStore{
+		projectPerms: map[uuid.UUID][]authz.Permission{
+			projectID: {
+				authz.PermissionSprintsRead,
+				authz.PermissionSprintsWrite,
+				authz.PermissionTasksRead,
+				authz.PermissionTasksWrite,
+			},
+		},
+	}
+	viewRepo := newFakeViewRepoIT()
+	r := buildViewTestRouter(viewRepo, newFakeSprintRepoIT(), store)
+	tok := issueViewToken(t, uuid.NewString())
+	base := fmt.Sprintf("/api/v1/projects/%s/product-backlog/views", projectID)
+
+	// Create a backlog view
+	createW := serve(r, authedJSONReq(t.Context(), http.MethodPost, base, tok, map[string]any{
+		"name":      "Bulk Backlog",
+		"view_type": "table",
+	}))
+	if createW.Code != http.StatusCreated {
+		t.Fatalf("create backlog view: expected 201, got %d", createW.Code)
+	}
+	viewID := viewIDFrom(t, createW.Body.Bytes())
+	bulkURL := fmt.Sprintf("%s/%s/task-positions", base, viewID)
+
+	task1 := uuid.NewString()
+	task2 := uuid.NewString()
+
+	w := serve(r, authedJSONReq(t.Context(), http.MethodPut, bulkURL, tok, map[string]any{
+		"items": []map[string]any{
+			{"task_id": task1, "position": 65536, "group_key": "todo"},
+			{"task_id": task2, "position": 131072},
+		},
+	}))
+	if w.Code != http.StatusNoContent {
+		t.Fatalf("bulk backlog move: expected 204, got %d (%s)", w.Code, w.Body.String())
+	}
+
+	// List and verify both positions were recorded
+	listW := serve(r, authedJSONReq(t.Context(), http.MethodGet, bulkURL, tok, nil))
+	if listW.Code != http.StatusOK {
+		t.Fatalf("list backlog positions: expected 200, got %d", listW.Code)
+	}
+	var env struct {
+		Data struct {
+			Items []map[string]any `json:"items"`
+		} `json:"data"`
+	}
+	if err := json.NewDecoder(listW.Body).Decode(&env); err != nil {
+		t.Fatalf("decode backlog list: %v", err)
+	}
+	if len(env.Data.Items) != 2 {
+		t.Fatalf("expected 2 backlog positions, got %d", len(env.Data.Items))
 	}
 }
 

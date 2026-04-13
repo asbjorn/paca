@@ -142,6 +142,25 @@ func (s *ViewService) MoveTask(ctx context.Context, viewID uuid.UUID, in sprintd
 	return s.repo.UpsertTaskPosition(ctx, pos)
 }
 
+// BulkMoveTasks updates the manual positions of multiple tasks within a view
+// in a single database round-trip.
+func (s *ViewService) BulkMoveTasks(ctx context.Context, viewID uuid.UUID, items []sprintdom.MoveTaskInput) error {
+	if _, err := s.repo.FindViewByID(ctx, viewID); err != nil {
+		return err
+	}
+	positions := make([]*sprintdom.ViewTaskPosition, 0, len(items))
+	for _, in := range items {
+		positions = append(positions, &sprintdom.ViewTaskPosition{
+			ID:       uuid.New(),
+			ViewID:   viewID,
+			TaskID:   in.TaskID,
+			Position: in.Position,
+			GroupKey: in.GroupKey,
+		})
+	}
+	return s.repo.BulkUpsertTaskPositions(ctx, positions)
+}
+
 // ListTaskPositions returns the manual ordering for all tasks in a view.
 func (s *ViewService) ListTaskPositions(ctx context.Context, viewID uuid.UUID) ([]*sprintdom.ViewTaskPosition, error) {
 	if _, err := s.repo.FindViewByID(ctx, viewID); err != nil {
@@ -185,7 +204,7 @@ func (s *ViewService) validateAndReorder(ctx context.Context, existing []*sprint
 		if _, ok := existingSet[id]; !ok {
 			return sprintdom.ErrViewReorderInvalid
 		}
-		items = append(items, sprintdom.ViewReorderItem{ID: id, Position: i})
+		items = append(items, sprintdom.ViewReorderItem{ID: id, Position: float64(i)})
 	}
 	return s.repo.ReorderViews(ctx, items)
 }

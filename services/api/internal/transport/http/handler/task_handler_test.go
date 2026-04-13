@@ -216,6 +216,10 @@ func (f *fakeViewSvcTask) MoveTask(_ context.Context, _ uuid.UUID, _ sprintdom.M
 	return nil
 }
 
+func (f *fakeViewSvcTask) BulkMoveTasks(_ context.Context, _ uuid.UUID, _ []sprintdom.MoveTaskInput) error {
+	return nil
+}
+
 func (f *fakeViewSvcTask) ListTaskPositions(_ context.Context, _ uuid.UUID) ([]*sprintdom.ViewTaskPosition, error) {
 	return nil, nil
 }

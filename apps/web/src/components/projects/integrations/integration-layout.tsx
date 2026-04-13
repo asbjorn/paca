@@ -1,4 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+
+// Upper bound for manual-sort positions.  All computed positions stay strictly
+// inside (0, POSITION_MAX) by always taking midpoints toward the boundaries, so
+// positions can never go negative and never overflow float64.
+const POSITION_MAX = Number.MAX_SAFE_INTEGER; // 2^53 − 1 ≈ 9 × 10^15
 import {
 	ChevronDown,
 	KanbanSquare,
@@ -32,8 +37,8 @@ import {
 	deleteView,
 	type IntegrationView,
 	layoutToViewType,
-	moveBacklogTaskPosition,
-	moveTaskPosition,
+	bulkMoveBacklogTaskPositions,
+	bulkMoveTaskPositions,
 	reorderBacklogViews,
 	reorderViews,
 	sprintTasksQueryOptions,
@@ -351,29 +356,79 @@ export function IntegrationLayout({
 				const [removed] = reordered.splice(srcIdx, 1);
 				reordered.splice(newIndex, 0, removed);
 			}
-			const prev = reordered[newIndex - 1]?.view_position ?? null;
-			const next = reordered[newIndex + 1]?.view_position ?? null;
+
+			// ── Virtual positions for unpositioned tasks ───────────────────────
+			// Null-positioned tasks are ordered by created_at at the bottom of the
+			// sorted list.  To compute correct midpoints when the drag lands next
+			// to one of them, we assign each a virtual position that evenly fills
+			// the range (lastPositionedValue, POSITION_MAX).  The virtual positions
+			// are ordered by the tasks' slots in `reordered` (= their created_at
+			// order, since only `taskId` was moved).
+			const nullNonMoved = reordered.filter(
+				(t) => t.view_position == null && t.id !== taskId,
+			);
+			const lastExplicit = reordered
+				.filter((t) => t.view_position != null)
+				.reduce((max, t) => Math.max(max, t.view_position!), 0);
+			const virtualPosMap = new Map<string, number>();
+			nullNonMoved.forEach((t, i) => {
+				virtualPosMap.set(
+					t.id,
+					lastExplicit +
+						((POSITION_MAX - lastExplicit) * (i + 1)) /
+							(nullNonMoved.length + 1),
+				);
+			});
+			const effectivePos = (t: Task): number =>
+				t.view_position ?? virtualPosMap.get(t.id) ?? POSITION_MAX / 2;
+
+			// ── Compute new position using bounded midpoint rules ──────────────
+			const prevTask = reordered[newIndex - 1];
+			const nextTask = reordered[newIndex + 1];
+			const prev = prevTask ? effectivePos(prevTask) : null;
+			const next = nextTask ? effectivePos(nextTask) : null;
+
 			let position: number;
 			if (prev !== null && next !== null) {
-				position = Math.floor((prev + next) / 2);
+				// Midpoint between neighbours — stays inside (prev, next).
+				position = (prev + next) / 2;
 			} else if (prev !== null) {
-				position = prev + 1000;
+				// Append: midpoint toward ceiling — always < POSITION_MAX.
+				position = (prev + POSITION_MAX) / 2;
 			} else if (next !== null) {
-				position = Math.max(0, next - 1000);
+				// Prepend: midpoint toward zero — always > 0.
+				position = next / 2;
 			} else {
-				position = newIndex * 1000;
+				// Sole task in an all-null group — centre of the full range.
+				position = POSITION_MAX / 2;
 			}
-			const payload = { position, group_key: groupKey };
-			const run = sprintId
-				? moveTaskPosition(
-						projectId,
-						sprintId,
-						effectiveViewId,
-						taskId,
-						payload,
-					)
-				: moveBacklogTaskPosition(projectId, effectiveViewId, taskId, payload);
-			run
+
+			// ── Build update list ──────────────────────────────────────────────
+			// If the drag landed next to at least one null-positioned task, also
+			// materialise all null tasks so their DB positions match the order the
+			// user established (otherwise they revert to created_at on re-render).
+			const updates: Array<{ id: string; pos: number }> = [
+				{ id: taskId, pos: position },
+			];
+			const hasNullNeighbour =
+				(prevTask?.view_position == null && prevTask?.id !== taskId) ||
+				(nextTask?.view_position == null && nextTask?.id !== taskId);
+			if (hasNullNeighbour) {
+				for (const [id, pos] of virtualPosMap.entries()) {
+					updates.push({ id, pos });
+				}
+			}
+
+			const bulkItems = updates.map((u) => ({
+				task_id: u.id,
+				position: u.pos,
+				group_key: groupKey,
+			}));
+			const bulkCall = sprintId
+				? bulkMoveTaskPositions(projectId, sprintId, effectiveViewId, bulkItems)
+				: bulkMoveBacklogTaskPositions(projectId, effectiveViewId, bulkItems);
+
+			bulkCall
 				.then(() => qc.invalidateQueries({ queryKey: tasksBaseQueryKey }))
 				.catch(console.error);
 		},

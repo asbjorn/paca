@@ -88,6 +88,9 @@ func (f *fakeViewSvcH) DeleteView(_ context.Context, _ uuid.UUID) error { return
 func (f *fakeViewSvcH) MoveTask(_ context.Context, _ uuid.UUID, _ sprintdom.MoveTaskInput) error {
 	return nil
 }
+func (f *fakeViewSvcH) BulkMoveTasks(_ context.Context, _ uuid.UUID, _ []sprintdom.MoveTaskInput) error {
+	return nil
+}
 func (f *fakeViewSvcH) ListTaskPositions(_ context.Context, _ uuid.UUID) ([]*sprintdom.ViewTaskPosition, error) {
 	return nil, nil
 }

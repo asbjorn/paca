@@ -216,6 +216,29 @@ export async function moveBacklogTaskPosition(
 	);
 }
 
+export async function bulkMoveTaskPositions(
+	projectId: string,
+	sprintId: string,
+	viewId: string,
+	items: Array<{ task_id: string; position: number; group_key?: string | null }>,
+): Promise<void> {
+	await apiClient.instance.put(
+		`/projects/${projectId}/sprints/${sprintId}/views/${viewId}/task-positions`,
+		{ items },
+	);
+}
+
+export async function bulkMoveBacklogTaskPositions(
+	projectId: string,
+	viewId: string,
+	items: Array<{ task_id: string; position: number; group_key?: string | null }>,
+): Promise<void> {
+	await apiClient.instance.put(
+		`/projects/${projectId}/product-backlog/views/${viewId}/task-positions`,
+		{ items },
+	);
+}
+
 export async function reorderViews(
 	projectId: string,
 	sprintId: string,

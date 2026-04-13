@@ -23,7 +23,7 @@ type sprintViewRecord struct {
 	Name      string  `gorm:"not null"`
 	ViewType  string  `gorm:"not null;column:view_type;default:table"`
 	Config    []byte  `gorm:"type:jsonb;not null;column:config"`
-	Position  int     `gorm:"not null;default:0"`
+	Position  float64 `gorm:"not null;default:0"`
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
@@ -34,7 +34,7 @@ type viewTaskPositionRecord struct {
 	ID       string  `gorm:"primarykey;type:uuid"`
 	ViewID   string  `gorm:"type:uuid;not null;column:view_id"`
 	TaskID   string  `gorm:"type:uuid;not null;column:task_id"`
-	Position int     `gorm:"not null;default:0"`
+	Position float64 `gorm:"not null;default:0"`
 	GroupKey *string `gorm:"type:text;column:group_key"`
 }
 
@@ -203,6 +203,32 @@ func (r *ViewRepository) UpsertTaskPosition(ctx context.Context, pos *sprintdom.
 	}).Create(rec)
 	if result.Error != nil {
 		return fmt.Errorf("view repo: upsert task position: %w", result.Error)
+	}
+	return nil
+}
+
+// BulkUpsertTaskPositions stores or updates multiple task positions in a single
+// transaction.  A single INSERT … ON CONFLICT statement is used when possible.
+func (r *ViewRepository) BulkUpsertTaskPositions(ctx context.Context, positions []*sprintdom.ViewTaskPosition) error {
+	if len(positions) == 0 {
+		return nil
+	}
+	recs := make([]viewTaskPositionRecord, 0, len(positions))
+	for _, pos := range positions {
+		recs = append(recs, viewTaskPositionRecord{
+			ID:       pos.ID.String(),
+			ViewID:   pos.ViewID.String(),
+			TaskID:   pos.TaskID.String(),
+			Position: pos.Position,
+			GroupKey: pos.GroupKey,
+		})
+	}
+	result := r.db.WithContext(ctx).Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "view_id"}, {Name: "task_id"}},
+		DoUpdates: clause.AssignmentColumns([]string{"position", "group_key"}),
+	}).Create(&recs)
+	if result.Error != nil {
+		return fmt.Errorf("view repo: bulk upsert task positions: %w", result.Error)
 	}
 	return nil
 }

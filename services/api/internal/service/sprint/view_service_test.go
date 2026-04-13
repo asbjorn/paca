@@ -130,6 +130,16 @@ func (r *fakeViewRepo) UpsertTaskPosition(_ context.Context, pos *sprintdom.View
 	return nil
 }
 
+func (r *fakeViewRepo) BulkUpsertTaskPositions(_ context.Context, positions []*sprintdom.ViewTaskPosition) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for _, pos := range positions {
+		cp := *pos
+		r.positions[posKey(pos.ViewID, pos.TaskID)] = &cp
+	}
+	return nil
+}
+
 func (r *fakeViewRepo) ListTaskPositions(_ context.Context, viewID uuid.UUID) ([]*sprintdom.ViewTaskPosition, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -390,7 +400,7 @@ func TestViewService_MoveTask_OK(t *testing.T) {
 		t.Errorf("task_id mismatch")
 	}
 	if positions[0].Position != 3 {
-		t.Errorf("expected position=3, got %d", positions[0].Position)
+		t.Errorf("expected position=3, got %g", positions[0].Position)
 	}
 }
 
@@ -593,13 +603,13 @@ func TestViewService_ReorderViews_OK(t *testing.T) {
 	updated3, _ := svc.GetView(ctx, v3.ID)
 
 	if updated3.Position != 0 {
-		t.Errorf("C: expected position=0, got %d", updated3.Position)
+		t.Errorf("C: expected position=0, got %g", updated3.Position)
 	}
 	if updated1.Position != 1 {
-		t.Errorf("A: expected position=1, got %d", updated1.Position)
+		t.Errorf("A: expected position=1, got %g", updated1.Position)
 	}
 	if updated2.Position != 2 {
-		t.Errorf("B: expected position=2, got %d", updated2.Position)
+		t.Errorf("B: expected position=2, got %g", updated2.Position)
 	}
 }
 
@@ -658,9 +668,9 @@ func TestViewService_ReorderBacklogViews_OK(t *testing.T) {
 	updB1, _ := svc.GetView(ctx, b1.ID)
 	updB2, _ := svc.GetView(ctx, b2.ID)
 	if updB2.Position != 0 {
-		t.Errorf("Y: expected position=0, got %d", updB2.Position)
+		t.Errorf("Y: expected position=0, got %g", updB2.Position)
 	}
 	if updB1.Position != 1 {
-		t.Errorf("X: expected position=1, got %d", updB1.Position)
+		t.Errorf("X: expected position=1, got %g", updB1.Position)
 	}
 }

@@ -224,7 +224,7 @@ CREATE TABLE IF NOT EXISTS sprint_views (
     view_type  TEXT        NOT NULL DEFAULT 'table'
                            CHECK (view_type IN ('table','board','roadmap')),
     config     JSONB       NOT NULL DEFAULT '{}'::jsonb,
-    position   INTEGER     NOT NULL DEFAULT 0,
+    position   DOUBLE PRECISION NOT NULL DEFAULT 0,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -245,7 +245,7 @@ CREATE TABLE IF NOT EXISTS view_task_positions (
     id        UUID    PRIMARY KEY DEFAULT gen_random_uuid(),
     view_id   UUID    NOT NULL REFERENCES sprint_views(id) ON DELETE CASCADE,
     task_id   UUID    NOT NULL,
-    position  INTEGER NOT NULL DEFAULT 0,
+    position  DOUBLE PRECISION NOT NULL DEFAULT 0,
     group_key TEXT,
     CONSTRAINT uq_view_task_positions_view_task UNIQUE (view_id, task_id)
 );
