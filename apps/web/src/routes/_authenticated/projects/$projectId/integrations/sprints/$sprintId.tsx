@@ -12,6 +12,7 @@ import {
 	updateSprint,
 	updateTask,
 } from "@/lib/integration-api";
+import { taskStatusesQueryOptions } from "@/lib/project-api";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute(
@@ -46,6 +47,9 @@ function SprintPage() {
 	const { data: tasksResult } = useQuery(
 		sprintTasksQueryOptions(projectId, sprintId),
 	);
+	const { data: taskStatuses = [] } = useQuery(
+		taskStatusesQueryOptions(projectId),
+	);
 
 	const canCreate = hasPermission("tasks.write");
 	const canEdit = hasPermission("tasks.write");
@@ -57,16 +61,25 @@ function SprintPage() {
 
 	const sprintTasks = tasksResult?.items ?? [];
 
+	const doneStatusIds = new Set(
+		taskStatuses
+			.filter((s) => s.category === "done")
+			.map((s) => s.id),
+	);
+	const incompleteTasks = sprintTasks.filter(
+		(t) => !t.status_id || !doneStatusIds.has(t.status_id),
+	);
+
 	const otherSprints = allSprints.filter(
 		(s) => s.id !== sprintId && s.status !== "completed",
 	);
 
 	const completeSprintMutation = useMutation({
 		mutationFn: async () => {
-			// Move all tasks in the sprint to the chosen sprint/backlog
-			if (sprintTasks.length > 0) {
+			// Move only tasks that are NOT in a "done" status category
+			if (incompleteTasks.length > 0) {
 				await Promise.all(
-					sprintTasks.map((t) =>
+					incompleteTasks.map((t) =>
 						updateTask(projectId, t.id, {
 							sprint_id: moveToSprintId ?? null,
 						}),
@@ -161,12 +174,12 @@ function SprintPage() {
 							Complete sprint
 						</h2>
 						<p className="text-[13px] text-muted-foreground mb-5">
-							{sprintTasks.length > 0
-								? `${sprintTasks.length} task${sprintTasks.length === 1 ? "" : "s"} will be moved to:`
-								: "No tasks remain in this sprint."}
+							{incompleteTasks.length > 0
+								? `${incompleteTasks.length} incomplete task${incompleteTasks.length === 1 ? "" : "s"} will be moved to:`
+								: "No incomplete tasks remain in this sprint."}
 						</p>
 
-						{sprintTasks.length > 0 && (
+						{incompleteTasks.length > 0 && (
 							<div className="flex flex-col gap-2 mb-5">
 								{/* Backlog option */}
 								<label
