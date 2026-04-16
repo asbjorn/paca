@@ -10,4 +10,17 @@ var (
 	ErrFileSizeZero       = errors.New("file size must be greater than zero")
 	ErrFileNameEmpty      = errors.New("file name must not be empty")
 	ErrContentTypeEmpty   = errors.New("content type must not be empty")
+
+	// ErrMultipartUploadIDRequired is returned when a file was initiated as a
+	// multipart upload but the caller did not supply an upload_id on complete.
+	ErrMultipartUploadIDRequired = errors.New("multipart upload requires an upload_id")
+	// ErrNotMultipartUpload is returned when the caller supplies an upload_id
+	// but the file was not initiated as a multipart upload.
+	ErrNotMultipartUpload = errors.New("file was not initiated as a multipart upload")
+	// ErrUploadIDMismatch is returned when the provided upload_id does not
+	// match the upload session stored on the file record.
+	ErrUploadIDMismatch = errors.New("upload_id does not match the recorded multipart upload session")
+	// ErrMultipartPartsEmpty is returned when a multipart complete request
+	// contains no parts.
+	ErrMultipartPartsEmpty = errors.New("multipart upload requires at least one part")
 )

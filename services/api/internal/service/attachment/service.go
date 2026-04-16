@@ -108,7 +108,21 @@ func (s *Service) CompleteUpload(ctx context.Context, in attachmentdom.CompleteU
 		return nil, attachmentdom.ErrUploadNotPending
 	}
 
-	if in.UploadID != nil {
+	switch {
+	case f.MultipartUploadID != nil && in.UploadID == nil:
+		// File was initiated as multipart but caller did not provide an upload ID.
+		return nil, attachmentdom.ErrMultipartUploadIDRequired
+	case f.MultipartUploadID == nil && in.UploadID != nil:
+		// Caller supplied an upload ID but the file is not a multipart upload.
+		return nil, attachmentdom.ErrNotMultipartUpload
+	case f.MultipartUploadID != nil && in.UploadID != nil:
+		// Both are present: verify they refer to the same session.
+		if *in.UploadID != *f.MultipartUploadID {
+			return nil, attachmentdom.ErrUploadIDMismatch
+		}
+		if len(in.Parts) == 0 {
+			return nil, attachmentdom.ErrMultipartPartsEmpty
+		}
 		// Complete the multipart upload with the storage provider.
 		parts := make([]storage.CompletedPart, 0, len(in.Parts))
 		for _, p := range in.Parts {
