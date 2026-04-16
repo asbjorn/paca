@@ -6,7 +6,7 @@ import {
 	Plus,
 	Trash2,
 } from "lucide-react";
-import { useState } from "react";
+import { type CSSProperties, useState } from "react";
 import {
 	type BDDScenario,
 	bddScenariosQueryOptions,
@@ -54,6 +54,7 @@ function ClauseRow({
 				{label}
 			</span>
 			<textarea
+				aria-label={label}
 				value={value}
 				onChange={(e) => onChange(e.target.value)}
 				onBlur={onBlur}
@@ -61,7 +62,7 @@ function ClauseRow({
 				rows={1}
 				placeholder={placeholder}
 				className="flex-1 min-h-7 resize-none bg-transparent text-[12.5px] leading-relaxed text-foreground/90 outline-none placeholder:text-muted-foreground/40 disabled:opacity-60 focus:placeholder:text-muted-foreground/60 transition-colors py-0.5"
-				style={{ fieldSizing: "content" } as React.CSSProperties}
+				style={{ fieldSizing: "content" } as CSSProperties}
 			/>
 		</div>
 	);
@@ -138,6 +139,7 @@ function ScenarioCard({
 						ref={(el) => {
 							el?.focus();
 						}}
+						aria-label="Scenario title"
 						value={titleDraft}
 						onChange={(e) => setTitleDraft(e.target.value)}
 						onBlur={() => {
@@ -271,6 +273,7 @@ function NewScenarioForm({
 				ref={(el) => {
 					el?.focus();
 				}}
+				aria-label="Scenario title"
 				value={title}
 				onChange={(e) => setTitle(e.target.value)}
 				placeholder="Scenario title…"
