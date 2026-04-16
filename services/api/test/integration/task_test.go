@@ -2686,7 +2686,9 @@ func TestBDDScenarios_Update(t *testing.T) {
 			Given string `json:"given"`
 		} `json:"data"`
 	}
-	json.Unmarshal(patchW.Body.Bytes(), &env)
+	if err := json.Unmarshal(patchW.Body.Bytes(), &env); err != nil {
+		t.Fatalf("json.Unmarshal env: %v", err)
+	}
 	if env.Data.Title != "Updated" {
 		t.Errorf("expected title 'Updated', got %q", env.Data.Title)
 	}

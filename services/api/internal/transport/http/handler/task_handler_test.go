@@ -882,7 +882,9 @@ func TestBDDScenarioHandler_UpdateAndGet(t *testing.T) {
 			ID string `json:"id"`
 		} `json:"data"`
 	}
-	json.Unmarshal(createW.Body.Bytes(), &createEnv)
+	if err := json.Unmarshal(createW.Body.Bytes(), &createEnv); err != nil {
+		t.Fatalf("json.Unmarshal createEnv: %v", err)
+	}
 	scenarioID := createEnv.Data.ID
 
 	// Patch title.
@@ -908,7 +910,9 @@ func TestBDDScenarioHandler_UpdateAndGet(t *testing.T) {
 			Title string `json:"title"`
 		} `json:"data"`
 	}
-	json.Unmarshal(getW.Body.Bytes(), &getEnv)
+	if err := json.Unmarshal(getW.Body.Bytes(), &getEnv); err != nil {
+		t.Fatalf("json.Unmarshal getEnv: %v", err)
+	}
 	if getEnv.Data.Title != newTitle {
 		t.Errorf("expected title %q, got %q", newTitle, getEnv.Data.Title)
 	}
@@ -938,7 +942,9 @@ func TestBDDScenarioHandler_Delete(t *testing.T) {
 			ID string `json:"id"`
 		} `json:"data"`
 	}
-	json.Unmarshal(createW.Body.Bytes(), &createEnv)
+	if err := json.Unmarshal(createW.Body.Bytes(), &createEnv); err != nil {
+		t.Fatalf("json.Unmarshal createEnv: %v", err)
+	}
 	scenarioID := createEnv.Data.ID
 
 	// Delete.
@@ -960,7 +966,9 @@ func TestBDDScenarioHandler_Delete(t *testing.T) {
 			Items []any `json:"items"`
 		} `json:"data"`
 	}
-	json.Unmarshal(listW.Body.Bytes(), &listEnv)
+	if err := json.Unmarshal(listW.Body.Bytes(), &listEnv); err != nil {
+		t.Fatalf("json.Unmarshal listEnv: %v", err)
+	}
 	if len(listEnv.Data.Items) != 0 {
 		t.Errorf("expected 0 items after delete, got %d", len(listEnv.Data.Items))
 	}

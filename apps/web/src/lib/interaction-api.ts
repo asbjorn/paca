@@ -677,9 +677,7 @@ export async function updateBDDScenario(
 	scenarioId: string,
 	payload: UpdateBDDScenarioPayload,
 ): Promise<BDDScenario> {
-	const { data } = await apiClient.instance.patch<
-		SuccessEnvelope<BDDScenario>
-	>(
+	const { data } = await apiClient.instance.patch<SuccessEnvelope<BDDScenario>>(
 		`/projects/${projectId}/tasks/${taskId}/bdd-scenarios/${scenarioId}`,
 		payload,
 	);
@@ -703,4 +701,3 @@ export const bddScenariosQueryOptions = (projectId: string, taskId: string) =>
 		staleTime: 15_000,
 		enabled: !!projectId && !!taskId,
 	});
-

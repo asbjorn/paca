@@ -1,12 +1,18 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, ChevronRight, FlaskConical, Plus, Trash2 } from "lucide-react";
+import {
+	ChevronDown,
+	ChevronRight,
+	FlaskConical,
+	Plus,
+	Trash2,
+} from "lucide-react";
 import { useState } from "react";
 import {
+	type BDDScenario,
 	bddScenariosQueryOptions,
 	createBDDScenario,
 	deleteBDDScenario,
 	updateBDDScenario,
-	type BDDScenario,
 } from "@/lib/interaction-api";
 import { cn } from "@/lib/utils";
 
@@ -105,73 +111,84 @@ function ScenarioCard({
 	};
 
 	return (
-		<div data-testid="bdd-scenario-card" className="rounded-xl border border-border/25 bg-card/50 overflow-hidden">
-			{/* Header row — clicking anywhere toggles expand/collapse */}
-			{/* biome-ignore lint/a11y/useKeyWithClickEvents: chevron + title area provide keyboard access */}
-			<div
-				className="flex items-center gap-2 px-4 py-3 group/scenario cursor-pointer select-none"
-				onClick={() => setExpanded((x) => !x)}
-				aria-expanded={expanded}
-			>
-			{expanded ? (
-				<ChevronDown className="size-3.5 shrink-0 text-muted-foreground/70" />
-			) : (
-				<ChevronRight className="size-3.5 shrink-0 text-muted-foreground/70" />
-			)}
-
-			{editTitle && canEdit ? (
-				<input
-					autoFocus
-					value={titleDraft}
-					onChange={(e) => setTitleDraft(e.target.value)}
-					onBlur={() => {
-						setEditTitle(false);
-						const trimmed = titleDraft.trim();
-						if (trimmed && trimmed !== scenario.title) {
-							updateMut.mutate({ title: trimmed });
-						} else {
-							setTitleDraft(scenario.title);
-						}
-					}}
-					onKeyDown={(e) => {
-						if (e.key === "Enter" || e.key === "Escape") {
-							e.currentTarget.blur();
-						}
-					}}
-					onClick={(e) => e.stopPropagation()}
-					className="flex-1 bg-transparent text-[13px] font-semibold text-foreground outline-none"
-				/>
-			) : (
-				<span
-					className={cn(
-						"flex-1 text-[13px] font-semibold text-foreground truncate",
-						canEdit && "hover:cursor-text",
-					)}
-					onClick={(e) => {
-						if (!canEdit) return;
-						e.stopPropagation();
-						setExpanded(true);
-						setEditTitle(true);
-					}}
-				>
-					{scenario.title || <span className="italic text-muted-foreground/60">Untitled scenario</span>}
-				</span>
-			)}
-
-			{canEdit && (
+		<div
+			data-testid="bdd-scenario-card"
+			className="rounded-xl border border-border/25 bg-card/50 overflow-hidden"
+		>
+			{/* Header row */}
+			<div className="flex items-center gap-2 px-4 py-3 group/scenario">
+				{/* Expand/collapse button */}
 				<button
 					type="button"
-					onClick={(e) => {
-						e.stopPropagation();
-						deleteMut.mutate();
-					}}
-					disabled={deleteMut.isPending}
-					className="opacity-0 group-hover/scenario:opacity-100 ml-1 shrink-0 rounded-md p-1 text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10 transition-all duration-150"
-					aria-label="Delete scenario"
+					className="shrink-0 p-0 text-muted-foreground/70 cursor-pointer"
+					onClick={() => setExpanded((x) => !x)}
+					aria-expanded={expanded}
+					aria-label={expanded ? "Collapse scenario" : "Expand scenario"}
 				>
-					<Trash2 className="size-3.5" />
+					{expanded ? (
+						<ChevronDown className="size-3.5" />
+					) : (
+						<ChevronRight className="size-3.5" />
+					)}
 				</button>
-			)}
+
+				{/* Title area */}
+				{editTitle && canEdit ? (
+					<input
+						ref={(el) => {
+							el?.focus();
+						}}
+						value={titleDraft}
+						onChange={(e) => setTitleDraft(e.target.value)}
+						onBlur={() => {
+							setEditTitle(false);
+							const trimmed = titleDraft.trim();
+							if (trimmed && trimmed !== scenario.title) {
+								updateMut.mutate({ title: trimmed });
+							} else {
+								setTitleDraft(scenario.title);
+							}
+						}}
+						onKeyDown={(e) => {
+							if (e.key === "Enter" || e.key === "Escape") {
+								e.currentTarget.blur();
+							}
+						}}
+						className="flex-1 bg-transparent text-[13px] font-semibold text-foreground outline-none"
+					/>
+				) : (
+					<button
+						type="button"
+						disabled={!canEdit}
+						className={cn(
+							"flex-1 text-left text-[13px] font-semibold text-foreground truncate",
+							canEdit && "hover:cursor-text",
+						)}
+						onClick={() => {
+							if (!canEdit) return;
+							setExpanded(true);
+							setEditTitle(true);
+						}}
+					>
+						{scenario.title || (
+							<span className="italic text-muted-foreground/60">
+								Untitled scenario
+							</span>
+						)}
+					</button>
+				)}
+
+				{canEdit && (
+					<button
+						type="button"
+						onClick={() => deleteMut.mutate()}
+						disabled={deleteMut.isPending}
+						className="opacity-0 group-hover/scenario:opacity-100 ml-1 shrink-0 rounded-md p-1 text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10 transition-all duration-150"
+						aria-label="Delete scenario"
+					>
+						<Trash2 className="size-3.5" />
+					</button>
+				)}
 			</div>
 
 			{/* Expanded body: Given / When / Then */}
@@ -237,6 +254,7 @@ function NewScenarioForm({
 				title: title.trim(),
 				given: given.trim(),
 				when: when.trim(),
+				// biome-ignore lint/suspicious/noThenProperty: "then" is a BDD domain field
 				then: then.trim(),
 			}),
 		onSuccess: () => {
@@ -250,7 +268,9 @@ function NewScenarioForm({
 	return (
 		<div className="rounded-xl border border-primary/25 bg-card/60 ring-1 ring-primary/20 p-4 space-y-3">
 			<input
-				autoFocus
+				ref={(el) => {
+					el?.focus();
+				}}
 				value={title}
 				onChange={(e) => setTitle(e.target.value)}
 				placeholder="Scenario title…"

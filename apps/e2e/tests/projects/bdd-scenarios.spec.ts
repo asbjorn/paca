@@ -104,6 +104,7 @@ async function createBDDScenario(
         title: payload.title,
         given: payload.given ?? '',
         when: payload.when ?? '',
+        // biome-ignore lint/suspicious/noThenProperty: "then" is a BDD domain field
         then: payload.then ?? '',
       },
     },

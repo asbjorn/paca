@@ -221,7 +221,8 @@ func httpStatusForCode(code apierr.Code) int {
 		apierr.CodeTaskStatusNotFound,
 		apierr.CodeSprintNotFound,
 		apierr.CodeViewNotFound,
-		apierr.CodeCustomFieldNotFound:
+		apierr.CodeCustomFieldNotFound,
+		apierr.CodeBDDScenarioNotFound:
 		return http.StatusNotFound
 	case apierr.CodeTaskTitleInvalid,
 		apierr.CodeTaskTypeNameInvalid,
@@ -234,7 +235,8 @@ func httpStatusForCode(code apierr.Code) int {
 		apierr.CodeViewReorderInvalid,
 		apierr.CodeCustomFieldKeyInvalid,
 		apierr.CodeCustomFieldTypeInvalid,
-		apierr.CodeCustomFieldNameInvalid:
+		apierr.CodeCustomFieldNameInvalid,
+		apierr.CodeBDDScenarioTitleInvalid:
 		return http.StatusBadRequest
 	case apierr.CodeViewIsLastView,
 		apierr.CodeSprintAlreadyComplete,

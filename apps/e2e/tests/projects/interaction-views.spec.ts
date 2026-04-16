@@ -158,14 +158,14 @@ const navigateToSprint = async (page: Page, projectId: string, sprintId: string)
 
 test.describe('Entering an interaction opens its default view', () => {
   let projectId: string;
-  let boardViewId: string;
+  let _boardViewId: string;
 
   test.beforeEach(async ({ request, context }) => {
     await cleanupTestProjects(request);
     projectId = await createProject(request, `${TEST_PROJECT_PREFIX}VIEWS_${RUN_ID}`);
     // Project already has a default Table view; only add a Board view
     const boardView = await createBacklogView(request, projectId, 'Board', 'board');
-    boardViewId = boardView.id;
+    _boardViewId = boardView.id;
     await context.clearCookies();
     await context.clearPermissions();
   });
@@ -577,12 +577,12 @@ test.describe('Table view layout and task display', () => {
 test.describe('Creating a task from the board view', () => {
   test.setTimeout(60_000);
   let projectId: string;
-  let statuses: TaskStatus[];
+  let _statuses: TaskStatus[];
 
   test.beforeEach(async ({ request, context }) => {
     await cleanupTestProjects(request);
     projectId = await createProject(request, `${TEST_PROJECT_PREFIX}CREATE_B_${RUN_ID}`);
-    statuses = await getTaskStatuses(request, projectId);
+    _statuses = await getTaskStatuses(request, projectId);
     await createBacklogView(request, projectId, 'Board', 'board');
     await context.clearCookies();
     await context.clearPermissions();
@@ -663,12 +663,12 @@ test.describe('Creating a task from the board view', () => {
 test.describe('Creating a task from the table view', () => {
   test.setTimeout(60_000);
   let projectId: string;
-  let statuses: TaskStatus[];
+  let _statuses: TaskStatus[];
 
   test.beforeEach(async ({ request, context }) => {
     await cleanupTestProjects(request);
     projectId = await createProject(request, `${TEST_PROJECT_PREFIX}CREATE_T_${RUN_ID}`);
-    statuses = await getTaskStatuses(request, projectId);
+    _statuses = await getTaskStatuses(request, projectId);
     // Project already has a default Table view; no additional view creation needed
     await context.clearCookies();
     await context.clearPermissions();
@@ -853,6 +853,7 @@ test.describe('Managing views (create, rename, delete)', () => {
       if (!renameItem) throw new Error('Rename view menuitem not found');
       const propsKey = Object.keys(renameItem).find((k) => k.startsWith('__reactProps'));
       if (!propsKey) throw new Error('No React props found on menuitem');
+      // biome-ignore lint/suspicious/noExplicitAny: React internal props require dynamic access
       const props = (renameItem as any)[propsKey];
       if (props.onSelect) props.onSelect(new Event('select'));
     });
@@ -896,6 +897,7 @@ test.describe('Managing views (create, rename, delete)', () => {
       if (!deleteItem) throw new Error('Delete view menuitem not found');
       const propsKey = Object.keys(deleteItem).find((k) => k.startsWith('__reactProps'));
       if (!propsKey) throw new Error('No React props found on menuitem');
+      // biome-ignore lint/suspicious/noExplicitAny: React internal props require dynamic access
       const props = (deleteItem as any)[propsKey];
       if (props.onSelect) props.onSelect(new Event('select'));
     });
@@ -1260,7 +1262,7 @@ test.describe('Manual task sort order within a view', () => {
     await page.getByRole('button', { name: 'Manual Table' }).click();
 
     // Task row should show a drag handle (GripVertical icon)
-    const taskRow = page.getByText(`${TEST_PROJECT_PREFIX}DRAG_ROW`).locator('xpath=ancestor::div[contains(@class,"group")]');
+    const _taskRow = page.getByText(`${TEST_PROJECT_PREFIX}DRAG_ROW`).locator('xpath=ancestor::div[contains(@class,"group")]');
     // The drag handle is a sibling element with the grip icon
     await expect(page.locator('[class*="cursor-grab"]').first()).toBeVisible();
   });

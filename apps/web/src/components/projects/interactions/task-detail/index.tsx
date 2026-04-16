@@ -344,14 +344,14 @@ export function TaskDetailModal({
 							canEdit={canEdit}
 							onUpdate={handleUpdate}
 						/>
-							{/* BDD Scenarios */}
-							{projectId && (
-								<BDDScenariosSection
-									projectId={projectId}
-									taskId={task.id}
-									canEdit={canEdit}
-								/>
-							)}
+						{/* BDD Scenarios */}
+						{projectId && (
+							<BDDScenariosSection
+								projectId={projectId}
+								taskId={task.id}
+								canEdit={canEdit}
+							/>
+						)}
 						{/* Subtasks / Tasks section – hidden for subtasks */}
 						{taskRole !== "subtask" && (
 							<SubtasksSection
