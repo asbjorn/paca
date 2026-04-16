@@ -166,6 +166,10 @@ func statusAndCodeFor(err error) (int, apierr.Code) {
 		return http.StatusBadRequest, apierr.CodeCustomFieldTypeInvalid
 	case errors.Is(err, taskdom.ErrCustomFieldNameInvalid):
 		return http.StatusBadRequest, apierr.CodeCustomFieldNameInvalid
+	case errors.Is(err, taskdom.ErrBDDScenarioNotFound):
+		return http.StatusNotFound, apierr.CodeBDDScenarioNotFound
+	case errors.Is(err, taskdom.ErrBDDScenarioTitleInvalid):
+		return http.StatusBadRequest, apierr.CodeBDDScenarioTitleInvalid
 	default:
 		return http.StatusInternalServerError, apierr.CodeInternalError
 	}

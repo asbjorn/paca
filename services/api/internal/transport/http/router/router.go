@@ -383,6 +383,37 @@ func New(deps Deps) *gin.Engine {
 						httpmw.RequirePermissions(deps.Authorizer, httpmw.ProjectScopeFromParam("projectId"), authz.PermissionTasksWrite),
 						deps.Task.DeleteTask,
 					)
+
+					// BDD scenarios — task-level acceptance criteria
+					bddScenarios := tasks.Group("/:taskId/bdd-scenarios")
+					{
+						bddScenarios.GET("",
+							httpmw.RequireAnyPermissions(deps.Authorizer,
+								httpmw.PermissionGroup{Scope: httpmw.GlobalScope(), Permissions: []authz.Permission{authz.PermissionProjectsRead}},
+								httpmw.PermissionGroup{Scope: httpmw.ProjectScopeFromParam("projectId"), Permissions: []authz.Permission{authz.PermissionTasksRead}},
+							),
+							deps.Task.ListBDDScenarios,
+						)
+						bddScenarios.POST("",
+							httpmw.RequirePermissions(deps.Authorizer, httpmw.ProjectScopeFromParam("projectId"), authz.PermissionTasksWrite),
+							deps.Task.CreateBDDScenario,
+						)
+						bddScenarios.GET("/:scenarioId",
+							httpmw.RequireAnyPermissions(deps.Authorizer,
+								httpmw.PermissionGroup{Scope: httpmw.GlobalScope(), Permissions: []authz.Permission{authz.PermissionProjectsRead}},
+								httpmw.PermissionGroup{Scope: httpmw.ProjectScopeFromParam("projectId"), Permissions: []authz.Permission{authz.PermissionTasksRead}},
+							),
+							deps.Task.GetBDDScenario,
+						)
+						bddScenarios.PATCH("/:scenarioId",
+							httpmw.RequirePermissions(deps.Authorizer, httpmw.ProjectScopeFromParam("projectId"), authz.PermissionTasksWrite),
+							deps.Task.UpdateBDDScenario,
+						)
+						bddScenarios.DELETE("/:scenarioId",
+							httpmw.RequirePermissions(deps.Authorizer, httpmw.ProjectScopeFromParam("projectId"), authz.PermissionTasksWrite),
+							deps.Task.DeleteBDDScenario,
+						)
+					}
 				}
 
 				// Custom field definitions — project-level schema

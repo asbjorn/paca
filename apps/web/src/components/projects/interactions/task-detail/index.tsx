@@ -24,6 +24,7 @@ import { getTaskTypeIconComponent } from "../../task-types/task-type-icons";
 import { getPriority } from "../priority";
 import { ActivityPane } from "./activity-pane";
 import { AttachmentsSection } from "./attachments-section";
+import { BDDScenariosSection } from "./bdd-scenarios-section";
 import { ChecklistsSection } from "./checklists-section";
 import { DescriptionSection } from "./description-section";
 import { mapApiFieldToUi } from "./helpers";
@@ -343,7 +344,14 @@ export function TaskDetailModal({
 							canEdit={canEdit}
 							onUpdate={handleUpdate}
 						/>
-
+							{/* BDD Scenarios */}
+							{projectId && (
+								<BDDScenariosSection
+									projectId={projectId}
+									taskId={task.id}
+									canEdit={canEdit}
+								/>
+							)}
 						{/* Subtasks / Tasks section – hidden for subtasks */}
 						{taskRole !== "subtask" && (
 							<SubtasksSection

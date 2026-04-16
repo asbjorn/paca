@@ -21,4 +21,7 @@ var (
 	ErrCustomFieldKeyTaken    = errors.New("custom field: key already in use within project")
 	ErrCustomFieldTypeInvalid = errors.New("custom field: invalid field type")
 	ErrCustomFieldNameInvalid = errors.New("custom field: display name is empty or invalid")
+
+	ErrBDDScenarioNotFound     = errors.New("bdd scenario: not found")
+	ErrBDDScenarioTitleInvalid = errors.New("bdd scenario: title is empty or invalid")
 )

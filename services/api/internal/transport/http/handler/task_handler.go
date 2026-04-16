@@ -758,3 +758,115 @@ func (h *TaskHandler) ListTimelineTasks(c *gin.Context) {
 	}
 	presenter.OK(c, gin.H{"items": resp, "total": total, "page": page, "page_size": pageSize})
 }
+
+// --- BDD Scenarios ----------------------------------------------------------
+
+// parseBDDScenarioID parses the :scenarioId path parameter.
+func parseBDDScenarioID(c *gin.Context) (uuid.UUID, error) {
+	id, err := uuid.Parse(c.Param("scenarioId"))
+	if err != nil {
+		return uuid.Nil, apierr.New(apierr.CodeBadRequest, "invalid scenario id")
+	}
+	return id, nil
+}
+
+// ListBDDScenarios handles GET /projects/:projectId/tasks/:taskId/bdd-scenarios.
+func (h *TaskHandler) ListBDDScenarios(c *gin.Context) {
+	taskID, err := parseTaskID(c)
+	if err != nil {
+		presenter.Error(c, err)
+		return
+	}
+	scenarios, err := h.svc.ListBDDScenarios(c.Request.Context(), taskID)
+	if err != nil {
+		presenter.Error(c, err)
+		return
+	}
+	resp := make([]dto.BDDScenarioResponse, 0, len(scenarios))
+	for _, s := range scenarios {
+		resp = append(resp, dto.BDDScenarioFromEntity(s))
+	}
+	presenter.OK(c, gin.H{"items": resp})
+}
+
+// CreateBDDScenario handles POST /projects/:projectId/tasks/:taskId/bdd-scenarios.
+func (h *TaskHandler) CreateBDDScenario(c *gin.Context) {
+	taskID, err := parseTaskID(c)
+	if err != nil {
+		presenter.Error(c, err)
+		return
+	}
+
+	var req dto.CreateBDDScenarioRequest
+	if !middleware.BindJSON(c, &req) {
+		return
+	}
+
+	scenario, err := h.svc.CreateBDDScenario(c.Request.Context(), taskdom.CreateBDDScenarioInput{
+		TaskID: taskID,
+		Title:  req.Title,
+		Given:  req.Given,
+		When:   req.When,
+		Then:   req.Then,
+	})
+	if err != nil {
+		presenter.Error(c, err)
+		return
+	}
+	presenter.Created(c, dto.BDDScenarioFromEntity(scenario))
+}
+
+// GetBDDScenario handles GET /projects/:projectId/tasks/:taskId/bdd-scenarios/:scenarioId.
+func (h *TaskHandler) GetBDDScenario(c *gin.Context) {
+	scenarioID, err := parseBDDScenarioID(c)
+	if err != nil {
+		presenter.Error(c, err)
+		return
+	}
+	scenario, err := h.svc.GetBDDScenario(c.Request.Context(), scenarioID)
+	if err != nil {
+		presenter.Error(c, err)
+		return
+	}
+	presenter.OK(c, dto.BDDScenarioFromEntity(scenario))
+}
+
+// UpdateBDDScenario handles PATCH /projects/:projectId/tasks/:taskId/bdd-scenarios/:scenarioId.
+func (h *TaskHandler) UpdateBDDScenario(c *gin.Context) {
+	scenarioID, err := parseBDDScenarioID(c)
+	if err != nil {
+		presenter.Error(c, err)
+		return
+	}
+
+	var req dto.UpdateBDDScenarioRequest
+	if !middleware.BindJSON(c, &req) {
+		return
+	}
+
+	scenario, err := h.svc.UpdateBDDScenario(c.Request.Context(), scenarioID, taskdom.UpdateBDDScenarioInput{
+		Title: req.Title,
+		Given: req.Given,
+		When:  req.When,
+		Then:  req.Then,
+	})
+	if err != nil {
+		presenter.Error(c, err)
+		return
+	}
+	presenter.OK(c, dto.BDDScenarioFromEntity(scenario))
+}
+
+// DeleteBDDScenario handles DELETE /projects/:projectId/tasks/:taskId/bdd-scenarios/:scenarioId.
+func (h *TaskHandler) DeleteBDDScenario(c *gin.Context) {
+	scenarioID, err := parseBDDScenarioID(c)
+	if err != nil {
+		presenter.Error(c, err)
+		return
+	}
+	if err := h.svc.DeleteBDDScenario(c.Request.Context(), scenarioID); err != nil {
+		presenter.Error(c, err)
+		return
+	}
+	presenter.OK(c, gin.H{"message": "bdd scenario deleted"})
+}

@@ -3,6 +3,7 @@ package database
 
 import (
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 
@@ -31,6 +32,33 @@ func RunMigrations(db *gorm.DB, migrationsDir string) error {
 
 		if err := db.Exec(string(data)).Error; err != nil {
 			return fmt.Errorf("migrations: exec %q: %w", path, err)
+		}
+	}
+
+	return nil
+}
+
+// RunMigrationsFS executes all *.sql files found in the root of fsys (in
+// lexicographic order) against db.  Use this with an embedded FS for
+// zero-configuration startup migration in non-production environments.
+func RunMigrationsFS(db *gorm.DB, fsys fs.FS) error {
+	entries, err := fs.ReadDir(fsys, ".")
+	if err != nil {
+		return fmt.Errorf("migrations: read dir: %w", err)
+	}
+
+	for _, e := range entries {
+		if e.IsDir() || filepath.Ext(e.Name()) != ".sql" {
+			continue
+		}
+
+		data, err := fs.ReadFile(fsys, e.Name())
+		if err != nil {
+			return fmt.Errorf("migrations: read %q: %w", e.Name(), err)
+		}
+
+		if err := db.Exec(string(data)).Error; err != nil {
+			return fmt.Errorf("migrations: exec %q: %w", e.Name(), err)
 		}
 	}
 

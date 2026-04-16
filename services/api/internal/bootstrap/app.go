@@ -32,6 +32,7 @@ import (
 	usersvc "github.com/paca/api/internal/service/user"
 	"github.com/paca/api/internal/transport/http/handler"
 	"github.com/paca/api/internal/transport/http/router"
+	"github.com/paca/api/migrations"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
@@ -77,15 +78,16 @@ func New(cfg *config.Config) (*App, error) {
 	viewRepo := pgRepo.NewViewRepository(db)
 	refreshStore := redisRepo.NewRefreshTokenStore(redisClient)
 
-	if err := db.AutoMigrate(
-		&userModel{},
-		&projectModel{},
-		&projectRoleModel{},
-		&projectMemberModel{},
-		&globalRoleModel{},
-		&userGlobalRoleModel{},
-	); err != nil {
-		return nil, fmt.Errorf("bootstrap: migrate role tables: %w", err)
+	// --- Schema migration (non-production only) -----------------------------
+	// In development the embedded SQL migrations are run on every startup so
+	// that a fresh database is always in the correct state without requiring
+	// a manual migration step.  All statements use CREATE TABLE IF NOT EXISTS
+	// / INSERT … ON CONFLICT so they are idempotent and safe to re-run.
+	if cfg.Env != "production" {
+		if err := database.RunMigrationsFS(db, migrations.FS); err != nil {
+			return nil, fmt.Errorf("bootstrap: auto-migrate: %w", err)
+		}
+		log.Info("schema migrations applied")
 	}
 
 	// --- Admin seeding -------------------------------------------------------
@@ -144,54 +146,8 @@ func New(cfg *config.Config) (*App, error) {
 	return &App{server: srv, publisher: publisher, log: log}, nil
 }
 
-// userModel is used only for startup AutoMigrate to ensure the users table
-// has the role_id and must_change_password columns in development without
-// running SQL migrations.
-type userModel struct {
-	ID                 string `gorm:"primarykey;type:uuid"`
-	Username           string `gorm:"uniqueIndex;not null"`
-	PasswordHash       string `gorm:"not null"`
-	FullName           string `gorm:"column:full_name"`
-	RoleID             string `gorm:"column:role_id;type:uuid;not null"`
-	MustChangePassword bool   `gorm:"column:must_change_password;not null;default:false"`
-	CreatedAt          time.Time
-	UpdatedAt          time.Time
-	DeletedAt          gorm.DeletedAt `gorm:"index"`
-}
-
-func (userModel) TableName() string { return "users" }
-
-// globalRoleModel is used only for startup AutoMigrate to ensure the planned
-// admin tables exist in development environments.
-type globalRoleModel struct {
-	ID          string `gorm:"primarykey;type:uuid"`
-	Name        string `gorm:"uniqueIndex;not null"`
-	Permissions []byte `gorm:"type:jsonb;not null"`
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
-}
-
-func (globalRoleModel) TableName() string { return "global_roles" }
-
-// userGlobalRoleModel keeps the user-role relationship table aligned.
-type userGlobalRoleModel struct {
-	UserID string `gorm:"primaryKey;type:uuid;column:user_id"`
-	RoleID string `gorm:"primaryKey;type:uuid;column:role_id"`
-}
-
-func (userGlobalRoleModel) TableName() string { return "user_global_roles" }
-
-type projectModel struct {
-	ID          string `gorm:"primarykey;type:uuid"`
-	Name        string `gorm:"not null"`
-	Description string
-	Settings    []byte `gorm:"type:jsonb;not null"`
-	CreatedBy   *string
-	CreatedAt   time.Time
-}
-
-func (projectModel) TableName() string { return "projects" }
-
+// projectRoleModel is the GORM model used by seedDefaultProjectRoleTemplates
+// to upsert canonical project-role permission sets on startup.
 type projectRoleModel struct {
 	ID          string  `gorm:"primarykey;type:uuid"`
 	ProjectID   *string `gorm:"type:uuid;column:project_id;index"`
@@ -202,15 +158,6 @@ type projectRoleModel struct {
 }
 
 func (projectRoleModel) TableName() string { return "project_roles" }
-
-type projectMemberModel struct {
-	ID            string `gorm:"primarykey;type:uuid"`
-	ProjectID     string `gorm:"type:uuid;column:project_id;index"`
-	UserID        string `gorm:"type:uuid;column:user_id;index"`
-	ProjectRoleID string `gorm:"type:uuid;column:project_role_id;index"`
-}
-
-func (projectMemberModel) TableName() string { return "project_members" }
 
 // Run starts the HTTP server.  It returns when the server stops.
 func (a *App) Run() error {

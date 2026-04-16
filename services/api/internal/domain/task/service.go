@@ -13,6 +13,7 @@ type Service interface {
 	TaskStatusService
 	TaskService
 	CustomFieldDefinitionService
+	BDDScenarioService
 }
 
 // --- Task Type Service -----------------------------------------------------
@@ -159,4 +160,33 @@ type UpdateCustomFieldDefinitionInput struct {
 	FieldType   *FieldType
 	Options     []string
 	IsRequired  *bool
+}
+
+// --- BDD Scenario Service --------------------------------------------------
+
+// BDDScenarioService defines BDD scenario use cases.
+type BDDScenarioService interface {
+	ListBDDScenarios(ctx context.Context, taskID uuid.UUID) ([]*BDDScenario, error)
+	GetBDDScenario(ctx context.Context, id uuid.UUID) (*BDDScenario, error)
+	CreateBDDScenario(ctx context.Context, in CreateBDDScenarioInput) (*BDDScenario, error)
+	UpdateBDDScenario(ctx context.Context, id uuid.UUID, in UpdateBDDScenarioInput) (*BDDScenario, error)
+	DeleteBDDScenario(ctx context.Context, id uuid.UUID) error
+}
+
+// CreateBDDScenarioInput carries fields required to create a BDD scenario.
+type CreateBDDScenarioInput struct {
+	TaskID uuid.UUID
+	Title  string
+	Given  string
+	When   string
+	Then   string
+}
+
+// UpdateBDDScenarioInput carries mutable BDD scenario fields.
+// A nil pointer means the field was absent and should not be overwritten.
+type UpdateBDDScenarioInput struct {
+	Title *string
+	Given *string
+	When  *string
+	Then  *string
 }
