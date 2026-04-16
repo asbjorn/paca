@@ -4,9 +4,11 @@ package attachmentsvc
 import (
 	"context"
 	"fmt"
+	"mime"
 	"path"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/google/uuid"
 	attachmentdom "github.com/paca/api/internal/domain/attachment"
@@ -176,7 +178,24 @@ func (s *Service) GetDownloadURL(ctx context.Context, attachmentID uuid.UUID, tt
 
 	contentDisposition := ""
 	if forceDownload {
-		contentDisposition = `attachment; filename="` + f.FileName + `"`
+		// Strip ASCII control characters (including CR and LF) to prevent header
+		// injection, then use mime.FormatMediaType which produces a correctly
+		// RFC-quoted or RFC-5987-encoded filename parameter.
+		safeName := strings.Map(func(r rune) rune {
+			if unicode.IsControl(r) {
+				return -1
+			}
+			return r
+		}, f.FileName)
+		if safeName == "" {
+			safeName = "file"
+		}
+		cd := mime.FormatMediaType("attachment", map[string]string{"filename": safeName})
+		if cd == "" {
+			// Fallback: bare disposition without a filename parameter.
+			cd = "attachment"
+		}
+		contentDisposition = cd
 	}
 
 	bucket := f.Bucket
