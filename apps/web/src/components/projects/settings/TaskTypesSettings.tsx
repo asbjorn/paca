@@ -180,6 +180,7 @@ export function TaskTypesSettings({
 														onClick={() => setDefaultMutation.mutate(type.id)}
 														disabled={setDefaultMutation.isPending}
 														title="Set as default type"
+														aria-label="Set as default type"
 													>
 														<Star className="size-3.5" />
 													</Button>
@@ -189,6 +190,7 @@ export function TaskTypesSettings({
 													size="icon-sm"
 													onClick={() => setEditType(type)}
 													title="Edit type"
+													aria-label="Edit type"
 												>
 													<Edit2 className="size-3.5" />
 												</Button>
@@ -198,6 +200,7 @@ export function TaskTypesSettings({
 													className="text-destructive hover:text-destructive hover:bg-destructive/10"
 													onClick={() => setDeleteType(type)}
 													title="Delete type"
+													aria-label="Delete type"
 												>
 													<Trash2 className="size-3.5" />
 												</Button>

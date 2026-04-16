@@ -48,6 +48,17 @@ export function StartSprintModal({
 		}
 	}, [sprint, open]);
 
+	// Register a document-level keydown listener while the modal is open so
+	// Escape works regardless of which element currently has focus
+	useEffect(() => {
+		if (!open) return;
+		const handleKeyDown = (e: KeyboardEvent) => {
+			if (e.key === "Escape") onOpenChange(false);
+		};
+		document.addEventListener("keydown", handleKeyDown);
+		return () => document.removeEventListener("keydown", handleKeyDown);
+	}, [open, onOpenChange]);
+
 	if (!open) return null;
 
 	const handleSubmit = async () => {
@@ -72,9 +83,6 @@ export function StartSprintModal({
 			className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
 			onClick={(e) => {
 				if (e.target === e.currentTarget) onOpenChange(false);
-			}}
-			onKeyDown={(e) => {
-				if (e.key === "Escape") onOpenChange(false);
 			}}
 		>
 			{/* biome-ignore lint/a11y/noStaticElementInteractions: modal panel */}
