@@ -138,6 +138,7 @@ func (s *Service) CreateTaskStatus(ctx context.Context, in taskdom.CreateTaskSta
 		ProjectID: in.ProjectID,
 		Name:      name,
 		Color:     in.Color,
+		Position:  in.Position,
 		Category:  in.Category,
 		CreatedAt: now,
 		UpdatedAt: now,
