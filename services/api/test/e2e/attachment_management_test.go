@@ -141,7 +141,6 @@ func TestE2EAttachmentManagement_CRUD(t *testing.T) {
 			t.Fatalf("PUT to presigned URL: %v", err)
 		}
 		defer func() { _ = putResp.Body.Close() }()
-		_, _ = io.Discard.Write(nil) // ensure body read
 		if putResp.StatusCode != http.StatusOK {
 			body, _ := io.ReadAll(putResp.Body)
 			t.Fatalf("PUT to presigned URL returned %d: %s", putResp.StatusCode, body)
