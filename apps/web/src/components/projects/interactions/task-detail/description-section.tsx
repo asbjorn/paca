@@ -125,7 +125,7 @@ export function DescriptionSection({
 
 	// Save when focus leaves the entire editor container (mirrors title onBlur).
 	const handleBlur = useCallback(
-		(e: React.FocusEvent<HTMLFieldSetElement>) => {
+		(e: React.FocusEvent<HTMLDivElement>) => {
 			// relatedTarget is the element receiving focus next.
 			// If it's still inside this container, it's an internal focus move — don't save.
 			if (e.currentTarget.contains(e.relatedTarget as Node)) return;
@@ -150,8 +150,9 @@ export function DescriptionSection({
 				</button>
 			</div>
 
-			<fieldset
-				className="rounded-xl border border-border/25 bg-card/50 hover:border-border/50 transition-all duration-200 [&_.bn-editor]:min-h-20 [&_.bn-editor]:py-3 [&_.bn-editor]:text-[14px] [&_.bn-editor]:leading-relaxed"
+			{/* biome-ignore lint/a11y/noStaticElementInteractions: wrapper captures blur from BlockNote rich-text editor */}
+			<div
+				className="rounded-xl border border-border/25 bg-card/50 hover:border-border/50 transition-all duration-200 overflow-hidden [&_.bn-editor]:min-h-20 [&_.bn-editor]:py-3 [&_.bn-editor]:text-[14px] [&_.bn-editor]:leading-relaxed"
 				onBlur={handleBlur}
 			>
 				<BlockNoteView
@@ -161,7 +162,7 @@ export function DescriptionSection({
 					theme={resolvedMode}
 					className="bn-shadcn"
 				/>
-			</fieldset>
+			</div>
 		</div>
 	);
 }
