@@ -93,14 +93,6 @@ CREATE TABLE IF NOT EXISTS project_members (
         ON DELETE RESTRICT
 );
 
--- Ensure columns added by this migration exist on upgraded databases that
--- already have the project_members table without them.
-ALTER TABLE project_members ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
-ALTER TABLE project_members ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
-
--- Drop the old non-partial unique constraint if it exists (replaced below).
-ALTER TABLE project_members DROP CONSTRAINT IF EXISTS uq_project_members_project_user;
-
 -- Unique active membership per project+user (soft-deleted rows are excluded).
 CREATE UNIQUE INDEX IF NOT EXISTS uq_project_members_active
     ON project_members (project_id, user_id)
