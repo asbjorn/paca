@@ -3,6 +3,24 @@
 @import "tw-animate-css";
 @plugin "@tailwindcss/typography";
 
+/* Path to installed @blocknote/shadcn package for Tailwind class scanning. */
+@source "../node_modules/@blocknote/shadcn";
+
+/*
+ * BlockNote floating menus (side menu, formatting toolbar, slash menu) render
+ * in a portal appended to <body> with z-index: calc(--bn-ui-base-z-index + 20).
+ * The task-detail modal panel uses z-50 (z-index: 50). Setting the base to 50
+ * ensures all BlockNote menus appear above the modal (50 + 20 = 70).
+ *
+ * Use `.bn-root.bn-shadcn` (specificity 0,2,0) so this wins over BlockNote's
+ * own `.bn-root { --bn-ui-base-z-index: 0 }` rule (0,1,0) regardless of which
+ * stylesheet is injected last. The @blocknote/shadcn BlockNoteView always adds
+ * the `bn-shadcn` class to the portal element, so this selector always matches.
+ */
+.bn-root.bn-shadcn {
+	--bn-ui-base-z-index: 50;
+}
+
 @custom-variant dark (&:is(.dark *));
 
 :root {
@@ -396,5 +414,9 @@ a {
 	body {
 		background-color: var(--background);
 		color: var(--foreground);
+	}
+	/* BlockNote shadcn integration — required border styles */
+	.bn-shadcn * {
+		@apply border-border outline-ring/50;
 	}
 }

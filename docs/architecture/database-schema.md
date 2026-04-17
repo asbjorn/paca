@@ -8,7 +8,7 @@ Interactive diagram: [https://dbdiagram.io/d/Paca-69c212ae78c6c4bc7a4fc190](http
 
 | File | Purpose |
 |---|---|
-| `000001_init.sql` | Full consolidated schema: `global_roles`, `users`, projects, project roles/members, task configuration (`task_types`, `task_statuses`), `sprints`, `sprint_views` (with `view_type`, `config`, `position`), `view_task_positions` (manual task order), `custom_field_definitions`, `tasks` (with `start_date`, `due_date`, `tags`), `task_attachments`, `task_checklists`, `task_checklist_items`, `bdd_scenarios` (id, task_id, title, given_text, when_text, then_text, timestamps — no position field), seed data. On project creation the seed inserts three user-manageable task types (Bug, Story, Task — where Task is `is_default = true`) and two system task types (Epic, Subtask — where `is_system = true`). The API now seeds one backlog Table view with `config.column_by = "sprint"` and non-system task types, plus one timeline Roadmap view filtered to Epics; sprint creation seeds Board and Table views scoped to that sprint. |
+| `000001_init.sql` | Full consolidated schema: `global_roles`, `users`, projects, project roles/members, task configuration (`task_types`, `task_statuses`), `sprints`, `sprint_views` (with `view_type`, `config`, `position`), `view_task_positions` (manual task order), `custom_field_definitions`, `tasks` (with `task_number`, `start_date`, `due_date`, `tags`, `description` as JSONB BlockNote blocks), `task_attachments`, `task_checklists`, `task_checklist_items`, `bdd_scenarios` (id, task_id, title, given_text, when_text, then_text, timestamps — no position field), seed data. On project creation the seed inserts three user-manageable task types (Bug, Story, Task — where Task is `is_default = true`) and two system task types (Epic, Subtask — where `is_system = true`). The API now seeds one backlog Table view with `config.column_by = "sprint"` and non-system task types, plus one timeline Roadmap view filtered to Epics; sprint creation seeds Board and Table views scoped to that sprint. |
 | `000002_add_view_context.sql` | Adds `view_context TEXT NOT NULL` to `sprint_views` with a `CHECK` constraint (`'sprint'\|'backlog'\|'timeline'`). Replaces the previous `is_timeline` boolean approach. Back-fills existing sprint rows to `'sprint'` and project-level (backlog) rows to `'backlog'`. Adds a partial index `idx_sprint_views_context` on `(project_id, view_context) WHERE sprint_id IS NULL` to speed up project-level view lookups. |
 
 ## Schema (DBML)
@@ -88,12 +88,13 @@ Table task_statuses {
 Table tasks {
   id uuid [primary key]
   project_id uuid
+  task_number bigint [not null, default: 0, note: 'Project-scoped sequential ID (1, 2, 3, …) assigned at creation and never reused. Unique per project via uq_tasks_project_task_number constraint.']
   task_type_id uuid
   status_id uuid
   sprint_id uuid
   parent_task_id uuid [null]
   title varchar
-  description text
+  description jsonb [null, note: 'BlockNote rich-text document stored as a JSON array of block objects. null means no description. Each block object follows the BlockNote schema: { id, type, props, content, children }.']
   importance integer [not null, default: 0, note: 'unsigned; higher = more important']
   assignee_id uuid
   reporter_id uuid
@@ -103,6 +104,7 @@ Table tasks {
   tags jsonb [not null, default: '[]']
   created_at timestamp
   updated_at timestamp
+  deleted_at timestamp [null, note: 'Soft-delete timestamp. Non-null rows are excluded from normal queries.']
 }
 
 Table custom_field_definitions {

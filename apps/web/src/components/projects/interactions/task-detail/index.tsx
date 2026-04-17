@@ -342,6 +342,8 @@ export function TaskDetailModal({
 						<DescriptionSection
 							description={task.description}
 							canEdit={canEdit}
+							projectId={projectId}
+							taskId={task.id}
 							onUpdate={handleUpdate}
 						/>
 						{/* BDD Scenarios */}

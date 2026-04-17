@@ -1,35 +1,122 @@
-import { FileText, Sparkles } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import "@blocknote/core/fonts/inter.css";
+import "@blocknote/shadcn/style.css";
 
-type UpdateFn = (payload: { description?: string | null }) => void;
+import { useCreateBlockNote } from "@blocknote/react";
+import { BlockNoteView } from "@blocknote/shadcn";
+import { Sparkles } from "lucide-react";
+import { useCallback, useEffect, useRef } from "react";
+
+import {
+	getAttachmentDownloadURL,
+	uploadAttachment,
+} from "@/lib/attachment-api";
+import { useThemeMode } from "@/hooks/use-theme-mode";
+
+type UpdateFn = (payload: { description?: unknown[] | null }) => void;
 
 interface DescriptionSectionProps {
-	description?: string | null;
+	description?: unknown[] | null;
 	canEdit?: boolean;
+	projectId?: string;
+	taskId?: string;
 	onUpdate?: UpdateFn;
 }
+
+/** Custom URI scheme used to store attachment references in the markdown. */
+const ATTACHMENT_SCHEME = "attachment://";
 
 export function DescriptionSection({
 	description,
 	canEdit = true,
+	projectId,
+	taskId,
 	onUpdate,
 }: DescriptionSectionProps) {
-	const [editing, setEditing] = useState(false);
-	const [draft, setDraft] = useState(description ?? "");
-	const textareaRef = useRef<HTMLTextAreaElement>(null);
+	const { resolvedMode } = useThemeMode();
 
-	// Sync draft when description changes externally (e.g. after a save)
+	const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	// Tracks the last value we wrote to the API, to avoid redundant saves and
+	// to skip external refetch updates that match what we already have.
+	const lastSavedRef = useRef<string | null>(null);
+	// Whether the editor has been initialized with the description content.
+	const initializedRef = useRef(false);
+
+	// Keep projectId / taskId in refs so the stable editor callbacks always
+	// reference the latest prop values without recreating the editor.
+	const projectIdRef = useRef(projectId);
+	const taskIdRef = useRef(taskId);
 	useEffect(() => {
-		if (!editing) setDraft(description ?? "");
-	}, [description, editing]);
+		projectIdRef.current = projectId;
+	}, [projectId]);
+	useEffect(() => {
+		taskIdRef.current = taskId;
+	}, [taskId]);
 
-	const commitEdit = () => {
-		setEditing(false);
-		const value = draft.trim() || null;
-		if (value !== (description ?? null)) {
-			onUpdate?.({ description: value });
+	const editor = useCreateBlockNote({
+		/**
+		 * Called by BlockNote when the user inserts an image / file / video / audio.
+		 * Uploads via the task attachment API and returns a stable custom URI.
+		 */
+		uploadFile: async (file: File) => {
+			const pId = projectIdRef.current;
+			const tId = taskIdRef.current;
+			if (!pId || !tId) throw new Error("No project/task context for upload");
+			const attachment = await uploadAttachment(pId, tId, file);
+			// Store as a stable custom URI; presigned URL is fetched on-demand.
+			return `${ATTACHMENT_SCHEME}${pId}/${tId}/${attachment.id}`;
+		},
+
+		/**
+		 * Called by BlockNote whenever it needs to display a file URL.
+		 * Converts our custom `attachment://` URI into a fresh presigned URL.
+		 */
+		resolveFileUrl: async (url: string) => {
+			if (!url.startsWith(ATTACHMENT_SCHEME)) return url;
+			// URI format: attachment://{projectId}/{taskId}/{attachmentId}
+			const path = url.slice(ATTACHMENT_SCHEME.length);
+			const [pId, tId, attachmentId] = path.split("/");
+			if (!pId || !tId || !attachmentId) return url;
+			return getAttachmentDownloadURL(pId, tId, attachmentId);
+		},
+	});
+
+	// Populate the editor from BlockNote JSON whenever description changes
+	// externally (initial load or server refetch that differs from what we saved).
+	useEffect(() => {
+		const normalized = description ?? null;
+		// Stringify for stable comparison (array identity changes on every response)
+		const normalizedStr = normalized ? JSON.stringify(normalized) : null;
+		if (initializedRef.current && normalizedStr === lastSavedRef.current) return;
+		initializedRef.current = true;
+		lastSavedRef.current = normalizedStr;
+
+		let blocks: Parameters<typeof editor.replaceBlocks>[1] | undefined;
+		if (normalized && Array.isArray(normalized) && normalized.length > 0) {
+			blocks = normalized as Parameters<typeof editor.replaceBlocks>[1];
 		}
-	};
+		editor.replaceBlocks(editor.document, blocks ?? []);
+	}, [description, editor]);
+
+	const handleChange = useCallback(() => {
+		if (!canEdit) return;
+		if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+		saveTimerRef.current = setTimeout(() => {
+			const blocks = editor.document;
+			// Consider empty when there is only one empty paragraph block
+			const isEmpty =
+				blocks.length === 1 &&
+				blocks[0].type === "paragraph" &&
+				Array.isArray(blocks[0].content) &&
+				blocks[0].content.length === 0;
+
+			const value: unknown[] | null = isEmpty ? null : (blocks as unknown[]);
+			const valueStr = value ? JSON.stringify(value) : null;
+			if (valueStr !== lastSavedRef.current) {
+				lastSavedRef.current = valueStr;
+				onUpdate?.({ description: value });
+			}
+		}, 600);
+	}, [canEdit, editor, onUpdate]);
 
 	return (
 		<div className="space-y-3">
@@ -47,61 +134,16 @@ export function DescriptionSection({
 				</button>
 			</div>
 
-			{editing ? (
-				<textarea
-					ref={textareaRef}
-					value={draft}
-					onChange={(e) => setDraft(e.target.value)}
-					onBlur={commitEdit}
-					onKeyDown={(e) => {
-						if (e.key === "Escape") {
-							setDraft(description ?? "");
-							setEditing(false);
-						}
-					}}
-					placeholder="Add description…"
-					className="w-full min-h-35 resize-y rounded-xl border-2 border-primary/30 bg-muted/20 px-5 py-4 text-[14px] text-foreground leading-relaxed whitespace-pre-wrap outline-none focus:border-primary/50 focus:bg-muted/30 transition-all duration-150"
+			<div className="rounded-xl border border-border/25 bg-card/50 hover:border-border/50 transition-all duration-200 [&_.bn-editor]:min-h-20 [&_.bn-editor]:py-3 [&_.bn-editor]:text-[14px] [&_.bn-editor]:leading-relaxed">
+				<BlockNoteView
+					editor={editor}
+					editable={canEdit}
+					onChange={handleChange}
+					theme={resolvedMode}
+					className="bn-shadcn"
 				/>
-			) : description ? (
-				// biome-ignore lint/a11y/noStaticElementInteractions: click-to-edit description
-				// biome-ignore lint/a11y/useKeyWithClickEvents: click-to-edit description
-				<div
-					className="rounded-xl border border-border/25 bg-card/50 px-5 py-4 cursor-text hover:border-border/50 hover:bg-card/80 transition-all duration-200 group/desc"
-					onClick={() => {
-						if (!canEdit) return;
-						setDraft(description);
-						setEditing(true);
-					}}
-				>
-					<p className="text-[14px] text-foreground whitespace-pre-wrap leading-relaxed">
-						{description}
-					</p>
-					{canEdit && (
-						<span className="block mt-2 text-[11px] text-muted-foreground/45 opacity-0 group-hover/desc:opacity-100 transition-opacity duration-200">
-							Click to edit
-						</span>
-					)}
-				</div>
-			) : (
-				<button
-					type="button"
-					onClick={() => {
-						if (!canEdit) return;
-						setDraft("");
-						setEditing(true);
-					}}
-					className="w-full rounded-xl border-2 border-dashed border-border/25 bg-muted/10 px-5 py-6 text-left hover:border-border/50 hover:bg-muted/20 transition-all duration-200 group/add"
-				>
-					<div className="flex items-center gap-3">
-						<div className="flex size-8 items-center justify-center rounded-lg bg-muted/40 text-muted-foreground/45 group-hover/add:text-muted-foreground/70 transition-colors">
-							<FileText className="size-4" />
-						</div>
-						<span className="text-[13px] text-muted-foreground/60 group-hover/add:text-muted-foreground/80 font-medium transition-colors">
-							Add a description…
-						</span>
-					</div>
-				</button>
-			)}
+			</div>
 		</div>
 	);
 }
+

@@ -1007,6 +1007,126 @@ Success response: `204 No Content`
 
 ---
 
+## Task Management API
+
+### `POST /api/v1/projects/:projectId/tasks`
+
+Creates a new task in a project. The `description` field is a **JSON array of BlockNote block objects** — not a stringified JSON string.
+
+**Request body:**
+
+```json
+{
+  "title": "Implement login",
+  "description": [
+    {
+      "id": "1",
+      "type": "paragraph",
+      "props": { "textColor": "default", "backgroundColor": "default", "textAlignment": "left" },
+      "content": [{ "type": "text", "text": "Implement OAuth2 flow", "styles": {} }],
+      "children": []
+    }
+  ],
+  "importance": 3,
+  "sprint_id": "uuid-or-null",
+  "status_id": "uuid-or-null",
+  "task_type_id": "uuid-or-null",
+  "assignee_id": "uuid-or-null",
+  "tags": ["backend", "auth"]
+}
+```
+
+Success response: `201 Created` — task object (see task response shape below).
+
+---
+
+### `GET /api/v1/projects/:projectId/tasks/:taskId`
+
+Returns a single task by its UUID.
+
+Success response: `200 OK`
+
+```json
+{
+  "data": {
+    "id": "uuid",
+    "project_id": "uuid",
+    "task_number": 1,
+    "title": "Implement login",
+    "description": [
+      {
+        "id": "1",
+        "type": "paragraph",
+        "content": [{ "type": "text", "text": "Implement OAuth2 flow", "styles": {} }],
+        "children": []
+      }
+    ],
+    "importance": 3,
+    "sprint_id": null,
+    "status_id": null,
+    "task_type_id": null,
+    "assignee_id": null,
+    "reporter_id": null,
+    "tags": [],
+    "custom_fields": {},
+    "created_at": "2024-01-01T00:00:00Z",
+    "updated_at": "2024-01-01T00:00:00Z"
+  }
+}
+```
+
+---
+
+### `PATCH /api/v1/projects/:projectId/tasks/:taskId`
+
+Partially updates a task. Only fields present in the request body are updated. Sending `null` for a nullable field explicitly clears it. The `description` field follows the same JSON array format as the create endpoint.
+
+**Three-state patch semantics:**
+
+| Request body         | Effect                             |
+|----------------------|------------------------------------|
+| Field absent         | Field is not changed               |
+| `"description": null`| Description is cleared             |
+| `"description": [...]`| Description is set to new value   |
+
+**Example — update title only (description is preserved):**
+
+```json
+{ "title": "Updated title" }
+```
+
+**Example — update description:**
+
+```json
+{
+  "description": [
+    {
+      "type": "paragraph",
+      "content": [{ "type": "text", "text": "New content", "styles": {} }],
+      "children": []
+    }
+  ]
+}
+```
+
+**Example — clear description:**
+
+```json
+{ "description": null }
+```
+
+Success response: `200 OK` — updated task object.
+
+---
+
+### `DELETE /api/v1/projects/:projectId/tasks/:taskId`
+
+Soft-deletes a task.
+
+Success response: `204 No Content`
+
+---
+
 ## Task List API
 
 ### `GET /api/v1/projects/:projectId/tasks`

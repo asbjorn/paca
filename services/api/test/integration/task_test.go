@@ -990,9 +990,17 @@ func TestIntegrationTasks_CRUD(t *testing.T) {
 
 	// Create
 	createW := serve(r, authedJSONReq(t.Context(), http.MethodPost, base, tok, map[string]any{
-		"title":       "Implement login",
-		"description": "Login with username and password",
-		"importance":  3,
+		"title": "Implement login",
+		"description": []map[string]any{
+			{
+				"id":       "1",
+				"type":     "paragraph",
+				"props":    map[string]any{"textColor": "default", "backgroundColor": "default", "textAlignment": "left"},
+				"content":  []map[string]any{{"type": "text", "text": "Login with username and password", "styles": map[string]any{}}},
+				"children": []any{},
+			},
+		},
+		"importance": 3,
 	}))
 	if createW.Code != http.StatusCreated {
 		t.Fatalf("create task: expected 201, got %d (%s)", createW.Code, createW.Body.String())
@@ -2237,11 +2245,19 @@ func TestIntegrationTasks_PatchTitleOnlyPreservesAllFields(t *testing.T) {
 	tok := issueTaskToken(t, uuid.NewString())
 	base := fmt.Sprintf("/api/v1/projects/%s/tasks", projectID)
 
+	const keepMeText = "keep me"
+
 	createW := serve(r, authedJSONReq(t.Context(), http.MethodPost, base, tok, map[string]any{
-		"title":       "Original title",
-		"sprint_id":   sprintID.String(),
-		"status_id":   statusID.String(),
-		"description": "keep me",
+		"title":     "Original title",
+		"sprint_id": sprintID.String(),
+		"status_id": statusID.String(),
+		"description": []map[string]any{
+			{
+				"id":      "1",
+				"type":    "paragraph",
+				"content": []map[string]any{{"type": "text", "text": keepMeText}},
+			},
+		},
 	}))
 	if createW.Code != http.StatusCreated {
 		t.Fatalf("create: expected 201, got %d (%s)", createW.Code, createW.Body.String())
@@ -2258,10 +2274,10 @@ func TestIntegrationTasks_PatchTitleOnlyPreservesAllFields(t *testing.T) {
 
 	var env struct {
 		Data struct {
-			Title       string  `json:"title"`
-			SprintID    *string `json:"sprint_id"`
-			StatusID    *string `json:"status_id"`
-			Description *string `json:"description"`
+			Title       string          `json:"title"`
+			SprintID    *string         `json:"sprint_id"`
+			StatusID    *string         `json:"status_id"`
+			Description json.RawMessage `json:"description"`
 		} `json:"data"`
 	}
 	if err := json.Unmarshal(patchW.Body.Bytes(), &env); err != nil {
@@ -2276,8 +2292,12 @@ func TestIntegrationTasks_PatchTitleOnlyPreservesAllFields(t *testing.T) {
 	if env.Data.StatusID == nil || *env.Data.StatusID != statusID.String() {
 		t.Errorf("expected status_id=%s preserved, got %v", statusID, env.Data.StatusID)
 	}
-	if env.Data.Description == nil || *env.Data.Description != "keep me" {
+	if len(env.Data.Description) == 0 || string(env.Data.Description) == "null" {
 		t.Errorf("expected description preserved, got %v", env.Data.Description)
+	}
+	var descArr []any
+	if err := json.Unmarshal(env.Data.Description, &descArr); err != nil || len(descArr) == 0 {
+		t.Errorf("expected description to be a non-empty JSON array, got %q", string(env.Data.Description))
 	}
 }
 

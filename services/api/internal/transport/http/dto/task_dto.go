@@ -108,6 +108,35 @@ func (o OptionalTime) Ptr() **time.Time {
 	return &o.Value
 }
 
+// OptionalJSON is a JSON-decodable field for nullable JSONB columns.
+// It distinguishes between a field that was absent in the request body
+// (Set=false) and one that was explicitly set to null or a JSON value.
+type OptionalJSON struct {
+	Set   bool
+	Value json.RawMessage
+}
+
+// UnmarshalJSON implements json.Unmarshaler. It marks the field as Set and
+// stores the raw JSON bytes, treating JSON null as a nil RawMessage.
+func (o *OptionalJSON) UnmarshalJSON(data []byte) error {
+	o.Set = true
+	if string(data) == "null" {
+		o.Value = nil
+		return nil
+	}
+	o.Value = json.RawMessage(data)
+	return nil
+}
+
+// Ptr returns a *json.RawMessage for use in patch inputs: nil when absent,
+// &nil when explicitly null, or a pointer to the raw bytes when set.
+func (o OptionalJSON) Ptr() *json.RawMessage {
+	if !o.Set {
+		return nil
+	}
+	return &o.Value
+}
+
 // --- Task Type DTOs ---------------------------------------------------------
 
 // CreateTaskTypeRequest is the body for POST /projects/:projectId/task-types.
@@ -204,19 +233,19 @@ func TaskStatusFromEntity(s *taskdom.TaskStatus) TaskStatusResponse {
 
 // CreateTaskRequest is the body for POST /projects/:projectId/tasks.
 type CreateTaskRequest struct {
-	Title        string         `json:"title"`
-	TaskTypeID   *uuid.UUID     `json:"task_type_id"`
-	StatusID     *uuid.UUID     `json:"status_id"`
-	SprintID     *uuid.UUID     `json:"sprint_id"`
-	ParentTaskID *uuid.UUID     `json:"parent_task_id"`
-	Description  *string        `json:"description"`
-	Importance   int            `json:"importance"`
-	AssigneeID   *uuid.UUID     `json:"assignee_id"`
-	ReporterID   *uuid.UUID     `json:"reporter_id"`
-	CustomFields map[string]any `json:"custom_fields"`
-	StartDate    *time.Time     `json:"start_date"`
-	DueDate      *time.Time     `json:"due_date"`
-	Tags         []string       `json:"tags"`
+	Title        string          `json:"title"`
+	TaskTypeID   *uuid.UUID      `json:"task_type_id"`
+	StatusID     *uuid.UUID      `json:"status_id"`
+	SprintID     *uuid.UUID      `json:"sprint_id"`
+	ParentTaskID *uuid.UUID      `json:"parent_task_id"`
+	Description  json.RawMessage `json:"description"`
+	Importance   int             `json:"importance"`
+	AssigneeID   *uuid.UUID      `json:"assignee_id"`
+	ReporterID   *uuid.UUID      `json:"reporter_id"`
+	CustomFields map[string]any  `json:"custom_fields"`
+	StartDate    *time.Time      `json:"start_date"`
+	DueDate      *time.Time      `json:"due_date"`
+	Tags         []string        `json:"tags"`
 }
 
 // UpdateTaskRequest is the body for PATCH /projects/:projectId/tasks/:taskId.
@@ -229,7 +258,7 @@ type UpdateTaskRequest struct {
 	StatusID     OptionalUUID    `json:"status_id"`
 	SprintID     OptionalUUID    `json:"sprint_id"`
 	ParentTaskID OptionalUUID    `json:"parent_task_id"`
-	Description  OptionalString  `json:"description"`
+	Description  OptionalJSON    `json:"description"`
 	Importance   *int            `json:"importance"`
 	AssigneeID   OptionalUUID    `json:"assignee_id"`
 	ReporterID   OptionalUUID    `json:"reporter_id"`
@@ -244,26 +273,26 @@ type UpdateTaskRequest struct {
 // valid view_id query parameter on list endpoints; they reflect the task's
 // manual position within that view.
 type TaskResponse struct {
-	ID           uuid.UUID      `json:"id"`
-	ProjectID    uuid.UUID      `json:"project_id"`
-	TaskNumber   int64          `json:"task_number"`
-	Title        string         `json:"title"`
-	TaskTypeID   *uuid.UUID     `json:"task_type_id,omitempty"`
-	StatusID     *uuid.UUID     `json:"status_id,omitempty"`
-	SprintID     *uuid.UUID     `json:"sprint_id,omitempty"`
-	ParentTaskID *uuid.UUID     `json:"parent_task_id,omitempty"`
-	Description  *string        `json:"description,omitempty"`
-	Importance   int            `json:"importance"`
-	AssigneeID   *uuid.UUID     `json:"assignee_id,omitempty"`
-	ReporterID   *uuid.UUID     `json:"reporter_id,omitempty"`
-	CustomFields map[string]any `json:"custom_fields"`
-	StartDate    *time.Time     `json:"start_date,omitempty"`
-	DueDate      *time.Time     `json:"due_date,omitempty"`
-	Tags         []string       `json:"tags"`
-	ViewPosition *float64       `json:"view_position,omitempty"`
-	ViewGroupKey *string        `json:"view_group_key,omitempty"`
-	CreatedAt    time.Time      `json:"created_at"`
-	UpdatedAt    time.Time      `json:"updated_at"`
+	ID           uuid.UUID       `json:"id"`
+	ProjectID    uuid.UUID       `json:"project_id"`
+	TaskNumber   int64           `json:"task_number"`
+	Title        string          `json:"title"`
+	TaskTypeID   *uuid.UUID      `json:"task_type_id,omitempty"`
+	StatusID     *uuid.UUID      `json:"status_id,omitempty"`
+	SprintID     *uuid.UUID      `json:"sprint_id,omitempty"`
+	ParentTaskID *uuid.UUID      `json:"parent_task_id,omitempty"`
+	Description  json.RawMessage `json:"description,omitempty"`
+	Importance   int             `json:"importance"`
+	AssigneeID   *uuid.UUID      `json:"assignee_id,omitempty"`
+	ReporterID   *uuid.UUID      `json:"reporter_id,omitempty"`
+	CustomFields map[string]any  `json:"custom_fields"`
+	StartDate    *time.Time      `json:"start_date,omitempty"`
+	DueDate      *time.Time      `json:"due_date,omitempty"`
+	Tags         []string        `json:"tags"`
+	ViewPosition *float64        `json:"view_position,omitempty"`
+	ViewGroupKey *string         `json:"view_group_key,omitempty"`
+	CreatedAt    time.Time       `json:"created_at"`
+	UpdatedAt    time.Time       `json:"updated_at"`
 }
 
 // TaskFromEntity maps a domain Task to a TaskResponse DTO.

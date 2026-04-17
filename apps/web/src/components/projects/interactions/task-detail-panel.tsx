@@ -171,14 +171,22 @@ export function TaskDetailPanel({
 							</div>
 
 							{/* Description */}
-							{task.description && (
+							{task.description && task.description.length > 0 && (
 								<div>
 									<h3 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/70 mb-3 flex items-center gap-2">
 										<span>Description</span>
 										<div className="flex-1 h-px bg-linear-to-r from-border/40 to-transparent" />
 									</h3>
 									<p className="text-[14px] text-foreground/80 whitespace-pre-wrap leading-relaxed">
-										{task.description}
+										{(
+											task.description as Array<{
+												content?: Array<{ type: string; text?: string }>;
+											}>
+										)
+											.flatMap((b) => b.content ?? [])
+											.filter((c) => c.type === "text")
+											.map((c) => c.text ?? "")
+											.join(" ")}
 									</p>
 								</div>
 							)}

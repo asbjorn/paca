@@ -4,6 +4,7 @@ package tasksvc_test
 
 import (
 	"context"
+	"encoding/json"
 	"sync"
 	"testing"
 	"time"
@@ -563,11 +564,11 @@ func TestCreateTask_OK(t *testing.T) {
 	svc := tasksvc.New(repo)
 	projectID := uuid.New()
 
-	desc := "Implement the feature"
+	desc := json.RawMessage(`[{"id":"1","type":"paragraph","props":{"textColor":"default","backgroundColor":"default","textAlignment":"left"},"content":[{"type":"text","text":"Implement the feature","styles":{}}],"children":[]}]`)
 	task, err := svc.CreateTask(ctx, taskdom.CreateTaskInput{
 		ProjectID:   projectID,
 		Title:       "Implement login",
-		Description: &desc,
+		Description: desc,
 		Importance:  3,
 	})
 	if err != nil {
@@ -773,13 +774,13 @@ func TestUpdateTask_AbsentFieldsPreserveValues(t *testing.T) {
 	svc := tasksvc.New(repo)
 	projectID := uuid.New()
 	sprintID := uuid.New()
-	desc := "original desc"
+	desc := json.RawMessage(`[{"type":"paragraph","content":[{"type":"text","text":"original desc","styles":{}}],"children":[]}]`)
 
 	task, _ := svc.CreateTask(ctx, taskdom.CreateTaskInput{
 		ProjectID:   projectID,
 		Title:       "My Task",
 		SprintID:    &sprintID,
-		Description: &desc,
+		Description: desc,
 		Importance:  2,
 		Tags:        []string{"alpha"},
 	})
@@ -797,7 +798,7 @@ func TestUpdateTask_AbsentFieldsPreserveValues(t *testing.T) {
 	if updated.SprintID == nil || *updated.SprintID != sprintID {
 		t.Errorf("expected SprintID=%v to be preserved, got %v", sprintID, updated.SprintID)
 	}
-	if updated.Description == nil || *updated.Description != desc {
+	if string(updated.Description) != string(desc) {
 		t.Errorf("expected Description to be preserved, got %v", updated.Description)
 	}
 	if updated.Importance != 2 {

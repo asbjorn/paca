@@ -165,9 +165,17 @@ func TestE2ETaskManagement_CRUD(t *testing.T) {
 
 	t.Run("create_task", func(t *testing.T) {
 		body := jsonBody(t, map[string]any{
-			"title":       "Implement feature X",
-			"description": "As a user I want feature X",
-			"importance":  3,
+			"title": "Implement feature X",
+			"description": []map[string]any{
+				{
+					"id":       "1",
+					"type":     "paragraph",
+					"props":    map[string]any{"textColor": "default", "backgroundColor": "default", "textAlignment": "left"},
+					"content":  []map[string]any{{"type": "text", "text": "As a user I want feature X", "styles": map[string]any{}}},
+					"children": []any{},
+				},
+			},
+			"importance": 3,
 		})
 		req := mustRequest(env.ctx, t, http.MethodPost,
 			fmt.Sprintf("%s/api/v1/projects/%s/tasks", env.base, projID), body)

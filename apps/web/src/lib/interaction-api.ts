@@ -32,7 +32,7 @@ export interface Task {
 	status_id?: string | null;
 	sprint_id?: string | null;
 	parent_task_id?: string | null;
-	description?: string | null;
+	description?: unknown[] | null;
 	importance: number;
 	assignee_id?: string | null;
 	reporter_id?: string | null;
@@ -485,7 +485,7 @@ export async function updateTask(
 		assignee_id: string | null;
 		reporter_id: string | null;
 		parent_task_id: string | null;
-		description: string | null;
+		description: unknown[] | null;
 		importance: number;
 		start_date: string | null;
 		due_date: string | null;

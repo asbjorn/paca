@@ -44,22 +44,22 @@ type taskStatusRecord struct {
 func (taskStatusRecord) TableName() string { return "task_statuses" }
 
 type taskRecord struct {
-	ID           string     `gorm:"primarykey;type:uuid"`
-	ProjectID    string     `gorm:"type:uuid;not null;column:project_id"`
-	TaskNumber   int64      `gorm:"not null;default:0;column:task_number"`
-	TaskTypeID   *string    `gorm:"type:uuid;column:task_type_id"`
-	StatusID     *string    `gorm:"type:uuid;column:status_id"`
-	SprintID     *string    `gorm:"type:uuid;column:sprint_id"`
-	ParentTaskID *string    `gorm:"type:uuid;column:parent_task_id"`
-	Title        string     `gorm:"not null"`
-	Description  *string    `gorm:"type:text"`
-	Importance   int        `gorm:"not null;default:0"`
-	AssigneeID   *string    `gorm:"type:uuid;column:assignee_id"`
-	ReporterID   *string    `gorm:"type:uuid;column:reporter_id"`
-	CustomFields []byte     `gorm:"type:jsonb;not null;column:custom_fields"`
-	StartDate    *time.Time `gorm:"type:date;column:start_date"`
-	DueDate      *time.Time `gorm:"type:date;column:due_date"`
-	Tags         []byte     `gorm:"type:jsonb;not null;column:tags"`
+	ID           string          `gorm:"primarykey;type:uuid"`
+	ProjectID    string          `gorm:"type:uuid;not null;column:project_id"`
+	TaskNumber   int64           `gorm:"not null;default:0;column:task_number"`
+	TaskTypeID   *string         `gorm:"type:uuid;column:task_type_id"`
+	StatusID     *string         `gorm:"type:uuid;column:status_id"`
+	SprintID     *string         `gorm:"type:uuid;column:sprint_id"`
+	ParentTaskID *string         `gorm:"type:uuid;column:parent_task_id"`
+	Title        string          `gorm:"not null"`
+	Description  json.RawMessage `gorm:"type:jsonb"`
+	Importance   int             `gorm:"not null;default:0"`
+	AssigneeID   *string         `gorm:"type:uuid;column:assignee_id"`
+	ReporterID   *string         `gorm:"type:uuid;column:reporter_id"`
+	CustomFields []byte          `gorm:"type:jsonb;not null;column:custom_fields"`
+	StartDate    *time.Time      `gorm:"type:date;column:start_date"`
+	DueDate      *time.Time      `gorm:"type:date;column:due_date"`
+	Tags         []byte          `gorm:"type:jsonb;not null;column:tags"`
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
 	DeletedAt    *time.Time `gorm:"index;column:deleted_at"`

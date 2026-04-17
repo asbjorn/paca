@@ -289,7 +289,7 @@ CREATE TABLE IF NOT EXISTS tasks (
     sprint_id      UUID        REFERENCES sprints(id) ON DELETE SET NULL,
     parent_task_id UUID        REFERENCES tasks(id) ON DELETE SET NULL,
     title          TEXT        NOT NULL,
-    description    TEXT,
+    description    JSONB,
     importance     INTEGER     NOT NULL DEFAULT 0 CHECK (importance >= 0),
     assignee_id    UUID        REFERENCES project_members(id) ON DELETE SET NULL,
     reporter_id    UUID        REFERENCES project_members(id) ON DELETE SET NULL,

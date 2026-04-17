@@ -2,6 +2,7 @@ package taskdom
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 
 	"github.com/google/uuid"
@@ -95,7 +96,7 @@ type CreateTaskInput struct {
 	SprintID     *uuid.UUID
 	ParentTaskID *uuid.UUID
 	Title        string
-	Description  *string
+	Description  json.RawMessage
 	Importance   int
 	AssigneeID   *uuid.UUID
 	ReporterID   *uuid.UUID
@@ -121,7 +122,7 @@ type UpdateTaskInput struct {
 	SprintID     **uuid.UUID
 	ParentTaskID **uuid.UUID
 	Title        string
-	Description  **string
+	Description  *json.RawMessage
 	Importance   *int
 	AssigneeID   **uuid.UUID
 	ReporterID   **uuid.UUID

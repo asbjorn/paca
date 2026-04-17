@@ -2,6 +2,7 @@
 package taskdom
 
 import (
+	"encoding/json"
 	"time"
 
 	"github.com/google/uuid"
@@ -117,7 +118,7 @@ type Task struct {
 	SprintID     *uuid.UUID
 	ParentTaskID *uuid.UUID
 	Title        string
-	Description  *string
+	Description  json.RawMessage
 	Importance   int
 	AssigneeID   *uuid.UUID
 	ReporterID   *uuid.UUID
