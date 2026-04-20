@@ -15,9 +15,9 @@ Feature: Documentation
       And the user has navigated to the Docs page of "E2E_DOCS_FOLDERS"
 
     Scenario: Create a new folder
-      When the user clicks "New Folder"
-      And the user types "Architecture" as the folder name
-      And the user confirms the folder creation
+      When the user opens the "Add" menu in the Documentations section
+      And the user selects "New Folder"
+      And the user renames the newly created folder to "Architecture"
       Then a folder named "Architecture" should appear in the folder list
 
     Scenario: Rename an existing folder
@@ -25,7 +25,7 @@ Feature: Documentation
       When the user opens the folder options for "Old Name"
       And the user selects "Rename"
       And the user types "New Name" as the folder name
-      And the user confirms the rename
+      And the user confirms the rename with Enter
       Then the folder list should show "New Name" instead of "Old Name"
 
     Scenario: Delete an existing folder
@@ -37,7 +37,7 @@ Feature: Documentation
 
     Scenario: Member without write permission cannot create a folder
       Given the user is a member of the project with only "docs.read" permission
-      Then the "New Folder" button should not be visible
+      Then the "Add" button in the Documentations section should not be visible
 
   @authenticated
   Rule: Document lifecycle
@@ -49,13 +49,14 @@ Feature: Documentation
       And the user has navigated to the Docs page of "E2E_DOCS_LIFECYCLE"
 
     Scenario: Create a document at the project root
-      When the user clicks "New Document"
+      When the user opens the "Add" menu in the Documentations section
+      And the user selects "New Document"
       Then a new document editor should open with title "Untitled"
-      And the document should appear in the document list
+      And the document should appear in the Documentations sidebar
 
     Scenario: Create a document inside a folder
       Given a folder named "Engineering" exists in the project
-      When the user clicks "New Document" inside the "Engineering" folder
+      When the user opens the "Add" menu and selects "New Document"
       Then the new document should be visible under the "Engineering" folder
 
     Scenario: Empty title defaults to "Untitled"
@@ -124,15 +125,15 @@ Feature: Documentation
 
     Scenario: User can view snapshot history
       When the user opens the document "E2E_HISTORY_DOC"
-      And the user opens the history panel
-      Then a list of snapshots should be visible
-      And each snapshot should show a timestamp
+      And the user clicks the "Version history" button
+      Then a list of numbered snapshots should be visible
+      And each snapshot entry should show its number, timestamp, and document title
 
     Scenario: User can view a specific snapshot
       When the user opens the document "E2E_HISTORY_DOC"
-      And the user opens the history panel
+      And the user clicks the "Version history" button
       And the user clicks on a snapshot entry
-      Then the snapshot content should be displayed in read-only mode
+      Then the snapshot content should be displayed in the history panel
 
   @authenticated
   Rule: Document comments and activity
@@ -145,13 +146,15 @@ Feature: Documentation
       And the user has navigated to the document "E2E_COMMENT_DOC" in "E2E_DOCS_COMMENTS"
 
     Scenario: User can add a comment to a document
-      When the user types "Great document!" in the comment input
-      And the user submits the comment
+      When the user opens the "Comments & activity" panel
+      And the user types "Great document!" in the comment input
+      And the user presses Ctrl+Enter to submit the comment
       Then the comment "Great document!" should appear in the activity panel
 
     Scenario: User can edit their own comment
       Given the user has posted a comment "Original comment"
-      When the user opens the comment options for "Original comment"
+      When the user opens the "Comments & activity" panel
+      And the user opens the comment options for "Original comment"
       And the user selects "Edit"
       And the user changes the comment text to "Updated comment"
       And the user saves the comment
@@ -159,10 +162,18 @@ Feature: Documentation
 
     Scenario: User can delete their own comment
       Given the user has posted a comment "Delete me"
-      When the user opens the comment options for "Delete me"
+      When the user opens the "Comments & activity" panel
+      And the user opens the comment options for "Delete me"
       And the user selects "Delete"
       And the user confirms the deletion
       Then the comment "Delete me" should no longer appear in the activity panel
 
     Scenario: Activity log shows document creation event
+      When the user opens the "Comments & activity" panel
       Then the activity panel should contain a "Document created" entry
+
+    Scenario: Comment input accepts Ctrl+Enter keyboard shortcut
+      When the user opens the "Comments & activity" panel
+      And the user types "Keyboard shortcut test" in the comment input
+      And the user presses Ctrl+Enter
+      Then the comment should be submitted and the input should be cleared
