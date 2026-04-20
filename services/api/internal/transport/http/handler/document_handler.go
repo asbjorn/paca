@@ -2,7 +2,6 @@ package handler
 
 import (
 	"encoding/json"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -75,20 +74,6 @@ func (h *DocumentHandler) CreateFolder(c *gin.Context) {
 	if err != nil {
 		presenter.Error(c, err)
 		return
-	}
-
-	// Record activity (best-effort).
-	if createdBy != nil {
-		content, _ := json.Marshal(map[string]string{"name": f.Name})
-		_ = h.activitySvc.RecordActivity(c.Request.Context(), &docdom.Activity{
-			ID:           uuid.New(),
-			DocumentID:   uuid.Nil, // no document; folder-level activity
-			ActorID:      createdBy,
-			ActivityType: docdom.ActivityTypeFolderCreated,
-			Content:      content,
-			CreatedAt:    time.Now(),
-			UpdatedAt:    time.Now(),
-		})
 	}
 
 	presenter.Created(c, dto.DocFolderFromEntity(f))
@@ -216,14 +201,12 @@ func (h *DocumentHandler) CreateDocument(c *gin.Context) {
 	// Record creation activity (best-effort).
 	if createdBy != nil {
 		content, _ := json.Marshal(map[string]string{"title": d.Title})
-		_ = h.activitySvc.RecordActivity(c.Request.Context(), &docdom.Activity{
-			ID:           uuid.New(),
+		_ = h.activitySvc.RecordActivity(c.Request.Context(), docdom.RecordActivityInput{
 			DocumentID:   d.ID,
+			ProjectID:    projectID,
 			ActorID:      createdBy,
 			ActivityType: docdom.ActivityTypeDocCreated,
 			Content:      content,
-			CreatedAt:    time.Now(),
-			UpdatedAt:    time.Now(),
 		})
 	}
 
@@ -268,14 +251,12 @@ func (h *DocumentHandler) UpdateDocument(c *gin.Context) {
 		changes := docChangedFields(oldDoc, req)
 		if len(changes) > 0 {
 			content, _ := json.Marshal(map[string]any{"changes": changes})
-			_ = h.activitySvc.RecordActivity(c.Request.Context(), &docdom.Activity{
-				ID:           uuid.New(),
+			_ = h.activitySvc.RecordActivity(c.Request.Context(), docdom.RecordActivityInput{
 				DocumentID:   docID,
+				ProjectID:    oldDoc.ProjectID,
 				ActorID:      updatedBy,
 				ActivityType: docdom.ActivityTypeDocUpdated,
 				Content:      content,
-				CreatedAt:    time.Now(),
-				UpdatedAt:    time.Now(),
 			})
 		}
 	}
@@ -285,6 +266,11 @@ func (h *DocumentHandler) UpdateDocument(c *gin.Context) {
 
 // DeleteDocument handles DELETE /projects/:projectId/docs/:docId.
 func (h *DocumentHandler) DeleteDocument(c *gin.Context) {
+	projectID, err := parseProjectID(c)
+	if err != nil {
+		presenter.Error(c, err)
+		return
+	}
 	docID, err := parseDocID(c)
 	if err != nil {
 		presenter.Error(c, err)
@@ -298,14 +284,11 @@ func (h *DocumentHandler) DeleteDocument(c *gin.Context) {
 
 	// Record deletion activity (best-effort).
 	if actorID, ok := middleware.ActorIDFromContext(c.Request.Context()); ok {
-		_ = h.activitySvc.RecordActivity(c.Request.Context(), &docdom.Activity{
-			ID:           uuid.New(),
+		_ = h.activitySvc.RecordActivity(c.Request.Context(), docdom.RecordActivityInput{
 			DocumentID:   docID,
+			ProjectID:    projectID,
 			ActorID:      &actorID,
 			ActivityType: docdom.ActivityTypeDocDeleted,
-			Content:      json.RawMessage("{}"),
-			CreatedAt:    time.Now(),
-			UpdatedAt:    time.Now(),
 		})
 	}
 

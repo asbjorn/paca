@@ -88,7 +88,19 @@ type ActivityService interface {
 // ActivityRecorder is the minimal interface used to persist system-generated
 // activity entries directly to the database.
 type ActivityRecorder interface {
-	RecordActivity(ctx context.Context, a *Activity) error
+	RecordActivity(ctx context.Context, in RecordActivityInput) error
+}
+
+// RecordActivityInput carries the data needed to persist a system-generated
+// doc activity event.  ActorID holds the authenticated user UUID; the
+// DocActivityConsumer resolves it to the corresponding project_members.id
+// before writing to the database.
+type RecordActivityInput struct {
+	DocumentID   uuid.UUID
+	ProjectID    uuid.UUID  // used by the consumer to resolve ActorID → member ID
+	ActorID      *uuid.UUID // nil is allowed for system events
+	ActivityType ActivityType
+	Content      json.RawMessage
 }
 
 // AddCommentInput carries fields to add a comment to a document.
@@ -97,13 +109,4 @@ type AddCommentInput struct {
 	ProjectID  uuid.UUID
 	ActorID    uuid.UUID // authenticated user UUID (resolved to project member)
 	Text       string
-}
-
-// RecordActivityInput carries fields for system-generated activity entries.
-type RecordActivityInput struct {
-	DocumentID   uuid.UUID
-	ProjectID    uuid.UUID
-	ActorID      *uuid.UUID // nil for system events
-	ActivityType ActivityType
-	Content      json.RawMessage
 }

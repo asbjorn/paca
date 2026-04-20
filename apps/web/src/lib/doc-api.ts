@@ -74,10 +74,16 @@ export interface DocActivity {
 	actor_name: string;
 	actor_username: string;
 	activity_type: DocActivityType;
-	content: string;
+	content: Record<string, unknown>;
 	changes: FieldChange[] | null;
 	created_at: string;
 	updated_at: string;
+}
+
+export function getCommentText(content: DocActivity["content"]): string {
+	if (typeof content === "string") return content;
+	if (content && typeof content === "object" && "text" in content) return String(content.text);
+	return "";
 }
 
 export interface DocActivityListResult {

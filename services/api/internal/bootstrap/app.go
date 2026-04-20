@@ -43,10 +43,11 @@ import (
 
 // App holds the HTTP server and any resources that need graceful shutdown.
 type App struct {
-	server           *http.Server
-	publisher        *messaging.Publisher
-	activityConsumer *worker.ActivityConsumer
-	log              *slog.Logger
+	server              *http.Server
+	publisher           *messaging.Publisher
+	activityConsumer    *worker.ActivityConsumer
+	docActivityConsumer *worker.DocActivityConsumer
+	log                 *slog.Logger
 }
 
 // New builds all dependencies and returns a ready-to-run App.
@@ -119,7 +120,8 @@ func New(cfg *config.Config) (*App, error) {
 	activityService := tasksvc.NewActivityService(activityRepo, projectRepo, publisher)
 	activityConsumer := worker.NewActivityConsumer(redisClient, activityRepo, projectRepo, log)
 	docService := docsvc.New(docRepo, projectRepo)
-	docActivityService := docsvc.NewActivityService(docRepo, projectRepo)
+	docActivityService := docsvc.NewActivityService(docRepo, projectRepo, publisher)
+	docActivityConsumer := worker.NewDocActivityConsumer(redisClient, docRepo, projectRepo, log)
 
 	// Object storage — defaults to MinIO; switches to AWS S3 when STORAGE_PROVIDER=s3.
 	storageClient, err := storage.NewS3Client(context.Background(), storage.S3Config{
@@ -175,7 +177,7 @@ func New(cfg *config.Config) (*App, error) {
 		IdleTimeout:  60 * time.Second,
 	}
 
-	return &App{server: srv, publisher: publisher, activityConsumer: activityConsumer, log: log}, nil
+	return &App{server: srv, publisher: publisher, activityConsumer: activityConsumer, docActivityConsumer: docActivityConsumer, log: log}, nil
 }
 
 // projectRoleModel is the GORM model used by seedDefaultProjectRoleTemplates
@@ -191,11 +193,12 @@ type projectRoleModel struct {
 
 func (projectRoleModel) TableName() string { return "project_roles" }
 
-// Run starts the activity consumer and the HTTP server.
+// Run starts the activity consumers and the HTTP server.
 // It returns when the server stops.
 func (a *App) Run() error {
 	a.log.Info("starting server", "addr", a.server.Addr)
 	a.activityConsumer.Start(context.Background())
+	a.docActivityConsumer.Start(context.Background())
 	return a.server.ListenAndServe()
 }
 
@@ -203,6 +206,7 @@ func (a *App) Run() error {
 func (a *App) Shutdown(ctx context.Context) error {
 	a.log.Info("shutting down server")
 	a.activityConsumer.Stop()
+	a.docActivityConsumer.Stop()
 	if a.publisher != nil {
 		a.publisher.Close()
 	}

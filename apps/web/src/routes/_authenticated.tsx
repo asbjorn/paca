@@ -43,15 +43,15 @@ export const Route = createFileRoute("/_authenticated")({
 
 function AuthenticatedLayout() {
 	return (
-		<SidebarProvider>
+		<SidebarProvider className="h-svh">
 			<AppSidebar />
-			<SidebarInset className="min-w-0">
+			<SidebarInset className="min-w-0 overflow-hidden">
 				<header className="flex h-12 shrink-0 items-center gap-2 bg-background/85 backdrop-blur-xl px-4 sticky top-0 z-10">
 					<div className="absolute inset-x-0 bottom-0 h-px bg-linear-to-r from-transparent via-border to-transparent" />
 					<SidebarTrigger className="-ml-1 text-muted-foreground hover:text-foreground transition-colors" />
 					<div className="w-px h-4 bg-border/60" />
 				</header>
-				<div className="flex flex-1 flex-col">
+				<div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
 					<Outlet />
 				</div>
 			</SidebarInset>

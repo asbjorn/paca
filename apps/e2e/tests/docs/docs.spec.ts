@@ -458,7 +458,9 @@ test.describe('Document comments and activity', () => {
 
     // Must open the Comments & activity panel to see the activity log
     await page.getByRole('button', { name: 'Comments & activity' }).click();
-    await expect(page.getByText(/document created/i)).toBeVisible({ timeout: 10_000 });
+    // The DocActivityConsumer processes the stream and writes doc.created to the DB.
+    // The message produced by formatActivityMessage is "created this document".
+    await expect(page.getByText(/created this document/i)).toBeVisible({ timeout: 15_000 });
   });
 
   test('User can add a comment to a document', async ({ page }) => {

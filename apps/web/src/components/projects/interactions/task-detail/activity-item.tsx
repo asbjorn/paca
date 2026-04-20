@@ -19,7 +19,7 @@ function label(value: unknown): string {
 	return String(value);
 }
 
-function describeChange(change: FieldChange, names: ActivityNameMaps): string {
+export function describeTaskChange(change: FieldChange, names: ActivityNameMaps): string {
 	const oldVal = label(change.old);
 	const newVal = label(change.new);
 	const hasOld =
@@ -110,10 +110,10 @@ function activityDescription(
 		case "task.updated": {
 			const changes = c.changes as FieldChange[] | undefined;
 			if (changes && changes.length === 1) {
-				return describeChange(changes[0], names);
+				return describeTaskChange(changes[0], names);
 			}
 			if (changes && changes.length > 1) {
-				return changes.map((ch) => describeChange(ch, names)).join("; ");
+				return changes.map((ch) => describeTaskChange(ch, names)).join("; ");
 			}
 			return "updated this task";
 		}

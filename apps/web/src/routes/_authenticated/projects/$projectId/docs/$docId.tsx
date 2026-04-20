@@ -15,6 +15,7 @@ import { DocEditor } from "@/components/projects/docs/doc-editor";
 import { DocHistoryPanel } from "@/components/projects/docs/doc-history-panel";
 import { Button } from "@/components/ui/button";
 import { useProjectPermissions } from "@/hooks/use-project-permissions";
+import { currentUserQueryOptions } from "@/lib/auth-api";
 import {
 	docFoldersQueryOptions,
 	docQueryKeys,
@@ -39,6 +40,9 @@ function DocEditorPage() {
 	const { hasProjectPermission } = useProjectPermissions(projectId);
 	const canWrite = hasProjectPermission("docs.write");
 	const qc = useQueryClient();
+
+	const { data: currentUser } = useQuery(currentUserQueryOptions);
+	const currentUserId = currentUser?.id;
 
 	const { data: doc, isError } = useQuery(docQueryOptions(projectId, docId));
 	const { data: allFolders = [] } = useQuery(docFoldersQueryOptions(projectId));
@@ -278,7 +282,7 @@ function DocEditorPage() {
 				{/* Right panel: activity */}
 				{rightPanel === "activity" && doc && (
 					<div className="w-80 shrink-0 h-full overflow-hidden">
-						<DocActivityPane projectId={projectId} docId={docId} />
+						<DocActivityPane projectId={projectId} docId={docId} currentUserId={currentUserId} />
 					</div>
 				)}
 

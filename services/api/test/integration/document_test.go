@@ -302,7 +302,7 @@ func buildDocTestRouter(docRepo *fakeDocRepoIT, store *projectPermStore) *gin.En
 	activityRepo := newFakeTaskActivityRepo()
 	activityService := tasksvc.NewActivityService(activityRepo, &fakeActivityMemberRepo{}, nil)
 	docService := docsvc.New(docRepo, &fakeDocMemberLookup{})
-	docActivityService := docsvc.NewActivityService(docRepo, &fakeDocMemberLookup{})
+	docActivityService := docsvc.NewActivityService(docRepo, &fakeDocMemberLookup{}, nil)
 	log := slog.New(slog.NewTextHandler(os.Stdout, nil))
 
 	return router.New(router.Deps{
@@ -798,7 +798,10 @@ func TestIntegrationDocuments_Comments_CRUD(t *testing.T) {
 	}
 	commentID := docIDFrom(t, "comment", addW.Body.Bytes())
 
-	// List activities — should include doc.created + comment
+	// List activities — should include at least the comment (system events like
+	// doc.created go through the Valkey stream and are persisted by the
+	// DocActivityConsumer; the consumer does not run in integration tests so
+	// only comment activities are written directly to the DB here).
 	activitiesW := serve(r, authedJSONReq(t.Context(), http.MethodGet, actBase+"/activities", tok, nil))
 	if activitiesW.Code != http.StatusOK {
 		t.Fatalf("list activities: expected 200, got %d (%s)", activitiesW.Code, activitiesW.Body.String())
