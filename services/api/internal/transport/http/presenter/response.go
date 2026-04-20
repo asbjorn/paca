@@ -307,6 +307,19 @@ func httpStatusForCode(code apierr.Code) int {
 		return http.StatusConflict
 	case apierr.CodeTaskTypeIsSystem:
 		return http.StatusForbidden
+	case apierr.CodeDocNotFound,
+		apierr.CodeDocFolderNotFound,
+		apierr.CodeDocSnapshotNotFound,
+		apierr.CodeDocActivityNotFound:
+		return http.StatusNotFound
+	case apierr.CodeDocTitleInvalid,
+		apierr.CodeDocFolderNameInvalid,
+		apierr.CodeDocFolderNotInProject,
+		apierr.CodeDocActivityNotAComment,
+		apierr.CodeDocCommentTextInvalid:
+		return http.StatusBadRequest
+	case apierr.CodeDocActivityForbidden:
+		return http.StatusForbidden
 	case apierr.CodeBadRequest:
 		return http.StatusBadRequest
 	case apierr.CodePasswordChangeRequired:

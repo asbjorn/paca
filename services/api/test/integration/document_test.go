@@ -715,7 +715,9 @@ func TestIntegrationDocuments_Snapshots(t *testing.T) {
 				Items []map[string]any `json:"items"`
 			} `json:"data"`
 		}
-		json.Unmarshal(listAfterW.Body.Bytes(), &env)
+		if err := json.Unmarshal(listAfterW.Body.Bytes(), &env); err != nil {
+			t.Fatalf("unmarshal snapshot list: %v", err)
+		}
 		if len(env.Data.Items) == 0 {
 			return ""
 		}
