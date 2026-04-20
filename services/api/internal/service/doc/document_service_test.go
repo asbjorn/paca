@@ -403,6 +403,48 @@ func TestUpdateFolder_NotFound(t *testing.T) {
 	}
 }
 
+func TestUpdateFolder_NewParentNotInProject(t *testing.T) {
+	ctx := context.Background()
+	repo := newFakeDocRepo()
+	svc := docsvc.New(repo, nil)
+
+	projectA := uuid.New()
+	projectB := uuid.New()
+
+	// Create folder in project A.
+	folder, _ := svc.CreateFolder(ctx, docdom.CreateFolderInput{ProjectID: projectA, Name: "Folder A"})
+
+	// Create a parent folder in project B.
+	parentB, _ := svc.CreateFolder(ctx, docdom.CreateFolderInput{ProjectID: projectB, Name: "Parent B"})
+
+	// Attempt to move folder (project A) under parentB (project B) — should fail.
+	parentPtr := &parentB.ID
+	_, err := svc.UpdateFolder(ctx, folder.ID, docdom.UpdateFolderInput{
+		ParentID: &parentPtr,
+	})
+	if err != docdom.ErrFolderNotInProject {
+		t.Errorf("expected ErrFolderNotInProject, got %v", err)
+	}
+}
+
+func TestUpdateFolder_SelfParent(t *testing.T) {
+	ctx := context.Background()
+	repo := newFakeDocRepo()
+	svc := docsvc.New(repo, nil)
+	projectID := uuid.New()
+
+	folder, _ := svc.CreateFolder(ctx, docdom.CreateFolderInput{ProjectID: projectID, Name: "Folder"})
+
+	// Attempt to set the folder as its own parent — should fail.
+	selfPtr := &folder.ID
+	_, err := svc.UpdateFolder(ctx, folder.ID, docdom.UpdateFolderInput{
+		ParentID: &selfPtr,
+	})
+	if err != docdom.ErrFolderSelfParent {
+		t.Errorf("expected ErrFolderSelfParent, got %v", err)
+	}
+}
+
 func TestDeleteFolder_OK(t *testing.T) {
 	ctx := context.Background()
 	repo := newFakeDocRepo()

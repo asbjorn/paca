@@ -78,6 +78,19 @@ func (s *Service) UpdateFolder(ctx context.Context, id uuid.UUID, in docdom.Upda
 		f.Name = name
 	}
 	if in.ParentID != nil { // double-pointer present → update parent
+		if *in.ParentID != nil {
+			newParentID := **in.ParentID
+			if newParentID == id {
+				return nil, docdom.ErrFolderSelfParent
+			}
+			parent, err := s.repo.FindFolderByID(ctx, newParentID)
+			if err != nil {
+				return nil, err
+			}
+			if parent.ProjectID != f.ProjectID {
+				return nil, docdom.ErrFolderNotInProject
+			}
+		}
 		f.ParentID = *in.ParentID
 	}
 	if in.Position != nil {

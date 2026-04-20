@@ -159,6 +159,8 @@ const (
 	CodeDocFolderNameInvalid Code = "DOC_FOLDER_NAME_INVALID"
 	// CodeDocFolderNotInProject indicates the folder does not belong to the project.
 	CodeDocFolderNotInProject Code = "DOC_FOLDER_NOT_IN_PROJECT"
+	// CodeDocFolderSelfParent indicates a folder cannot be set as its own parent.
+	CodeDocFolderSelfParent Code = "DOC_FOLDER_SELF_PARENT"
 	// CodeDocSnapshotNotFound indicates the requested snapshot does not exist.
 	CodeDocSnapshotNotFound Code = "DOC_SNAPSHOT_NOT_FOUND"
 	// CodeDocActivityNotFound indicates the requested doc activity does not exist.

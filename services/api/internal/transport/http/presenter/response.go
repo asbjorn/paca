@@ -208,6 +208,8 @@ func statusAndCodeFor(err error) (int, apierr.Code) {
 		return http.StatusBadRequest, apierr.CodeDocFolderNameInvalid
 	case errors.Is(err, docdom.ErrFolderNotInProject):
 		return http.StatusBadRequest, apierr.CodeDocFolderNotInProject
+	case errors.Is(err, docdom.ErrFolderSelfParent):
+		return http.StatusBadRequest, apierr.CodeDocFolderSelfParent
 	case errors.Is(err, docdom.ErrSnapshotNotFound):
 		return http.StatusNotFound, apierr.CodeDocSnapshotNotFound
 	case errors.Is(err, docdom.ErrActivityNotFound):
@@ -315,6 +317,7 @@ func httpStatusForCode(code apierr.Code) int {
 	case apierr.CodeDocTitleInvalid,
 		apierr.CodeDocFolderNameInvalid,
 		apierr.CodeDocFolderNotInProject,
+		apierr.CodeDocFolderSelfParent,
 		apierr.CodeDocActivityNotAComment,
 		apierr.CodeDocCommentTextInvalid:
 		return http.StatusBadRequest

@@ -12,6 +12,7 @@ var (
 	ErrFolderNotFound     = errors.New("doc folder: not found")
 	ErrFolderNameInvalid  = errors.New("doc folder: name is empty or invalid")
 	ErrFolderNotInProject = errors.New("doc folder: folder does not belong to this project")
+	ErrFolderSelfParent   = errors.New("doc folder: a folder cannot be its own parent")
 
 	// Snapshot errors.
 	ErrSnapshotNotFound = errors.New("doc snapshot: not found")
