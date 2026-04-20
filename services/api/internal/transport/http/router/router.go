@@ -29,6 +29,7 @@ type Deps struct {
 	View         *handler.ViewHandler
 	Attachment   *handler.AttachmentHandler
 	Document     *handler.DocumentHandler
+	DocFile      *handler.DocFileHandler
 	Log          *slog.Logger
 }
 
@@ -611,6 +612,30 @@ func New(deps Deps) *gin.Engine {
 								deps.Document.DeleteComment,
 							)
 						}
+					}
+
+					// Doc file uploads — stored directly in the files table (no join table)
+					docFiles := doc.Group("/files")
+					{
+						docFiles.POST("/initiate-upload",
+							httpmw.RequirePermissions(deps.Authorizer, httpmw.ProjectScopeFromParam("projectId"), authz.PermissionDocsWrite),
+							deps.DocFile.InitiateDocUpload,
+						)
+						docFiles.POST("/complete-upload",
+							httpmw.RequirePermissions(deps.Authorizer, httpmw.ProjectScopeFromParam("projectId"), authz.PermissionDocsWrite),
+							deps.DocFile.CompleteDocUpload,
+						)
+						docFiles.GET("/:fileId/download-url",
+							httpmw.RequireAnyPermissions(deps.Authorizer,
+								httpmw.PermissionGroup{Scope: httpmw.GlobalScope(), Permissions: []authz.Permission{authz.PermissionProjectsRead}},
+								httpmw.PermissionGroup{Scope: httpmw.ProjectScopeFromParam("projectId"), Permissions: []authz.Permission{authz.PermissionDocsRead}},
+							),
+							deps.DocFile.GetDocFileDownloadURL,
+						)
+						docFiles.DELETE("/:fileId",
+							httpmw.RequirePermissions(deps.Authorizer, httpmw.ProjectScopeFromParam("projectId"), authz.PermissionDocsWrite),
+							deps.DocFile.DeleteDocFile,
+						)
 					}
 				}
 			}

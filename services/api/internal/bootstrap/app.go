@@ -164,6 +164,7 @@ func New(cfg *config.Config) (*App, error) {
 		View:         handler.NewViewHandler(viewService),
 		Attachment:   handler.NewAttachmentHandler(attachmentService),
 		Document:     handler.NewDocumentHandler(docService, docActivityService),
+		DocFile:      handler.NewDocFileHandler(attachmentService),
 		Log:          log,
 	}
 

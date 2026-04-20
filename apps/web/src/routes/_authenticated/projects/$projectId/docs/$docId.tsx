@@ -263,6 +263,8 @@ function DocEditorPage() {
 								content={doc.content}
 								editable={canWrite}
 								onSave={handleContentSave}
+								projectId={projectId}
+								docId={docId}
 							/>
 						)}
 

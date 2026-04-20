@@ -6,6 +6,10 @@ import { BlockNoteView } from "@blocknote/shadcn";
 import { useCallback, useEffect, useRef } from "react";
 
 import { useThemeMode } from "@/hooks/use-theme-mode";
+import { getDocFileDownloadURL, uploadDocFile } from "@/lib/doc-api";
+
+/** Custom URI scheme used to store doc file references in the block content. */
+const DOC_FILE_SCHEME = "docfile://";
 
 interface DocEditorProps {
 	/** BlockNote block array loaded from the server. */
@@ -14,12 +18,18 @@ interface DocEditorProps {
 	editable?: boolean;
 	/** Called when the user stops editing (blur or Ctrl+S). Receives the new block array (null = empty). */
 	onSave?: (blocks: unknown[] | null) => void;
+	/** Project ID — required for file uploads. */
+	projectId?: string;
+	/** Document ID — required for file uploads. */
+	docId?: string;
 }
 
 export function DocEditor({
 	content,
 	editable = true,
 	onSave,
+	projectId,
+	docId,
 }: DocEditorProps) {
 	const { resolvedMode } = useThemeMode();
 
@@ -27,7 +37,35 @@ export function DocEditor({
 	const initializedRef = useRef(false);
 	const pendingRef = useRef(false);
 
-	const editor = useCreateBlockNote();
+	// Keep projectId / docId in refs so stable editor callbacks always
+	// reference the latest prop values without recreating the editor.
+	const projectIdRef = useRef(projectId);
+	const docIdRef = useRef(docId);
+	useEffect(() => {
+		projectIdRef.current = projectId;
+	}, [projectId]);
+	useEffect(() => {
+		docIdRef.current = docId;
+	}, [docId]);
+
+	const editor = useCreateBlockNote({
+		uploadFile: async (file: File) => {
+			const pId = projectIdRef.current;
+			const dId = docIdRef.current;
+			if (!pId || !dId) throw new Error("No project/doc context for upload");
+			const uploaded = await uploadDocFile(pId, dId, file);
+			// Store as a stable custom URI; presigned URL is fetched on-demand.
+			return `${DOC_FILE_SCHEME}${pId}/${dId}/${uploaded.id}`;
+		},
+		resolveFileUrl: async (url: string) => {
+			if (!url.startsWith(DOC_FILE_SCHEME)) return url;
+			// URI format: docfile://{projectId}/{docId}/{fileId}
+			const path = url.slice(DOC_FILE_SCHEME.length);
+			const [pId, dId, fileId] = path.split("/");
+			if (!pId || !dId || !fileId) return url;
+			return getDocFileDownloadURL(pId, dId, fileId);
+		},
+	});
 
 	// Populate / re-populate editor from server content
 	useEffect(() => {

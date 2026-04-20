@@ -119,6 +119,11 @@ func TaskAttachmentFromEntity(a *attachmentdom.TaskAttachment) TaskAttachmentRes
 	return resp
 }
 
+// FileFromEntity maps an attachmentdom.File to a FileResponse DTO.
+func FileFromEntity(f *attachmentdom.File) FileResponse {
+	return fileFromEntity(f)
+}
+
 func fileFromEntity(f *attachmentdom.File) FileResponse {
 	return FileResponse{
 		ID:          f.ID,

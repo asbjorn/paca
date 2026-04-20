@@ -330,3 +330,169 @@ export async function deleteDocComment(
 		`/projects/${projectId}/docs/${docId}/comments/${commentId}`,
 	);
 }
+
+// ── Doc file upload API ───────────────────────────────────────────────────────
+
+interface PresignedPart {
+	part_number: number;
+	upload_url: string;
+}
+
+interface MultipartUpload {
+	upload_id: string;
+	parts: PresignedPart[];
+}
+
+interface DocUploadSession {
+	file_id: string;
+	is_multipart: boolean;
+	upload_url?: string;
+	multipart?: MultipartUpload;
+}
+
+interface CompletedPart {
+	part_number: number;
+	etag: string;
+}
+
+export interface DocFile {
+	id: string;
+	file_name: string;
+	content_type: string;
+	file_size: number;
+	created_at: string;
+}
+
+interface DownloadURLResult {
+	url: string;
+}
+
+const DOC_MULTIPART_CHUNK_SIZE = 5 * 1024 * 1024; // 5 MiB — matches server DefaultPartSize
+
+async function initiateDocUpload(
+	projectId: string,
+	docId: string,
+	payload: { file_name: string; content_type: string; file_size: number },
+): Promise<DocUploadSession> {
+	const { data } = await apiClient.instance.post<
+		SuccessEnvelope<DocUploadSession>
+	>(
+		`/projects/${projectId}/docs/${docId}/files/initiate-upload`,
+		payload,
+	);
+	return data.data;
+}
+
+async function completeDocUpload(
+	projectId: string,
+	docId: string,
+	payload: {
+		file_id: string;
+		upload_id?: string;
+		parts?: CompletedPart[];
+	},
+): Promise<DocFile> {
+	const { data } = await apiClient.instance.post<SuccessEnvelope<DocFile>>(
+		`/projects/${projectId}/docs/${docId}/files/complete-upload`,
+		payload,
+	);
+	return data.data;
+}
+
+export async function getDocFileDownloadURL(
+	projectId: string,
+	docId: string,
+	fileId: string,
+): Promise<string> {
+	const { data } = await apiClient.instance.get<
+		SuccessEnvelope<DownloadURLResult>
+	>(`/projects/${projectId}/docs/${docId}/files/${fileId}/download-url`);
+	return data.data.url;
+}
+
+export async function deleteDocFile(
+	projectId: string,
+	docId: string,
+	fileId: string,
+): Promise<void> {
+	await apiClient.instance.delete(
+		`/projects/${projectId}/docs/${docId}/files/${fileId}`,
+	);
+}
+
+/**
+ * Uploads a single File directly to the object store via a presigned URL,
+ * then confirms with the API.  Handles both single-part (< 5 MiB) and
+ * multipart (≥ 5 MiB) uploads transparently.
+ */
+export async function uploadDocFile(
+	projectId: string,
+	docId: string,
+	file: File,
+): Promise<DocFile> {
+	const session = await initiateDocUpload(projectId, docId, {
+		file_name: file.name,
+		content_type: file.type || "application/octet-stream",
+		file_size: file.size,
+	});
+
+	if (session.is_multipart && session.multipart) {
+		const { upload_id, parts } = session.multipart;
+		const completedParts: CompletedPart[] = [];
+
+		for (const part of parts) {
+			const start = (part.part_number - 1) * DOC_MULTIPART_CHUNK_SIZE;
+			const end = Math.min(start + DOC_MULTIPART_CHUNK_SIZE, file.size);
+			const chunk = file.slice(start, end);
+
+			const resp = await fetch(part.upload_url, {
+				method: "PUT",
+				body: chunk,
+				headers: { "Content-Type": file.type || "application/octet-stream" },
+			});
+
+			if (!resp.ok) {
+				throw new Error(
+					`Part ${part.part_number} upload failed: ${resp.status}`,
+				);
+			}
+
+			const etag = resp.headers.get("ETag") ?? resp.headers.get("etag");
+			if (!etag) {
+				throw new Error(
+					`Part ${part.part_number} upload succeeded but did not return an ETag header.`,
+				);
+			}
+			completedParts.push({ part_number: part.part_number, etag });
+		}
+
+		return completeDocUpload(projectId, docId, {
+			file_id: session.file_id,
+			upload_id,
+			parts: completedParts,
+		});
+	}
+
+	if (!session.upload_url) {
+		throw new Error("Server returned no upload URL");
+	}
+	const uploadUrl = session.upload_url;
+
+	await new Promise<void>((resolve, reject) => {
+		const xhr = new XMLHttpRequest();
+		xhr.open("PUT", uploadUrl);
+		xhr.setRequestHeader(
+			"Content-Type",
+			file.type || "application/octet-stream",
+		);
+		xhr.addEventListener("load", () =>
+			xhr.status >= 200 && xhr.status < 300
+				? resolve()
+				: reject(new Error(`Upload failed: ${xhr.status}`)),
+		);
+		xhr.addEventListener("error", () => reject(new Error("Upload error")));
+		xhr.send(file);
+	});
+
+	return completeDocUpload(projectId, docId, { file_id: session.file_id });
+}
