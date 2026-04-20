@@ -22,7 +22,7 @@ import {
 import { cn } from "@/lib/utils";
 import { getTaskTypeIconComponent } from "../../task-types/task-type-icons";
 import { getPriority } from "../priority";
-import { ActivityPane } from "./activity-pane";
+import { TaskActivityPane as ActivityPane } from "./activity-pane";
 import { AttachmentsSection } from "./attachments-section";
 import { BDDScenariosSection } from "./bdd-scenarios-section";
 import { ChecklistsSection } from "./checklists-section";
@@ -199,7 +199,7 @@ export function TaskDetailModal({
 			/>
 
 			{/* ── Body: stacks on mobile, side-by-side on lg+ ── */}
-			<div className="flex flex-col lg:flex-row flex-1 min-w-0 overflow-y-auto lg:overflow-hidden">
+			<div className="flex flex-col lg:flex-row flex-1 min-w-0 min-h-0 overflow-y-auto lg:overflow-hidden">
 				{/* Main content area: no own scroll on mobile (body scrolls), scrollable on lg+ */}
 				<div className="lg:flex-1 lg:overflow-y-auto [scrollbar-gutter:stable] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border/60 [&::-webkit-scrollbar-thumb]:hover:bg-border">
 					<div className="px-4 lg:px-8 py-5 lg:py-7 space-y-6 lg:space-y-8 max-w-3xl mx-auto">

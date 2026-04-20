@@ -10,6 +10,7 @@ import (
 	"github.com/paca/api/internal/apierr"
 	attachmentdom "github.com/paca/api/internal/domain/attachment"
 	domainauth "github.com/paca/api/internal/domain/auth"
+	docdom "github.com/paca/api/internal/domain/doc"
 	globalroledom "github.com/paca/api/internal/domain/globalrole"
 	projectdom "github.com/paca/api/internal/domain/project"
 	sprintdom "github.com/paca/api/internal/domain/sprint"
@@ -181,6 +182,8 @@ func statusAndCodeFor(err error) (int, apierr.Code) {
 		errors.Is(err, attachmentdom.ErrFileNameEmpty),
 		errors.Is(err, attachmentdom.ErrContentTypeEmpty):
 		return http.StatusBadRequest, apierr.CodeAttachmentInvalid
+	case errors.Is(err, attachmentdom.ErrDocFileMismatch):
+		return http.StatusNotFound, apierr.CodeFileNotFound
 	case errors.Is(err, attachmentdom.ErrMultipartUploadIDRequired):
 		return http.StatusBadRequest, apierr.CodeMultipartUploadIDRequired
 	case errors.Is(err, attachmentdom.ErrNotMultipartUpload):
@@ -197,6 +200,28 @@ func statusAndCodeFor(err error) (int, apierr.Code) {
 		return http.StatusBadRequest, apierr.CodeActivityNotAComment
 	case errors.Is(err, taskdom.ErrCommentTextInvalid):
 		return http.StatusBadRequest, apierr.CodeCommentTextInvalid
+	case errors.Is(err, docdom.ErrDocNotFound):
+		return http.StatusNotFound, apierr.CodeDocNotFound
+	case errors.Is(err, docdom.ErrDocTitleInvalid):
+		return http.StatusBadRequest, apierr.CodeDocTitleInvalid
+	case errors.Is(err, docdom.ErrFolderNotFound):
+		return http.StatusNotFound, apierr.CodeDocFolderNotFound
+	case errors.Is(err, docdom.ErrFolderNameInvalid):
+		return http.StatusBadRequest, apierr.CodeDocFolderNameInvalid
+	case errors.Is(err, docdom.ErrFolderNotInProject):
+		return http.StatusBadRequest, apierr.CodeDocFolderNotInProject
+	case errors.Is(err, docdom.ErrFolderSelfParent):
+		return http.StatusBadRequest, apierr.CodeDocFolderSelfParent
+	case errors.Is(err, docdom.ErrSnapshotNotFound):
+		return http.StatusNotFound, apierr.CodeDocSnapshotNotFound
+	case errors.Is(err, docdom.ErrActivityNotFound):
+		return http.StatusNotFound, apierr.CodeDocActivityNotFound
+	case errors.Is(err, docdom.ErrActivityForbidden):
+		return http.StatusForbidden, apierr.CodeDocActivityForbidden
+	case errors.Is(err, docdom.ErrActivityNotAComment):
+		return http.StatusBadRequest, apierr.CodeDocActivityNotAComment
+	case errors.Is(err, docdom.ErrCommentTextInvalid):
+		return http.StatusBadRequest, apierr.CodeDocCommentTextInvalid
 	default:
 		return http.StatusInternalServerError, apierr.CodeInternalError
 	}
@@ -285,6 +310,20 @@ func httpStatusForCode(code apierr.Code) int {
 		apierr.CodeTaskTypeNameReserved:
 		return http.StatusConflict
 	case apierr.CodeTaskTypeIsSystem:
+		return http.StatusForbidden
+	case apierr.CodeDocNotFound,
+		apierr.CodeDocFolderNotFound,
+		apierr.CodeDocSnapshotNotFound,
+		apierr.CodeDocActivityNotFound:
+		return http.StatusNotFound
+	case apierr.CodeDocTitleInvalid,
+		apierr.CodeDocFolderNameInvalid,
+		apierr.CodeDocFolderNotInProject,
+		apierr.CodeDocFolderSelfParent,
+		apierr.CodeDocActivityNotAComment,
+		apierr.CodeDocCommentTextInvalid:
+		return http.StatusBadRequest
+	case apierr.CodeDocActivityForbidden:
 		return http.StatusForbidden
 	case apierr.CodeBadRequest:
 		return http.StatusBadRequest

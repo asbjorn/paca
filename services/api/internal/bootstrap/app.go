@@ -27,6 +27,7 @@ import (
 	redisRepo "github.com/paca/api/internal/repository/redis"
 	attachmentsvc "github.com/paca/api/internal/service/attachment"
 	authsvc "github.com/paca/api/internal/service/auth"
+	docsvc "github.com/paca/api/internal/service/doc"
 	globalrolesvc "github.com/paca/api/internal/service/globalrole"
 	projectsvc "github.com/paca/api/internal/service/project"
 	sprintsvc "github.com/paca/api/internal/service/sprint"
@@ -42,10 +43,11 @@ import (
 
 // App holds the HTTP server and any resources that need graceful shutdown.
 type App struct {
-	server           *http.Server
-	publisher        *messaging.Publisher
-	activityConsumer *worker.ActivityConsumer
-	log              *slog.Logger
+	server              *http.Server
+	publisher           *messaging.Publisher
+	activityConsumer    *worker.ActivityConsumer
+	docActivityConsumer *worker.DocActivityConsumer
+	log                 *slog.Logger
 }
 
 // New builds all dependencies and returns a ready-to-run App.
@@ -82,6 +84,7 @@ func New(cfg *config.Config) (*App, error) {
 	sprintRepo := pgRepo.NewSprintRepository(db)
 	viewRepo := pgRepo.NewViewRepository(db)
 	attachmentRepo := pgRepo.NewAttachmentRepository(db)
+	docRepo := pgRepo.NewDocumentRepository(db)
 	refreshStore := redisRepo.NewRefreshTokenStore(redisClient)
 
 	// --- Schema migration (non-production only) -----------------------------
@@ -116,6 +119,9 @@ func New(cfg *config.Config) (*App, error) {
 	viewService := sprintsvc.NewViewService(viewRepo)
 	activityService := tasksvc.NewActivityService(activityRepo, projectRepo, publisher)
 	activityConsumer := worker.NewActivityConsumer(redisClient, activityRepo, projectRepo, log)
+	docService := docsvc.New(docRepo, projectRepo)
+	docActivityService := docsvc.NewActivityService(docRepo, projectRepo, publisher)
+	docActivityConsumer := worker.NewDocActivityConsumer(redisClient, docRepo, projectRepo, log)
 
 	// Object storage — defaults to MinIO; switches to AWS S3 when STORAGE_PROVIDER=s3.
 	storageClient, err := storage.NewS3Client(context.Background(), storage.S3Config{
@@ -157,6 +163,8 @@ func New(cfg *config.Config) (*App, error) {
 		Sprint:       handler.NewSprintHandler(sprintService, viewService, handler.WithSprintDefaultTaskTypes(taskService)),
 		View:         handler.NewViewHandler(viewService),
 		Attachment:   handler.NewAttachmentHandler(attachmentService),
+		Document:     handler.NewDocumentHandler(docService, docActivityService),
+		DocFile:      handler.NewDocFileHandler(attachmentService),
 		Log:          log,
 	}
 
@@ -170,7 +178,7 @@ func New(cfg *config.Config) (*App, error) {
 		IdleTimeout:  60 * time.Second,
 	}
 
-	return &App{server: srv, publisher: publisher, activityConsumer: activityConsumer, log: log}, nil
+	return &App{server: srv, publisher: publisher, activityConsumer: activityConsumer, docActivityConsumer: docActivityConsumer, log: log}, nil
 }
 
 // projectRoleModel is the GORM model used by seedDefaultProjectRoleTemplates
@@ -186,11 +194,12 @@ type projectRoleModel struct {
 
 func (projectRoleModel) TableName() string { return "project_roles" }
 
-// Run starts the activity consumer and the HTTP server.
+// Run starts the activity consumers and the HTTP server.
 // It returns when the server stops.
 func (a *App) Run() error {
 	a.log.Info("starting server", "addr", a.server.Addr)
 	a.activityConsumer.Start(context.Background())
+	a.docActivityConsumer.Start(context.Background())
 	return a.server.ListenAndServe()
 }
 
@@ -198,6 +207,7 @@ func (a *App) Run() error {
 func (a *App) Shutdown(ctx context.Context) error {
 	a.log.Info("shutting down server")
 	a.activityConsumer.Stop()
+	a.docActivityConsumer.Stop()
 	if a.publisher != nil {
 		a.publisher.Close()
 	}
