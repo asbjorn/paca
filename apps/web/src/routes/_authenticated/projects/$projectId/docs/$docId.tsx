@@ -158,7 +158,7 @@ function DocEditorPage() {
 			const folder = allFolders.find((f) => f.id === current);
 			if (!folder) break;
 			path.unshift(folder);
-			current = folder.parent_id;
+			current = folder.parent_id ?? null;
 		}
 		return path;
 	})();

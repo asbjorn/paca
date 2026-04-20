@@ -252,6 +252,7 @@ function ActivityItemInner<T extends ActivityEntry>({
 	const canDelete = isComment && isOwn && !!deleteComment;
 
 	const updateMutation = useMutation({
+		// biome-ignore lint/style/noNonNullAssertion: guarded by canEdit
 		mutationFn: (text: string) => updateComment!(entry.id, text),
 		onSuccess: () => {
 			qc.invalidateQueries({ queryKey });
@@ -260,6 +261,7 @@ function ActivityItemInner<T extends ActivityEntry>({
 	});
 
 	const deleteMutation = useMutation({
+		// biome-ignore lint/style/noNonNullAssertion: guarded by canDelete
 		mutationFn: () => deleteComment!(entry.id),
 		onSuccess: () => {
 			qc.invalidateQueries({ queryKey });
