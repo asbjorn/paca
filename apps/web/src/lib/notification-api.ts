@@ -12,7 +12,7 @@ export interface Notification {
 	type: NotificationType;
 	actor_full_name: string;
 	actor_username: string;
-	task_id: string;
+	task_id: string | null;
 	task_title: string;
 	task_number: number;
 	project_id: string;

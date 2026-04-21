@@ -57,10 +57,17 @@ export function NotificationBell() {
 	const handleNotificationClick = useCallback(
 		(n: Notification) => {
 			if (!n.read_at) markRead(n.id);
-			navigate({
-				to: "/projects/$projectId/tasks/$taskId",
-				params: { projectId: n.project_id, taskId: n.task_id },
-			});
+			if (n.task_id) {
+				navigate({
+					to: "/projects/$projectId/tasks/$taskId",
+					params: { projectId: n.project_id, taskId: n.task_id },
+				});
+			} else {
+				navigate({
+					to: "/projects/$projectId",
+					params: { projectId: n.project_id },
+				});
+			}
 		},
 		[markRead, navigate],
 	);
