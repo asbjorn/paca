@@ -134,7 +134,7 @@ func (r *NotificationRepository) ListForUser(ctx context.Context, userID uuid.UU
 		Table("notifications n").
 		Select(notificationReadCols).
 		Joins("LEFT JOIN project_members pm ON pm.id = n.actor_member_id").
-		Joins("LEFT JOIN users u ON u.id = pm.user_id").
+		Joins("LEFT JOIN users u ON u.id = pm.user_id AND u.deleted_at IS NULL").
 		Joins("LEFT JOIN tasks t ON t.id = n.task_id AND t.deleted_at IS NULL").
 		Joins("JOIN projects p ON p.id = n.project_id").
 		Where("n.recipient_user_id = ?", userID.String()).
