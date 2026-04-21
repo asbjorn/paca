@@ -206,7 +206,14 @@ export function createSocketServer(
 				{ userId, socketId: socket.id, reason },
 				"client disconnected",
 			);
-			await deleteSession(sessionRedis, socket.id);
+			try {
+				await deleteSession(sessionRedis, socket.id);
+			} catch (err) {
+				logger.warn(
+					{ userId, socketId: socket.id, reason, err },
+					"failed to delete session on disconnect",
+				);
+			}
 		});
 	});
 
