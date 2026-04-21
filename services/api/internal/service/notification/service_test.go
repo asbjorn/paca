@@ -29,7 +29,7 @@ func (r *fakeNotificationRepo) Create(_ context.Context, n *notificationdom.Noti
 	return nil
 }
 
-func (r *fakeNotificationRepo) ListForUser(_ context.Context, userID uuid.UUID, limit int) ([]*notificationdom.Notification, error) {
+func (r *fakeNotificationRepo) ListForUser(_ context.Context, userID uuid.UUID, _ int) ([]*notificationdom.Notification, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	var out []*notificationdom.Notification
