@@ -107,6 +107,24 @@ services:
     depends_on:
       - api
 
+  realtime:
+    image: ${PACA_REALTIME_IMAGE:-paca-realtime:latest}
+    build:
+      context: ../services/realtime
+    restart: unless-stopped
+    environment:
+      PORT: 3001
+      NODE_ENV: ${ENVIRONMENT:-production}
+      API_URL: http://api:8080
+      REDIS_URL: ${REDIS_URL:-redis://valkey:6379/0}
+      CORS_ORIGINS: ${CORS_ORIGINS:-${PUBLIC_URL:-http://localhost}}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    depends_on:
+      valkey:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+
   gateway:
     image: nginx:1.27-alpine
     restart: unless-stopped
@@ -117,6 +135,7 @@ services:
     depends_on:
       - api
       - web
+      - realtime
 
   # MinIO — S3-compatible object store. Runs by default for self-hosted deployments.
   # When using AWS S3, suppress this container with --scale minio=0 and set
