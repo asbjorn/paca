@@ -327,7 +327,7 @@ Table github_integrations {
 
 Table github_repositories {
   id                 uuid [primary key]
-  project_id         uuid [not null, unique, ref: > projects.id]
+  project_id         uuid [not null, ref: > projects.id]
   integration_id     uuid [not null, ref: > github_integrations.id]
   owner              text [not null]
   repo_name          text [not null]
@@ -337,6 +337,10 @@ Table github_repositories {
   default_branch     text [not null, default: 'main']
   created_at         timestamp
   updated_at         timestamp
+
+  indexes {
+    (project_id, full_name) [unique]
+  }
 }
 
 Table github_pull_requests {
@@ -368,6 +372,18 @@ Table github_task_pr_links {
 
   indexes {
     (task_id, pull_request_id) [unique]
+  }
+}
+
+Table github_task_branches {
+  id          uuid [primary key]
+  task_id     uuid [not null, ref: > tasks.id]
+  repo_id     uuid [not null, ref: > github_repositories.id]
+  branch_name text [not null]
+  created_at  timestamp
+
+  indexes {
+    (task_id, repo_id, branch_name) [unique]
   }
 }
 
@@ -425,4 +441,6 @@ Ref: projects.id < github_pull_requests.project_id
 Ref: github_repositories.id < github_pull_requests.repo_id
 Ref: tasks.id < github_task_pr_links.task_id
 Ref: github_pull_requests.id < github_task_pr_links.pull_request_id
+Ref: tasks.id < github_task_branches.task_id
+Ref: github_repositories.id < github_task_branches.repo_id
 ```

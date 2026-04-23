@@ -498,12 +498,12 @@ func (s *Service) deleteWebhook(ctx context.Context, projectID uuid.UUID, repo *
 	return s.deleteWebhookWithToken(ctx, token, repo)
 }
 
-func (s *Service) deleteWebhookWithToken(_ context.Context, token string, repo *githubdom.LinkedRepository) error {
+func (s *Service) deleteWebhookWithToken(ctx context.Context, token string, repo *githubdom.LinkedRepository) error {
 	if repo.WebhookID == 0 {
 		return nil
 	}
 	ghClient := s.newClient(token)
-	return ghClient.DeleteWebhook(context.Background(), repo.Owner, repo.RepoName, repo.WebhookID)
+	return ghClient.DeleteWebhook(ctx, repo.Owner, repo.RepoName, repo.WebhookID)
 }
 
 // handlePREvent upserts cached PR data from a pull_request webhook event and
