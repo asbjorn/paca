@@ -175,11 +175,11 @@ These routes already exist in the Go API service.
 | `DELETE` | `/api/v1/projects/:projectId/custom-fields/:fieldId` | Access token (fresh) + `tasks.write` | Delete a custom field definition. |
 | `GET` | `/api/v1/projects/:projectId/github` | Access token (fresh) + `projects.write` | Get the GitHub integration for a project (token presence only — the PAT value is never returned). Returns `404 GITHUB_INTEGRATION_NOT_FOUND` when no integration is configured. |
 | `PUT` | `/api/v1/projects/:projectId/github/token` | Access token (fresh) + `projects.write` | Validate and store (or replace) a GitHub personal access token. The token is validated against the GitHub API before being encrypted at rest. Returns `422 GITHUB_INVALID_TOKEN` if the token is rejected. |
-| `DELETE` | `/api/v1/projects/:projectId/github/token` | Access token (fresh) + `projects.write` | Remove the stored GitHub integration and delete the linked repository and its webhook. |
+| `DELETE` | `/api/v1/projects/:projectId/github/token` | Access token (fresh) + `projects.write` | Remove the stored GitHub integration and delete all linked repositories and their webhooks. |
 | `GET` | `/api/v1/projects/:projectId/github/repositories` | Access token (fresh) + `projects.write` | List all repositories accessible with the project's GitHub PAT. Proxies the GitHub API. |
-| `GET` | `/api/v1/projects/:projectId/github/repository` | Access token (fresh) + `projects.write` | Get the currently linked repository for the project. Returns `404 GITHUB_REPOSITORY_NOT_FOUND` when none is linked. |
-| `PUT` | `/api/v1/projects/:projectId/github/repository` | Access token (fresh) + `projects.write` | Link a repository to the project. Automatically registers a webhook on the GitHub repository using the `PUBLIC_URL` base. |
-| `DELETE` | `/api/v1/projects/:projectId/github/repository` | Access token (fresh) + `projects.write` | Unlink the repository and delete its webhook. |
+| `GET` | `/api/v1/projects/:projectId/github/linked-repositories` | Access token (fresh) + `projects.write` | List the repositories currently linked to the project. |
+| `POST` | `/api/v1/projects/:projectId/github/linked-repositories` | Access token (fresh) + `projects.write` | Link a repository to the project. Automatically registers a webhook on the GitHub repository using the `PUBLIC_URL` base. |
+| `DELETE` | `/api/v1/projects/:projectId/github/linked-repositories/:repoId` | Access token (fresh) + `projects.write` | Unlink a specific linked repository from the project and delete its webhook. |
 | `GET` | `/api/v1/projects/:projectId/tasks/:taskId/github/pull-requests` | Access token (fresh) + `tasks.read` | List pull requests linked to a task. |
 | `POST` | `/api/v1/projects/:projectId/tasks/:taskId/github/pull-requests` | Access token (fresh) + `tasks.write` | Link a pull request to a task by PR number. Fetches and caches the PR metadata from GitHub. |
 | `DELETE` | `/api/v1/projects/:projectId/tasks/:taskId/github/pull-requests/:prId` | Access token (fresh) + `tasks.write` | Unlink a pull request from a task. |
