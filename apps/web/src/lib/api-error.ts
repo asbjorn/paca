@@ -71,6 +71,7 @@ export const ApiErrorCode = {
 	GitHubRepoAlreadyLinked: "GITHUB_REPO_ALREADY_LINKED",
 	GitHubWebhookCreationFailed: "GITHUB_WEBHOOK_CREATION_FAILED",
 	GitHubWebhookURLNotPublic: "GITHUB_WEBHOOK_URL_NOT_PUBLIC",
+	GitHubBranchAlreadyLinked: "GITHUB_BRANCH_ALREADY_LINKED",
 
 	// Generic / request errors.
 	BadRequest: "BAD_REQUEST",

@@ -2,6 +2,7 @@ package e2e_test
 
 import (
 	"bytes"
+	"context"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
@@ -135,12 +136,6 @@ func newGHE2EEnv(t *testing.T) *ghE2EEnv {
 	// Real GitHub Postgres repository backed by the per-test DB.
 	ghRepo := pgRepo.NewGitHubRepository(env.db)
 
-	// GitHub service pointing at the fake GitHub API.
-	// webhookURL is empty so webhook creation uses the ErrWebhookURLRequired
-	// path unless we set it below. For e2e we set a dummy public URL.
-	ghSvc := githubsvc.New(ghRepo, enc, fakeGH.URL+"/fake-webhook").
-		WithClientBaseURL(fakeGH.URL)
-
 	// Auxiliary repos / services from the same DB.
 	db := env.db
 	authzStore := pgRepo.NewAuthzPermissionStore(db)
@@ -148,6 +143,13 @@ func newGHE2EEnv(t *testing.T) *ghE2EEnv {
 	projectRepo := pgRepo.NewProjectRepository(db)
 	viewRepo := pgRepo.NewViewRepository(db)
 	activityRepo := pgRepo.NewTaskActivityRepository(db)
+
+	// GitHub service pointing at the fake GitHub API.
+	// webhookURL is empty so webhook creation uses the ErrWebhookURLRequired
+	// path unless we set it below. For e2e we set a dummy public URL.
+	ghSvc := githubsvc.New(ghRepo, enc, fakeGH.URL+"/fake-webhook").
+		WithClientBaseURL(fakeGH.URL).
+		WithTaskLookup(&e2eTaskLookup{projectRepo: projectRepo, taskRepo: taskRepo})
 
 	tm := jwttoken.New(e2eJWTSecret, e2eAccessTTL, e2eRefreshTTL)
 	projectService := projectsvc.New(projectRepo, taskRepo)
@@ -595,4 +597,208 @@ func TestGitHubE2E_DeleteToken(t *testing.T) {
 	if resp2.StatusCode != http.StatusNotFound {
 		t.Fatalf("after delete: expected 404, got %d", resp2.StatusCode)
 	}
+}
+
+func TestGitHubE2E_ListTaskBranches(t *testing.T) {
+	g := newGHE2EEnv(t)
+	seedUser(t, g.env, "ghuser8", "pass1234", "GH User 8")
+	u, _ := g.env.userRepo.FindByUsername(g.env.ctx, "ghuser8")
+	userID := u.ID
+	seedGHAdminRole(t, g.env, userID)
+	projectID := createGHProject(t, g.env, userID, "GH E2E Project 8")
+	tok := issueGHToken(t, userID)
+
+	// Set token and link repository.
+	g.doGHRequest(t, http.MethodPut,
+		"/api/v1/projects/"+projectID.String()+"/github/token",
+		tok, map[string]string{"token": "ghp_fake"}).Body.Close()
+	repoResp := g.doGHRequest(t, http.MethodPost,
+		"/api/v1/projects/"+projectID.String()+"/github/linked-repositories",
+		tok, map[string]string{"owner": "testorg", "repo_name": "testrepo"})
+	var repoEnv struct {
+		Data map[string]any `json:"data"`
+	}
+	json.NewDecoder(repoResp.Body).Decode(&repoEnv) //nolint:errcheck
+	repoResp.Body.Close()
+	repoIDStr, _ := repoEnv.Data["id"].(string)
+	if repoIDStr == "" {
+		t.Fatal("link repo: expected repo id in response")
+	}
+
+	// Create a task.
+	task, err := g.env.taskSvc.CreateTask(g.env.ctx, taskdom.CreateTaskInput{
+		ProjectID: projectID,
+		Title:     "List Branches Task",
+	})
+	if err != nil {
+		t.Fatalf("create task: %v", err)
+	}
+
+	// List branches — should be empty before any branch is created.
+	respList0 := g.doGHRequest(t, http.MethodGet,
+		fmt.Sprintf("/api/v1/projects/%s/tasks/%s/github/branches", projectID, task.ID),
+		tok, nil)
+	defer respList0.Body.Close()
+	if respList0.StatusCode != http.StatusOK {
+		t.Fatalf("initial list: expected 200, got %d", respList0.StatusCode)
+	}
+	var listEnv0 struct {
+		Data []any `json:"data"`
+	}
+	json.NewDecoder(respList0.Body).Decode(&listEnv0) //nolint:errcheck
+	if len(listEnv0.Data) != 0 {
+		t.Errorf("initial list: expected 0 branches, got %d", len(listEnv0.Data))
+	}
+
+	// Create a branch.
+	respBranch := g.doGHRequest(t, http.MethodPost,
+		fmt.Sprintf("/api/v1/projects/%s/tasks/%s/github/branches", projectID, task.ID),
+		tok, map[string]string{"repo_id": repoIDStr, "branch_name": "feat/e2e-list-branch"})
+	defer respBranch.Body.Close()
+	if respBranch.StatusCode != http.StatusCreated {
+		data, code := decodeGHEnvelope(t, respBranch)
+		t.Fatalf("create branch: expected 201, got %d (code=%s data=%v)", respBranch.StatusCode, code, data)
+	}
+
+	// List branches — should now contain the created branch.
+	respList1 := g.doGHRequest(t, http.MethodGet,
+		fmt.Sprintf("/api/v1/projects/%s/tasks/%s/github/branches", projectID, task.ID),
+		tok, nil)
+	defer respList1.Body.Close()
+	if respList1.StatusCode != http.StatusOK {
+		t.Fatalf("after create: list expected 200, got %d", respList1.StatusCode)
+	}
+	var listEnv1 struct {
+		Data []map[string]any `json:"data"`
+	}
+	if err := json.NewDecoder(respList1.Body).Decode(&listEnv1); err != nil {
+		t.Fatalf("decode list branches: %v", err)
+	}
+	if len(listEnv1.Data) != 1 {
+		t.Fatalf("expected 1 branch, got %d", len(listEnv1.Data))
+	}
+	if listEnv1.Data[0]["branch_name"] != "feat/e2e-list-branch" {
+		t.Errorf("expected branch_name feat/e2e-list-branch, got %v", listEnv1.Data[0]["branch_name"])
+	}
+	if listEnv1.Data[0]["task_id"] != task.ID.String() {
+		t.Errorf("expected task_id %s, got %v", task.ID, listEnv1.Data[0]["task_id"])
+	}
+}
+
+func TestGitHubE2E_Webhook_PushEvent_AutoLinksBranch(t *testing.T) {
+	g := newGHE2EEnv(t)
+	seedUser(t, g.env, "ghuser9", "pass1234", "GH User 9")
+	u, _ := g.env.userRepo.FindByUsername(g.env.ctx, "ghuser9")
+	userID := u.ID
+	seedGHAdminRole(t, g.env, userID)
+
+	// Create project with a known task_id_prefix so branch name can be matched.
+	proj, err := g.env.projectSvc.Create(g.env.ctx, projectdom.CreateProjectInput{
+		Name:         "GH E2E Project 9",
+		TaskIDPrefix: "PUSH",
+		CreatedBy:    &userID,
+	})
+	if err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+	projectID := proj.ID
+	tok := issueGHToken(t, userID)
+
+	// Set token and link repository.
+	g.doGHRequest(t, http.MethodPut,
+		"/api/v1/projects/"+projectID.String()+"/github/token",
+		tok, map[string]string{"token": "ghp_fake_push"}).Body.Close()
+	repoResp := g.doGHRequest(t, http.MethodPost,
+		"/api/v1/projects/"+projectID.String()+"/github/linked-repositories",
+		tok, map[string]string{"owner": "testorg", "repo_name": "testrepo"})
+	var repoEnv struct {
+		Data map[string]any `json:"data"`
+	}
+	json.NewDecoder(repoResp.Body).Decode(&repoEnv) //nolint:errcheck
+	repoResp.Body.Close()
+	if repoEnv.Data["id"] == "" {
+		t.Fatal("link repo: no id in response")
+	}
+
+	// Create a task — its task_number will be auto-assigned (first task → 1).
+	task, err := g.env.taskSvc.CreateTask(g.env.ctx, taskdom.CreateTaskInput{
+		ProjectID: projectID,
+		Title:     "Push Webhook Task",
+	})
+	if err != nil {
+		t.Fatalf("create task: %v", err)
+	}
+
+	// Clear the webhook_secret_enc so signature verification is skipped.
+	if err := g.env.db.Exec(
+		"UPDATE github_repositories SET webhook_secret_enc = '' WHERE project_id = ?",
+		projectID.String(),
+	).Error; err != nil {
+		t.Fatalf("clear webhook secret: %v", err)
+	}
+
+	// Send a push event for a new branch matching "PUSH-{task_number}".
+	branchName := fmt.Sprintf("feat/PUSH-%d", task.TaskNumber)
+	payload := fmt.Sprintf(
+		`{"ref":"refs/heads/%s","created":true,"deleted":false,"repository":{"full_name":"testorg/testrepo"}}`,
+		branchName,
+	)
+
+	req, _ := http.NewRequestWithContext(g.env.ctx, http.MethodPost,
+		g.base+"/api/v1/github/webhook",
+		bytes.NewBufferString(payload))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-GitHub-Event", "push")
+	// No valid signature — accepted because webhook_secret_enc is empty.
+	wresp, err := g.client.Do(req)
+	if err != nil {
+		t.Fatalf("webhook request: %v", err)
+	}
+	wresp.Body.Close()
+	if wresp.StatusCode != http.StatusNoContent {
+		t.Fatalf("expected 204, got %d", wresp.StatusCode)
+	}
+
+	// The push handler runs asynchronously-equivalent (same goroutine, no delay needed).
+	// Verify the branch was auto-linked to the task.
+	respList := g.doGHRequest(t, http.MethodGet,
+		fmt.Sprintf("/api/v1/projects/%s/tasks/%s/github/branches", projectID, task.ID),
+		tok, nil)
+	defer respList.Body.Close()
+	if respList.StatusCode != http.StatusOK {
+		t.Fatalf("list branches: expected 200, got %d", respList.StatusCode)
+	}
+	var listEnv struct {
+		Data []map[string]any `json:"data"`
+	}
+	if err := json.NewDecoder(respList.Body).Decode(&listEnv); err != nil {
+		t.Fatalf("decode list: %v", err)
+	}
+	if len(listEnv.Data) != 1 {
+		t.Fatalf("expected 1 auto-linked branch, got %d", len(listEnv.Data))
+	}
+	if listEnv.Data[0]["branch_name"] != branchName {
+		t.Errorf("expected branch_name %q, got %v", branchName, listEnv.Data[0]["branch_name"])
+	}
+}
+
+// ---------------------------------------------------------------------------
+// e2eTaskLookup — implements githubsvc.TaskLookup for e2e tests
+// ---------------------------------------------------------------------------
+
+type e2eTaskLookup struct {
+	projectRepo *pgRepo.ProjectRepository
+	taskRepo    *pgRepo.TaskRepository
+}
+
+func (l *e2eTaskLookup) FindTaskByProjectPrefixAndNumber(ctx context.Context, prefix string, number int64) (uuid.UUID, uuid.UUID, error) {
+	project, err := l.projectRepo.FindByTaskIDPrefix(ctx, prefix)
+	if err != nil {
+		return uuid.Nil, uuid.Nil, err
+	}
+	task, err := l.taskRepo.FindTaskByNumber(ctx, project.ID, number)
+	if err != nil {
+		return uuid.Nil, uuid.Nil, err
+	}
+	return task.ID, task.ProjectID, nil
 }

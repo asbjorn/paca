@@ -57,12 +57,16 @@ type Service interface {
 	// Returns ErrPRLinkNotFound when the link does not exist.
 	UnlinkPRFromTask(ctx context.Context, taskID, prID uuid.UUID) error
 
-	// CreateBranch creates a new git branch in the linked repository identified by repoID.
+	// CreateBranch creates a new git branch in the linked repository identified by repoID
+	// and links it to the given task.
 	// branchName is the desired branch name; it must be non-empty.
 	// sourceBranch is the branch to branch off; if empty, the repository's
 	// default branch is used.
 	// Returns the full branch name on success.
-	CreateBranch(ctx context.Context, projectID, repoID uuid.UUID, branchName, sourceBranch string) (string, error)
+	CreateBranch(ctx context.Context, projectID, taskID, repoID uuid.UUID, branchName, sourceBranch string) (string, error)
+
+	// ListTaskBranches returns all git branches linked to the given task.
+	ListTaskBranches(ctx context.Context, taskID uuid.UUID) ([]*TaskBranch, error)
 
 	// HandleWebhookEvent processes an incoming GitHub webhook event.
 	// repoFullName is the "owner/repo" value from the event payload.

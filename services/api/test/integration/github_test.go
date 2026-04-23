@@ -31,8 +31,10 @@ type fakeGitHubService struct {
 	integrations map[uuid.UUID]*githubdom.Integration
 	repos        map[uuid.UUID]*githubdom.LinkedRepository // keyed by repo ID
 	prs          map[uuid.UUID]*githubdom.PullRequest
-	links        map[string]bool // "taskID:prID"
-	returnErr    error           // when non-nil, every call returns this error
+	links        map[string]bool                       // "taskID:prID"
+	branches     map[uuid.UUID][]*githubdom.TaskBranch // keyed by taskID
+	branchKeys   map[string]bool                       // "taskID:repoID:branchName" — duplicate guard
+	returnErr    error                                 // when non-nil, every call returns this error
 }
 
 func newFakeGitHubService() *fakeGitHubService {
@@ -41,6 +43,8 @@ func newFakeGitHubService() *fakeGitHubService {
 		repos:        make(map[uuid.UUID]*githubdom.LinkedRepository),
 		prs:          make(map[uuid.UUID]*githubdom.PullRequest),
 		links:        make(map[string]bool),
+		branches:     make(map[uuid.UUID][]*githubdom.TaskBranch),
+		branchKeys:   make(map[string]bool),
 	}
 }
 
@@ -207,13 +211,40 @@ func (s *fakeGitHubService) UnlinkPRFromTask(_ context.Context, taskID, prID uui
 	return nil
 }
 
-func (s *fakeGitHubService) CreateBranch(_ context.Context, _, _ uuid.UUID, branchName, _ string) (string, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
+func (s *fakeGitHubService) CreateBranch(_ context.Context, _, taskID, repoID uuid.UUID, branchName, _ string) (string, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if s.returnErr != nil {
 		return "", s.returnErr
 	}
+	key := taskID.String() + ":" + repoID.String() + ":" + branchName
+	if s.branchKeys[key] {
+		return "", githubdom.ErrBranchAlreadyLinked
+	}
+	s.branchKeys[key] = true
+	now := time.Now()
+	b := &githubdom.TaskBranch{
+		ID:         uuid.New(),
+		TaskID:     taskID,
+		RepoID:     repoID,
+		BranchName: branchName,
+		CreatedAt:  now,
+	}
+	s.branches[taskID] = append(s.branches[taskID], b)
 	return branchName, nil
+}
+
+func (s *fakeGitHubService) ListTaskBranches(_ context.Context, taskID uuid.UUID) ([]*githubdom.TaskBranch, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if s.returnErr != nil {
+		return nil, s.returnErr
+	}
+	out := s.branches[taskID]
+	if out == nil {
+		out = []*githubdom.TaskBranch{}
+	}
+	return out, nil
 }
 
 func (s *fakeGitHubService) HandleWebhookEvent(_ context.Context, _, _, _ string, _ []byte) error {
@@ -588,6 +619,119 @@ func TestGitHub_CreateBranch_OK(t *testing.T) {
 	data, _ := env["data"].(map[string]any)
 	if data["branch_name"] != "feature/test-branch" {
 		t.Errorf("expected branch_name feature/test-branch, got %v", data["branch_name"])
+	}
+}
+
+func TestGitHub_CreateBranch_AlreadyLinked(t *testing.T) {
+	svc := newFakeGitHubService()
+	r := buildGitHubTestRouter(svc, ghWriteStore())
+	tok := issueProjectToken(t, uuid.NewString())
+	projectID := uuid.New()
+	taskID := uuid.New()
+	repoID := uuid.New()
+
+	sendCreate := func() *httptest.ResponseRecorder {
+		body, _ := json.Marshal(map[string]string{
+			"repo_id":     repoID.String(),
+			"branch_name": "feat/already-linked",
+		})
+		req := httptest.NewRequestWithContext(t.Context(), http.MethodPost,
+			"/api/v1/projects/"+projectID.String()+"/tasks/"+taskID.String()+"/github/branches",
+			bytes.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+tok)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		return w
+	}
+
+	// First call should succeed.
+	if w := sendCreate(); w.Code != http.StatusCreated {
+		t.Fatalf("first create: expected 201, got %d: %s", w.Code, w.Body.String())
+	}
+
+	// Second call with the same branch name should be rejected.
+	w := sendCreate()
+	if w.Code != http.StatusConflict {
+		t.Fatalf("duplicate create: expected 409, got %d: %s", w.Code, w.Body.String())
+	}
+	if code := decodeErrorCode(t, w); code != "GITHUB_BRANCH_ALREADY_LINKED" {
+		t.Errorf("expected GITHUB_BRANCH_ALREADY_LINKED, got %q", code)
+	}
+}
+
+func TestGitHub_ListTaskBranches_Empty(t *testing.T) {
+	svc := newFakeGitHubService()
+	r := buildGitHubTestRouter(svc, ghWriteStore())
+	tok := issueProjectToken(t, uuid.NewString())
+	projectID := uuid.New()
+	taskID := uuid.New()
+
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet,
+		"/api/v1/projects/"+projectID.String()+"/tasks/"+taskID.String()+"/github/branches",
+		nil)
+	req.Header.Set("Authorization", "Bearer "+tok)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	var env map[string]any
+	json.NewDecoder(w.Body).Decode(&env) //nolint:errcheck
+	items, _ := env["data"].([]any)
+	if len(items) != 0 {
+		t.Errorf("expected empty list, got %d items", len(items))
+	}
+}
+
+func TestGitHub_ListTaskBranches_OK(t *testing.T) {
+	svc := newFakeGitHubService()
+	r := buildGitHubTestRouter(svc, ghWriteStore())
+	tok := issueProjectToken(t, uuid.NewString())
+	projectID := uuid.New()
+	taskID := uuid.New()
+	repoID := uuid.New()
+
+	// Create a branch first.
+	body, _ := json.Marshal(map[string]string{
+		"repo_id":     repoID.String(),
+		"branch_name": "feat/PROJ-1",
+	})
+	reqCreate := httptest.NewRequestWithContext(t.Context(), http.MethodPost,
+		"/api/v1/projects/"+projectID.String()+"/tasks/"+taskID.String()+"/github/branches",
+		bytes.NewReader(body))
+	reqCreate.Header.Set("Content-Type", "application/json")
+	reqCreate.Header.Set("Authorization", "Bearer "+tok)
+	wCreate := httptest.NewRecorder()
+	r.ServeHTTP(wCreate, reqCreate)
+	if wCreate.Code != http.StatusCreated {
+		t.Fatalf("create branch: expected 201, got %d: %s", wCreate.Code, wCreate.Body.String())
+	}
+
+	// List branches.
+	reqList := httptest.NewRequestWithContext(t.Context(), http.MethodGet,
+		"/api/v1/projects/"+projectID.String()+"/tasks/"+taskID.String()+"/github/branches",
+		nil)
+	reqList.Header.Set("Authorization", "Bearer "+tok)
+	wList := httptest.NewRecorder()
+	r.ServeHTTP(wList, reqList)
+
+	if wList.Code != http.StatusOK {
+		t.Fatalf("list branches: expected 200, got %d: %s", wList.Code, wList.Body.String())
+	}
+	var env map[string]any
+	json.NewDecoder(wList.Body).Decode(&env) //nolint:errcheck
+	items, _ := env["data"].([]any)
+	if len(items) != 1 {
+		t.Fatalf("expected 1 branch, got %d", len(items))
+	}
+	item, _ := items[0].(map[string]any)
+	if item["branch_name"] != "feat/PROJ-1" {
+		t.Errorf("expected branch_name feat/PROJ-1, got %v", item["branch_name"])
+	}
+	if item["task_id"] != taskID.String() {
+		t.Errorf("expected task_id %s, got %v", taskID, item["task_id"])
 	}
 }
 

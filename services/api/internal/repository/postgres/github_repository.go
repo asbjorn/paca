@@ -309,6 +309,69 @@ func (r *GitHubRepository) UnlinkPRFromTask(ctx context.Context, taskID, prID uu
 }
 
 // -------------------------------------------------------------------------
+// TaskBranchRepository
+// -------------------------------------------------------------------------
+
+type githubTaskBranchModel struct {
+	ID         string    `gorm:"primarykey;type:uuid"`
+	TaskID     string    `gorm:"column:task_id;type:uuid"`
+	RepoID     string    `gorm:"column:repo_id;type:uuid"`
+	BranchName string    `gorm:"column:branch_name;not null"`
+	CreatedAt  time.Time `gorm:"column:created_at"`
+}
+
+func (githubTaskBranchModel) TableName() string { return "github_task_branches" }
+
+func (r *GitHubRepository) LinkBranchToTask(ctx context.Context, link *githubdom.TaskBranch) error {
+	m := githubTaskBranchModel{
+		ID:         link.ID.String(),
+		TaskID:     link.TaskID.String(),
+		RepoID:     link.RepoID.String(),
+		BranchName: link.BranchName,
+		CreatedAt:  link.CreatedAt,
+	}
+	res := r.db.WithContext(ctx).
+		Clauses(clause.OnConflict{DoNothing: true}).
+		Create(&m)
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return githubdom.ErrBranchAlreadyLinked
+	}
+	return nil
+}
+
+func (r *GitHubRepository) ListBranchesForTask(ctx context.Context, taskID uuid.UUID) ([]*githubdom.TaskBranch, error) {
+	var models []githubTaskBranchModel
+	if err := r.db.WithContext(ctx).
+		Where("task_id = ?", taskID.String()).
+		Order("created_at ASC").
+		Find(&models).Error; err != nil {
+		return nil, err
+	}
+	out := make([]*githubdom.TaskBranch, len(models))
+	for i, m := range models {
+		out[i] = taskBranchFromModel(m)
+	}
+	return out, nil
+}
+
+func (r *GitHubRepository) FindBranchByRepoAndName(ctx context.Context, repoID uuid.UUID, branchName string) (*githubdom.TaskBranch, error) {
+	var m githubTaskBranchModel
+	err := r.db.WithContext(ctx).
+		Where("repo_id = ? AND branch_name = ?", repoID.String(), branchName).
+		First(&m).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, githubdom.ErrBranchNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	return taskBranchFromModel(m), nil
+}
+
+// -------------------------------------------------------------------------
 // Model ↔ domain converters
 // -------------------------------------------------------------------------
 
@@ -362,5 +425,18 @@ func prFromModel(m githubPRModel) *githubdom.PullRequest {
 		MergedAt:   m.MergedAt,
 		CreatedAt:  m.CreatedAt,
 		UpdatedAt:  m.UpdatedAt,
+	}
+}
+
+func taskBranchFromModel(m githubTaskBranchModel) *githubdom.TaskBranch {
+	id, _ := uuid.Parse(m.ID)
+	taskID, _ := uuid.Parse(m.TaskID)
+	repoID, _ := uuid.Parse(m.RepoID)
+	return &githubdom.TaskBranch{
+		ID:         id,
+		TaskID:     taskID,
+		RepoID:     repoID,
+		BranchName: m.BranchName,
+		CreatedAt:  m.CreatedAt,
 	}
 }

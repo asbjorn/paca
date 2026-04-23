@@ -44,4 +44,11 @@ var (
 	// ErrWebhookURLNotPublic is returned when the configured webhook URL is not
 	// publicly reachable by GitHub (for example, localhost in local development).
 	ErrWebhookURLNotPublic = errors.New("github: webhook URL is not publicly reachable")
+
+	// ErrBranchAlreadyLinked is returned when the branch is already linked to
+	// the task.
+	ErrBranchAlreadyLinked = errors.New("github: branch already linked to this task")
+
+	// ErrBranchNotFound is returned when a task-branch link does not exist.
+	ErrBranchNotFound = errors.New("github: task branch link not found")
 )

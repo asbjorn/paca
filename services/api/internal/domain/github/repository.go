@@ -13,6 +13,7 @@ type Repository interface {
 	LinkedRepositoryRepository
 	PRRepository
 	TaskPRLinkRepository
+	TaskBranchRepository
 }
 
 // IntegrationRepository manages per-project GitHub PAT storage.
@@ -74,4 +75,18 @@ type TaskPRLinkRepository interface {
 	// UnlinkPRFromTask removes a task-PR association.
 	// Returns ErrPRLinkNotFound when the link does not exist.
 	UnlinkPRFromTask(ctx context.Context, taskID, prID uuid.UUID) error
+}
+
+// TaskBranchRepository manages task ↔ git-branch associations.
+type TaskBranchRepository interface {
+	// LinkBranchToTask creates a task-branch association.
+	// Returns ErrBranchAlreadyLinked when the link already exists.
+	LinkBranchToTask(ctx context.Context, link *TaskBranch) error
+
+	// ListBranchesForTask returns all branches linked to the given task.
+	ListBranchesForTask(ctx context.Context, taskID uuid.UUID) ([]*TaskBranch, error)
+
+	// FindBranchByRepoAndName looks up a task-branch link by repo + branch name.
+	// Returns ErrBranchNotFound when the link does not exist.
+	FindBranchByRepoAndName(ctx context.Context, repoID uuid.UUID, branchName string) (*TaskBranch, error)
 }

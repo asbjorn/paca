@@ -226,9 +226,33 @@ func (h *GitHubHandler) UnlinkPRFromTask(c *gin.Context) {
 
 // --- Branch endpoint -------------------------------------------------------
 
+// ListTaskBranches handles GET /projects/:projectId/tasks/:taskId/github/branches.
+func (h *GitHubHandler) ListTaskBranches(c *gin.Context) {
+	taskID, err := parseTaskID(c)
+	if err != nil {
+		presenter.Error(c, err)
+		return
+	}
+	branches, err := h.svc.ListTaskBranches(c.Request.Context(), taskID)
+	if err != nil {
+		presenter.Error(c, err)
+		return
+	}
+	items := make([]dto.TaskBranchResponse, len(branches))
+	for i, b := range branches {
+		items[i] = dto.TaskBranchFromEntity(b)
+	}
+	presenter.OK(c, items)
+}
+
 // CreateBranch handles POST /projects/:projectId/tasks/:taskId/github/branches.
 func (h *GitHubHandler) CreateBranch(c *gin.Context) {
 	projectID, err := parseProjectID(c)
+	if err != nil {
+		presenter.Error(c, err)
+		return
+	}
+	taskID, err := parseTaskID(c)
 	if err != nil {
 		presenter.Error(c, err)
 		return
@@ -238,7 +262,7 @@ func (h *GitHubHandler) CreateBranch(c *gin.Context) {
 		presenter.Error(c, apierr.New(apierr.CodeBadRequest, err.Error()))
 		return
 	}
-	branchName, err := h.svc.CreateBranch(c.Request.Context(), projectID, req.RepoID, req.BranchName, req.SourceBranch)
+	branchName, err := h.svc.CreateBranch(c.Request.Context(), projectID, taskID, req.RepoID, req.BranchName, req.SourceBranch)
 	if err != nil {
 		presenter.Error(c, err)
 		return

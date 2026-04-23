@@ -64,6 +64,18 @@ type TaskPRLink struct {
 	CreatedAt     time.Time
 }
 
+// TaskBranch is a git branch linked to a task.  A branch is linked when it
+// is created via the API (with an explicit task reference in the URL) or
+// discovered via the push webhook and its name contains the project's
+// task-ID-prefix pattern (e.g. "feat/PROJ-42").
+type TaskBranch struct {
+	ID         uuid.UUID
+	TaskID     uuid.UUID
+	RepoID     uuid.UUID
+	BranchName string
+	CreatedAt  time.Time
+}
+
 // RepoInfo is a slimmed-down view of a GitHub repository used when listing
 // repositories available under a given PAT.
 type RepoInfo struct {

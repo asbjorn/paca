@@ -55,6 +55,15 @@ export interface PullRequest {
 	updated_at: string;
 }
 
+/** A task-branch link. */
+export interface TaskBranch {
+	id: string;
+	task_id: string;
+	repo_id: string;
+	branch_name: string;
+	created_at: string;
+}
+
 export interface CreateBranchResult {
 	branch_name: string;
 }
@@ -164,6 +173,16 @@ export async function unlinkPRFromTask(
 
 // ── Branch endpoints ──────────────────────────────────────────────────────────
 
+export async function listTaskBranches(
+	projectId: string,
+	taskId: string,
+): Promise<TaskBranch[]> {
+	const { data } = await apiClient.instance.get<SuccessEnvelope<TaskBranch[]>>(
+		`/projects/${projectId}/tasks/${taskId}/github/branches`,
+	);
+	return data.data;
+}
+
 export async function createBranch(
 	projectId: string,
 	taskId: string,
@@ -214,6 +233,14 @@ export const taskPRsQueryOptions = (projectId: string, taskId: string) =>
 			"pull-requests",
 		],
 		queryFn: () => listTaskPRs(projectId, taskId),
+		enabled: !!projectId && !!taskId,
+		retry: false,
+	});
+
+export const taskBranchesQueryOptions = (projectId: string, taskId: string) =>
+	queryOptions({
+		queryKey: ["projects", projectId, "tasks", taskId, "github", "branches"],
+		queryFn: () => listTaskBranches(projectId, taskId),
 		enabled: !!projectId && !!taskId,
 		retry: false,
 	});

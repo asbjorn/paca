@@ -202,6 +202,8 @@ const (
 	// CodeGitHubWebhookURLNotPublic indicates the configured webhook URL is not
 	// reachable from the public internet (e.g. localhost).
 	CodeGitHubWebhookURLNotPublic Code = "GITHUB_WEBHOOK_URL_NOT_PUBLIC"
+	// CodeGitHubBranchAlreadyLinked indicates the branch is already linked to the task.
+	CodeGitHubBranchAlreadyLinked Code = "GITHUB_BRANCH_ALREADY_LINKED"
 )
 
 // Error carries a machine-readable Code alongside a human-readable Message.

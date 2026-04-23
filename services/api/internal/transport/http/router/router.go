@@ -511,6 +511,13 @@ func New(deps Deps) *gin.Engine {
 								httpmw.RequirePermissions(deps.Authorizer, httpmw.ProjectScopeFromParam("projectId"), authz.PermissionTasksWrite),
 								deps.GitHub.CreateBranch,
 							)
+							githubTask.GET("/branches",
+								httpmw.RequireAnyPermissions(deps.Authorizer,
+									httpmw.PermissionGroup{Scope: httpmw.GlobalScope(), Permissions: []authz.Permission{authz.PermissionProjectsRead}},
+									httpmw.PermissionGroup{Scope: httpmw.ProjectScopeFromParam("projectId"), Permissions: []authz.Permission{authz.PermissionTasksRead}},
+								),
+								deps.GitHub.ListTaskBranches,
+							)
 						}
 					}
 				}

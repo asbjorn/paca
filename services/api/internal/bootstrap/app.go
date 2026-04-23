@@ -164,7 +164,8 @@ func New(cfg *config.Config) (*App, error) {
 			return nil, fmt.Errorf("bootstrap: github: %w", err)
 		}
 		githubRepo := pgRepo.NewGitHubRepository(db)
-		githubService := githubsvc.New(githubRepo, ghEncryptor, cfg.GitHub.WebhookURL)
+		githubService := githubsvc.New(githubRepo, ghEncryptor, cfg.GitHub.WebhookURL).
+			WithTaskLookup(&projectTaskLookup{projectRepo: projectRepo, taskRepo: taskRepo})
 		githubHandler = handler.NewGitHubHandler(githubService)
 	}
 
@@ -296,6 +297,26 @@ func seedAdmin(ctx context.Context, repo userdom.Repository, globalRoleRepo *pgR
 
 	log.Info("admin account created", "username", cfg.Username)
 	return nil
+}
+
+// projectTaskLookup implements githubsvc.TaskLookup using the project and task
+// repositories.  It is used by the GitHub service to resolve a task-ID-prefix
+// pattern (e.g. "PROJ-42") found in a branch name to the corresponding task.
+type projectTaskLookup struct {
+	projectRepo *pgRepo.ProjectRepository
+	taskRepo    *pgRepo.TaskRepository
+}
+
+func (l *projectTaskLookup) FindTaskByProjectPrefixAndNumber(ctx context.Context, prefix string, number int64) (uuid.UUID, uuid.UUID, error) {
+	project, err := l.projectRepo.FindByTaskIDPrefix(ctx, prefix)
+	if err != nil {
+		return uuid.Nil, uuid.Nil, err
+	}
+	task, err := l.taskRepo.FindTaskByNumber(ctx, project.ID, number)
+	if err != nil {
+		return uuid.Nil, uuid.Nil, err
+	}
+	return task.ID, task.ProjectID, nil
 }
 
 func seedDefaultRoles(

@@ -144,3 +144,23 @@ type CreateBranchRequest struct {
 type CreateBranchResponse struct {
 	BranchName string `json:"branch_name"`
 }
+
+// TaskBranchResponse is the public representation of a task-branch link.
+type TaskBranchResponse struct {
+	ID         uuid.UUID `json:"id"`
+	TaskID     uuid.UUID `json:"task_id"`
+	RepoID     uuid.UUID `json:"repo_id"`
+	BranchName string    `json:"branch_name"`
+	CreatedAt  time.Time `json:"created_at"`
+}
+
+// TaskBranchFromEntity maps a domain TaskBranch to a response DTO.
+func TaskBranchFromEntity(b *githubdom.TaskBranch) TaskBranchResponse {
+	return TaskBranchResponse{
+		ID:         b.ID,
+		TaskID:     b.TaskID,
+		RepoID:     b.RepoID,
+		BranchName: b.BranchName,
+		CreatedAt:  b.CreatedAt,
+	}
+}

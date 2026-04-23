@@ -650,4 +650,27 @@ CREATE INDEX IF NOT EXISTS idx_github_task_pr_links_task_id
 CREATE INDEX IF NOT EXISTS idx_github_task_pr_links_pull_request_id
     ON github_task_pr_links (pull_request_id);
 
+-- -------------------------------------------------------------------------
+-- GITHUB TASK BRANCHES
+-- Links a git branch to a task.  Created when:
+--   1. A branch is created via POST /projects/:projectId/tasks/:taskId/github/branches.
+--   2. A push webhook event arrives and the branch name contains the
+--      project's task-ID-prefix pattern (e.g. "feat/PROJ-42").
+-- The branch naming rule is: any branch whose name contains the pattern
+--   {TASK_ID_PREFIX}-{TASK_NUMBER} (case-insensitive) is linked to that task.
+-- -------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS github_task_branches (
+    id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    task_id     UUID        NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+    repo_id     UUID        NOT NULL REFERENCES github_repositories(id) ON DELETE CASCADE,
+    branch_name TEXT        NOT NULL,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT uq_github_task_branches UNIQUE (task_id, repo_id, branch_name)
+);
+
+CREATE INDEX IF NOT EXISTS idx_github_task_branches_task_id
+    ON github_task_branches (task_id);
+CREATE INDEX IF NOT EXISTS idx_github_task_branches_repo_branch
+    ON github_task_branches (repo_id, branch_name);
+
 COMMIT;

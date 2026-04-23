@@ -12,6 +12,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -21,12 +23,28 @@ import (
 	"github.com/paca/api/internal/platform/secret"
 )
 
+// branchTaskRefRe matches the task-ID-prefix pattern inside a branch name.
+// It captures the prefix (e.g. "PROJ") and the task number (e.g. "42").
+// Examples: "feat/PROJ-42", "PROJ-42-description", "fix/MY-PROJECT-123-desc".
+var branchTaskRefRe = regexp.MustCompile(`(?i)\b([A-Z][A-Z0-9]{1,19})-(\d{1,6})\b`)
+
+// TaskLookup is used by the GitHub service to resolve a task reference
+// extracted from a branch name (e.g. "PROJ-42") to a task UUID and project UUID.
+type TaskLookup interface {
+	// FindTaskByProjectPrefixAndNumber returns the task UUID and project UUID
+	// for the task identified by the given project task-ID-prefix and task number.
+	// Returns an error (e.g. projectdom.ErrNotFound or taskdom.ErrTaskNotFound)
+	// when no match is found.
+	FindTaskByProjectPrefixAndNumber(ctx context.Context, prefix string, number int64) (taskID uuid.UUID, projectID uuid.UUID, err error)
+}
+
 // Service implements githubdom.Service.
 type Service struct {
 	repo          githubdom.Repository
 	enc           *secret.Encryptor
-	webhookURL    string // public URL where GitHub will POST events
-	clientBaseURL string // optional override for the GitHub API base URL (used in tests)
+	webhookURL    string     // public URL where GitHub will POST events
+	clientBaseURL string     // optional override for the GitHub API base URL (used in tests)
+	taskLookup    TaskLookup // optional; enables automatic branch → task linking on push events
 }
 
 // New creates a new GitHub integration Service.
@@ -36,10 +54,32 @@ func New(repo githubdom.Repository, enc *secret.Encryptor, webhookURL string) *S
 	return &Service{repo: repo, enc: enc, webhookURL: webhookURL}
 }
 
+// WithTaskLookup configures the optional TaskLookup used to auto-link branches
+// to tasks when a push webhook event arrives.
+func (s *Service) WithTaskLookup(tl TaskLookup) *Service {
+	s.taskLookup = tl
+	return s
+}
+
 // WithClientBaseURL sets a custom GitHub API base URL. Intended for tests only.
 func (s *Service) WithClientBaseURL(base string) *Service {
 	s.clientBaseURL = base
 	return s
+}
+
+// extractBranchTaskRef parses a branch name and returns the uppercase task-ID
+// prefix and task number if the branch matches the task-ref pattern.
+// For example, "feat/PROJ-42" → ("PROJ", 42, true).
+func extractBranchTaskRef(branchName string) (prefix string, taskNumber int64, ok bool) {
+	m := branchTaskRefRe.FindStringSubmatch(branchName)
+	if m == nil {
+		return "", 0, false
+	}
+	n, err := strconv.ParseInt(m[2], 10, 64)
+	if err != nil || n <= 0 {
+		return "", 0, false
+	}
+	return strings.ToUpper(m[1]), n, true
 }
 
 // newClient creates a GitHub API client for the given token, using the
@@ -301,8 +341,9 @@ func (s *Service) UnlinkPRFromTask(ctx context.Context, taskID, prID uuid.UUID) 
 	return s.repo.UnlinkPRFromTask(ctx, taskID, prID)
 }
 
-// CreateBranch creates a new branch in the linked repository identified by repoID.
-func (s *Service) CreateBranch(ctx context.Context, projectID, repoID uuid.UUID, branchName, sourceBranch string) (string, error) {
+// CreateBranch creates a new branch in the linked repository identified by
+// repoID and links it to the given task.
+func (s *Service) CreateBranch(ctx context.Context, projectID, taskID, repoID uuid.UUID, branchName, sourceBranch string) (string, error) {
 	token, err := s.decryptToken(ctx, projectID)
 	if err != nil {
 		return "", err
@@ -321,7 +362,27 @@ func (s *Service) CreateBranch(ctx context.Context, projectID, repoID uuid.UUID,
 	if err := ghClient.CreateBranch(ctx, linked.Owner, linked.RepoName, branchName, sourceBranch); err != nil {
 		return "", fmt.Errorf("github: create branch: %w", err)
 	}
+
+	// Link the branch to the task.  Ignore ErrBranchAlreadyLinked so that
+	// retried calls are idempotent.
+	now := time.Now().UTC()
+	linkErr := s.repo.LinkBranchToTask(ctx, &githubdom.TaskBranch{
+		ID:         uuid.New(),
+		TaskID:     taskID,
+		RepoID:     linked.ID,
+		BranchName: branchName,
+		CreatedAt:  now,
+	})
+	if linkErr != nil && !errors.Is(linkErr, githubdom.ErrBranchAlreadyLinked) {
+		// Non-fatal: branch was created, just log the link failure.
+		_ = linkErr
+	}
 	return branchName, nil
+}
+
+// ListTaskBranches returns all git branches linked to a task.
+func (s *Service) ListTaskBranches(ctx context.Context, taskID uuid.UUID) ([]*githubdom.TaskBranch, error) {
+	return s.repo.ListBranchesForTask(ctx, taskID)
 }
 
 // HandleWebhookEvent processes an incoming GitHub webhook event.
@@ -346,8 +407,10 @@ func (s *Service) HandleWebhookEvent(ctx context.Context, repoFullName, event, s
 	switch event {
 	case "pull_request":
 		return s.handlePREvent(ctx, linked, payload)
-	case "push", "check_run":
-		// These can be handled in the future for CI status / branch activity.
+	case "push":
+		return s.handlePushEvent(ctx, linked, payload)
+	case "check_run":
+		// Future: CI status / check run handling.
 		return nil
 	default:
 		return nil
@@ -391,9 +454,12 @@ func (s *Service) deleteWebhookWithToken(_ context.Context, token string, repo *
 	return ghClient.DeleteWebhook(context.Background(), repo.Owner, repo.RepoName, repo.WebhookID)
 }
 
-// handlePREvent upserts cached PR data from a pull_request webhook event.
+// handlePREvent upserts cached PR data from a pull_request webhook event and
+// automatically links the PR to the task when the pull request is opened and
+// the head branch is already linked to a task.
 func (s *Service) handlePREvent(ctx context.Context, linked *githubdom.LinkedRepository, payload []byte) error {
 	var event struct {
+		Action      string                   `json:"action"`
 		PullRequest githubclient.PullRequest `json:"pull_request"`
 	}
 	if err := json.Unmarshal(payload, &event); err != nil {
@@ -408,7 +474,82 @@ func (s *Service) handlePREvent(ctx context.Context, linked *githubdom.LinkedRep
 		pr.CreatedAt = existing.CreatedAt
 	}
 
-	return s.repo.UpsertPR(ctx, pr)
+	if err := s.repo.UpsertPR(ctx, pr); err != nil {
+		return err
+	}
+
+	// On "opened" events: if the head branch is already linked to a task,
+	// automatically create the task-PR link.
+	if event.Action == "opened" || event.Action == "reopened" {
+		branch, err := s.repo.FindBranchByRepoAndName(ctx, linked.ID, pr.HeadBranch)
+		if err == nil {
+			now := time.Now().UTC()
+			linkErr := s.repo.LinkPRToTask(ctx, &githubdom.TaskPRLink{
+				ID:            uuid.New(),
+				TaskID:        branch.TaskID,
+				PullRequestID: pr.ID,
+				CreatedAt:     now,
+			})
+			// ErrPRAlreadyLinked is not an error from a business perspective.
+			if linkErr != nil && !errors.Is(linkErr, githubdom.ErrPRAlreadyLinked) {
+				_ = linkErr // non-fatal
+			}
+		}
+	}
+
+	return nil
+}
+
+// handlePushEvent processes an incoming push webhook event.
+// When a new branch is created whose name matches the task-ID-prefix pattern,
+// the branch is automatically linked to the corresponding task.
+func (s *Service) handlePushEvent(ctx context.Context, linked *githubdom.LinkedRepository, payload []byte) error {
+	if s.taskLookup == nil {
+		return nil
+	}
+
+	var event struct {
+		Ref     string `json:"ref"`     // e.g. "refs/heads/feat/PROJ-42"
+		Created bool   `json:"created"` // true when this push created the branch
+		Deleted bool   `json:"deleted"` // true when the branch was deleted
+	}
+	if err := json.Unmarshal(payload, &event); err != nil {
+		return nil // non-fatal; ignore malformed payloads
+	}
+
+	// Only handle new-branch events (not force-pushes or deletions).
+	if !event.Created || event.Deleted {
+		return nil
+	}
+
+	const headsPrefix = "refs/heads/"
+	if !strings.HasPrefix(event.Ref, headsPrefix) {
+		return nil
+	}
+	branchName := strings.TrimPrefix(event.Ref, headsPrefix)
+
+	prefix, taskNumber, ok := extractBranchTaskRef(branchName)
+	if !ok {
+		return nil
+	}
+
+	taskID, _, err := s.taskLookup.FindTaskByProjectPrefixAndNumber(ctx, prefix, taskNumber)
+	if err != nil {
+		return nil // task not found — ignore
+	}
+
+	now := time.Now().UTC()
+	linkErr := s.repo.LinkBranchToTask(ctx, &githubdom.TaskBranch{
+		ID:         uuid.New(),
+		TaskID:     taskID,
+		RepoID:     linked.ID,
+		BranchName: branchName,
+		CreatedAt:  now,
+	})
+	if linkErr != nil && !errors.Is(linkErr, githubdom.ErrBranchAlreadyLinked) {
+		_ = linkErr // non-fatal
+	}
+	return nil
 }
 
 // ghPRToDomain converts a GitHub API pull request to the domain model.

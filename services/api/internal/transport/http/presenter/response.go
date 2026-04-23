@@ -252,6 +252,8 @@ func statusAndCodeFor(err error) (int, apierr.Code) {
 		return http.StatusBadRequest, apierr.CodeGitHubWebhookCreationFailed
 	case errors.Is(err, githubdom.ErrWebhookURLNotPublic):
 		return http.StatusUnprocessableEntity, apierr.CodeGitHubWebhookURLNotPublic
+	case errors.Is(err, githubdom.ErrBranchAlreadyLinked):
+		return http.StatusConflict, apierr.CodeGitHubBranchAlreadyLinked
 	default:
 		return http.StatusInternalServerError, apierr.CodeInternalError
 	}
