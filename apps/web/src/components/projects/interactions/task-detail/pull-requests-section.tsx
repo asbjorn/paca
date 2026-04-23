@@ -126,6 +126,30 @@ function PRRow({
 	);
 }
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+/**
+ * Parses a GitHub PR URL such as
+ * `https://github.com/owner/repo/pull/42`
+ * and returns `{ fullName: "owner/repo", prNumber: 42 }` or `null`.
+ */
+function parseGitHubPRUrl(
+	raw: string,
+): { fullName: string; prNumber: number } | null {
+	try {
+		const url = new URL(raw.trim());
+		if (url.hostname !== "github.com") return null;
+		// pathname: /owner/repo/pull/42[/anything]
+		const parts = url.pathname.replace(/^\//, "").split("/");
+		if (parts.length < 4 || parts[2] !== "pull") return null;
+		const prNumber = Number(parts[3]);
+		if (!Number.isInteger(prNumber) || prNumber <= 0) return null;
+		return { fullName: `${parts[0]}/${parts[1]}`, prNumber };
+	} catch {
+		return null;
+	}
+}
+
 // ── Link PR form ──────────────────────────────────────────────────────────────
 
 function LinkPRForm({
@@ -147,9 +171,22 @@ function LinkPRForm({
 	const [error, setError] = useState<string | null>(null);
 	const inputRef = useRef<HTMLInputElement>(null);
 
+	// Detect when the user pastes a full GitHub PR URL and derive repo + number.
+	const parsed = parseGitHubPRUrl(value);
+	const urlMatchedRepo = parsed
+		? repos.find((r) => r.full_name === parsed.fullName) ?? null
+		: null;
+	// When a URL is detected, lock the repo selector to the matched repo (or
+	// show an error if none of the linked repos match).
+	const effectiveRepoId = parsed
+		? (urlMatchedRepo?.id ?? "")
+		: selectedRepoId;
+
 	const mutation = useMutation({
-		mutationFn: () =>
-			linkPRToTask(projectId, taskId, selectedRepoId, Number(value)),
+		mutationFn: () => {
+			const prNum = parsed ? parsed.prNumber : Number(value);
+			return linkPRToTask(projectId, taskId, effectiveRepoId, prNum);
+		},
 		onSuccess: async () => {
 			await queryClient.invalidateQueries({
 				queryKey: taskPRsQueryOptions(projectId, taskId).queryKey,
@@ -169,11 +206,13 @@ function LinkPRForm({
 				return;
 			}
 			if (code === ApiErrorCode.GitHubPRNotFound) {
-				setError(`PR #${value} was not found in the selected repository.`);
+				const displayNum = parsed ? parsed.prNumber : value;
+				setError(`PR #${displayNum} was not found in the selected repository.`);
 				return;
 			}
 			if (code === ApiErrorCode.GitHubPRAlreadyLinked) {
-				setError(`PR #${value} is already linked to this task.`);
+				const displayNum = parsed ? parsed.prNumber : value;
+				setError(`PR #${displayNum} is already linked to this task.`);
 				return;
 			}
 			setError("Failed to link pull request. Please try again.");
@@ -181,48 +220,58 @@ function LinkPRForm({
 	});
 
 	function submit() {
-		if (!selectedRepoId) {
-			setError("Select a repository.");
-			return;
-		}
-		const num = Number(value);
-		if (!value.trim() || !Number.isInteger(num) || num <= 0) {
-			setError("Enter a valid PR number.");
-			return;
+		if (parsed) {
+			// URL mode — validate that the repo is linked
+			if (!urlMatchedRepo) {
+				setError(
+					`Repository "${parsed.fullName}" is not linked to this project.`,
+				);
+				return;
+			}
+		} else {
+			// Manual mode — need a repo and a valid number
+			if (!effectiveRepoId) {
+				setError("Select a repository.");
+				return;
+			}
+			const num = Number(value);
+			if (!value.trim() || !Number.isInteger(num) || num <= 0) {
+				setError("Enter a valid PR number or paste a GitHub PR URL.");
+				return;
+			}
 		}
 		mutation.mutate();
 	}
 
 	return (
 		<div className="flex flex-col gap-1.5">
-			{/* Repo selector — only shown when multiple repos are linked */}
-			{repos.length > 1 && (
-				<select
-					value={selectedRepoId}
-					onChange={(e) => {
-						setSelectedRepoId(e.target.value);
-						setError(null);
-					}}
-					disabled={mutation.isPending}
-					className="flex h-8 w-full rounded-md border border-input bg-background px-2.5 text-xs ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50"
-				>
-					<option value="">Select repository…</option>
-					{repos.map((r) => (
-						<option key={r.id} value={r.id}>
-							{r.full_name}
-						</option>
-					))}
-				</select>
-			)}
+			{/* Repo selector — always shown so the user knows which repo they're targeting */}
+			<select
+				value={parsed ? (urlMatchedRepo?.id ?? "") : selectedRepoId}
+				onChange={(e) => {
+					setSelectedRepoId(e.target.value);
+					setError(null);
+				}}
+				disabled={mutation.isPending || !!parsed}
+				className="flex h-8 w-full rounded-md border border-input bg-background px-2.5 text-xs ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50"
+			>
+				<option value="">Select repository…</option>
+				{repos.map((r) => (
+					<option key={r.id} value={r.id}>
+						{r.full_name}
+					</option>
+				))}
+			</select>
 			<div className="flex items-center gap-2">
 				<div className="relative flex-1">
-					<span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground/60 text-sm select-none">
-						#
-					</span>
+					{!parsed && (
+						<span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground/60 text-sm select-none pointer-events-none">
+							#
+						</span>
+					)}
 					<input
 						ref={inputRef}
-						type="number"
-						min="1"
+						type="text"
 						value={value}
 						onChange={(e) => {
 							setValue(e.target.value);
@@ -232,9 +281,10 @@ function LinkPRForm({
 							if (e.key === "Enter") submit();
 							if (e.key === "Escape") onDone();
 						}}
-						placeholder="PR number"
+						placeholder="PR number or GitHub PR URL"
 						className={cn(
-							"flex h-8 w-full rounded-md border bg-background pl-7 pr-3 text-sm ring-offset-background placeholder:text-muted-foreground/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50",
+							"flex h-8 w-full rounded-md border bg-background pr-3 text-sm ring-offset-background placeholder:text-muted-foreground/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50",
+							parsed ? "pl-3" : "pl-7",
 							error
 								? "border-destructive focus-visible:ring-destructive/30"
 								: "border-input",
@@ -266,6 +316,12 @@ function LinkPRForm({
 					<X className="size-3.5" />
 				</button>
 			</div>
+			{parsed && urlMatchedRepo && (
+				<p className="text-[11px] text-muted-foreground pl-0.5">
+					Will link PR #{parsed.prNumber} from{" "}
+					<span className="font-medium">{urlMatchedRepo.full_name}</span>
+				</p>
+			)}
 			{error ? (
 				<p className="text-[11px] text-destructive pl-0.5">{error}</p>
 			) : null}
