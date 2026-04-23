@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { AlertCircle } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { linkedRepositoriesQueryOptions } from "@/lib/github-api";
 import {
 	createTask,
 	epicTasksQueryOptions,
@@ -20,14 +21,13 @@ import {
 	projectQueryOptions,
 } from "@/lib/project-api";
 import { cn } from "@/lib/utils";
-import { linkedRepositoriesQueryOptions } from "@/lib/github-api";
 import { getTaskTypeIconComponent } from "../../task-types/task-type-icons";
 import { getPriority } from "../priority";
 import { TaskActivityPane as ActivityPane } from "./activity-pane";
 import { AttachmentsSection } from "./attachments-section";
 import { BDDScenariosSection } from "./bdd-scenarios-section";
-import { ChecklistsSection } from "./checklists-section";
 import { BranchesSection } from "./branches-section";
+import { ChecklistsSection } from "./checklists-section";
 import { DescriptionSection } from "./description-section";
 import { mapApiFieldToUi } from "./helpers";
 import { PropertiesPanel } from "./properties-panel";

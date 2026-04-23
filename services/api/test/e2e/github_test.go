@@ -44,13 +44,13 @@ func fakeGitHubServer(t *testing.T) *httptest.Server {
 	mux := http.NewServeMux()
 
 	// GET /user — token validation
-	mux.HandleFunc("/user", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/user", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = fmt.Fprint(w, `{"login":"testuser","id":1}`)
 	})
 
 	// GET /user/repos — list accessible repositories
-	mux.HandleFunc("/user/repos", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/user/repos", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = fmt.Fprint(w, `[{"id":1,"full_name":"testorg/testrepo","name":"testrepo","owner":{"login":"testorg"},"default_branch":"main","private":false}]`)
 	})
@@ -67,31 +67,31 @@ func fakeGitHubServer(t *testing.T) *httptest.Server {
 	})
 
 	// POST /repos/testorg/testrepo/hooks — create webhook
-	mux.HandleFunc("/repos/testorg/testrepo/hooks", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/repos/testorg/testrepo/hooks", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)
 		_, _ = fmt.Fprint(w, `{"id":99999}`)
 	})
 
 	// DELETE /repos/testorg/testrepo/hooks/99999 — delete webhook
-	mux.HandleFunc("/repos/testorg/testrepo/hooks/99999", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/repos/testorg/testrepo/hooks/99999", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
 	})
 
 	// GET /repos/testorg/testrepo/pulls/1 — pull request metadata
-	mux.HandleFunc("/repos/testorg/testrepo/pulls/1", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/repos/testorg/testrepo/pulls/1", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = fmt.Fprint(w, `{"id":12345,"number":1,"title":"feat: e2e PR","state":"open","html_url":"https://github.com/testorg/testrepo/pull/1","head":{"ref":"feat/e2e"},"base":{"ref":"main"},"user":{"login":"testuser"},"merged":false}`)
 	})
 
 	// GET /repos/testorg/testrepo/git/ref/heads/main — SHA lookup for branch creation
-	mux.HandleFunc("/repos/testorg/testrepo/git/ref/heads/main", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/repos/testorg/testrepo/git/ref/heads/main", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = fmt.Fprint(w, `{"ref":"refs/heads/main","object":{"sha":"abc1234def5678abc1234def5678abc1234def56"}}`)
 	})
 
 	// POST /repos/testorg/testrepo/git/refs — create git ref (branch)
-	mux.HandleFunc("/repos/testorg/testrepo/git/refs", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/repos/testorg/testrepo/git/refs", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)
 		_, _ = fmt.Fprint(w, `{"ref":"refs/heads/feat/new-branch","object":{"sha":"abc1234def5678abc1234def5678abc1234def56"}}`)
@@ -279,14 +279,12 @@ func decodeGHEnvelope(t *testing.T, resp *http.Response) (map[string]any, string
 
 func TestGitHubE2E_SetAndGetIntegration(t *testing.T) {
 	g := newGHE2EEnv(t)
-	userID := uuid.New()
 	seedUser(t, g.env, "ghuser1", "pass1234", "GH User 1")
-	// Replace auto-generated UUID with known one via direct DB lookup.
 	u, err := g.env.userRepo.FindByUsername(g.env.ctx, "ghuser1")
 	if err != nil {
 		t.Fatalf("find user: %v", err)
 	}
-	userID = u.ID
+	userID := u.ID
 	seedGHAdminRole(t, g.env, userID)
 	projectID := createGHProject(t, g.env, userID, "GH E2E Project 1")
 	tok := issueGHToken(t, userID)
@@ -296,7 +294,7 @@ func TestGitHubE2E_SetAndGetIntegration(t *testing.T) {
 		"/api/v1/projects/"+projectID.String()+"/github/token",
 		tok,
 		map[string]string{"token": "ghp_fake_token_for_e2e_test"})
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		data, code := decodeGHEnvelope(t, resp)
 		t.Fatalf("set token: expected 200, got %d (code=%s data=%v)", resp.StatusCode, code, data)
@@ -306,7 +304,7 @@ func TestGitHubE2E_SetAndGetIntegration(t *testing.T) {
 	resp2 := g.doGHRequest(t, http.MethodGet,
 		"/api/v1/projects/"+projectID.String()+"/github",
 		tok, nil)
-	defer resp2.Body.Close()
+	defer func() { _ = resp2.Body.Close() }()
 	if resp2.StatusCode != http.StatusOK {
 		data, code := decodeGHEnvelope(t, resp2)
 		t.Fatalf("get integration: expected 200, got %d (code=%s data=%v)", resp2.StatusCode, code, data)
@@ -319,10 +317,9 @@ func TestGitHubE2E_SetAndGetIntegration(t *testing.T) {
 
 func TestGitHubE2E_GetIntegration_NotFound(t *testing.T) {
 	g := newGHE2EEnv(t)
-	userID := uuid.New()
 	seedUser(t, g.env, "ghuser2", "pass1234", "GH User 2")
 	u, _ := g.env.userRepo.FindByUsername(g.env.ctx, "ghuser2")
-	userID = u.ID
+	userID := u.ID
 	seedGHAdminRole(t, g.env, userID)
 	projectID := createGHProject(t, g.env, userID, "GH E2E Project 2")
 	tok := issueGHToken(t, userID)
@@ -330,7 +327,7 @@ func TestGitHubE2E_GetIntegration_NotFound(t *testing.T) {
 	resp := g.doGHRequest(t, http.MethodGet,
 		"/api/v1/projects/"+projectID.String()+"/github",
 		tok, nil)
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusNotFound {
 		t.Fatalf("expected 404, got %d", resp.StatusCode)
 	}
@@ -353,7 +350,7 @@ func TestGitHubE2E_LinkAndGetRepository(t *testing.T) {
 	resp := g.doGHRequest(t, http.MethodPut,
 		"/api/v1/projects/"+projectID.String()+"/github/token",
 		tok, map[string]string{"token": "ghp_fake_e2e"})
-	resp.Body.Close()
+	_ = resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("set token: expected 200, got %d", resp.StatusCode)
 	}
@@ -362,7 +359,7 @@ func TestGitHubE2E_LinkAndGetRepository(t *testing.T) {
 	resp2 := g.doGHRequest(t, http.MethodPost,
 		"/api/v1/projects/"+projectID.String()+"/github/linked-repositories",
 		tok, map[string]string{"owner": "testorg", "repo_name": "testrepo"})
-	defer resp2.Body.Close()
+	defer func() { _ = resp2.Body.Close() }()
 	if resp2.StatusCode != http.StatusCreated {
 		data, code := decodeGHEnvelope(t, resp2)
 		t.Fatalf("link repo: expected 201, got %d (code=%s data=%v)", resp2.StatusCode, code, data)
@@ -380,7 +377,7 @@ func TestGitHubE2E_LinkAndGetRepository(t *testing.T) {
 	resp3 := g.doGHRequest(t, http.MethodGet,
 		"/api/v1/projects/"+projectID.String()+"/github/linked-repositories",
 		tok, nil)
-	defer resp3.Body.Close()
+	defer func() { _ = resp3.Body.Close() }()
 	if resp3.StatusCode != http.StatusOK {
 		t.Fatalf("list repos: expected 200, got %d", resp3.StatusCode)
 	}
@@ -405,16 +402,17 @@ func TestGitHubE2E_LinkPRAndList(t *testing.T) {
 	tok := issueGHToken(t, userID)
 
 	// Set token.
-	g.doGHRequest(t, http.MethodPut,
+	resp := g.doGHRequest(t, http.MethodPut,
 		"/api/v1/projects/"+projectID.String()+"/github/token",
-		tok, map[string]string{"token": "ghp_fake"}).Body.Close()
+		tok, map[string]string{"token": "ghp_fake"})
+	_ = resp.Body.Close()
 
 	// Link repository.
-	resp := g.doGHRequest(t, http.MethodPost,
+	resp = g.doGHRequest(t, http.MethodPost,
 		"/api/v1/projects/"+projectID.String()+"/github/linked-repositories",
 		tok, map[string]string{"owner": "testorg", "repo_name": "testrepo"})
 	if resp.StatusCode != http.StatusCreated {
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		t.Fatalf("link repo: expected 201, got %d", resp.StatusCode)
 	}
 	var linkEnv struct {
@@ -423,7 +421,7 @@ func TestGitHubE2E_LinkPRAndList(t *testing.T) {
 	if err := json.NewDecoder(resp.Body).Decode(&linkEnv); err != nil {
 		t.Fatalf("decode link repo: %v", err)
 	}
-	resp.Body.Close()
+	_ = resp.Body.Close()
 	repoIDStr, _ := linkEnv.Data["id"].(string)
 
 	// Create a task to link the PR to.
@@ -439,7 +437,7 @@ func TestGitHubE2E_LinkPRAndList(t *testing.T) {
 	resp = g.doGHRequest(t, http.MethodPost,
 		fmt.Sprintf("/api/v1/projects/%s/tasks/%s/github/pull-requests", projectID, task.ID),
 		tok, map[string]any{"repo_id": repoIDStr, "pr_number": 1})
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusCreated {
 		data, code := decodeGHEnvelope(t, resp)
 		t.Fatalf("link PR: expected 201, got %d (code=%s data=%v)", resp.StatusCode, code, data)
@@ -453,7 +451,7 @@ func TestGitHubE2E_LinkPRAndList(t *testing.T) {
 	resp2 := g.doGHRequest(t, http.MethodGet,
 		fmt.Sprintf("/api/v1/projects/%s/tasks/%s/github/pull-requests", projectID, task.ID),
 		tok, nil)
-	defer resp2.Body.Close()
+	defer func() { _ = resp2.Body.Close() }()
 	if resp2.StatusCode != http.StatusOK {
 		t.Fatalf("list PRs: expected 200, got %d", resp2.StatusCode)
 	}
@@ -478,9 +476,10 @@ func TestGitHubE2E_CreateBranch(t *testing.T) {
 	tok := issueGHToken(t, userID)
 
 	// Set token and link repository.
-	g.doGHRequest(t, http.MethodPut,
+	resp := g.doGHRequest(t, http.MethodPut,
 		"/api/v1/projects/"+projectID.String()+"/github/token",
-		tok, map[string]string{"token": "ghp_fake"}).Body.Close()
+		tok, map[string]string{"token": "ghp_fake"})
+	_ = resp.Body.Close()
 	repoResp := g.doGHRequest(t, http.MethodPost,
 		"/api/v1/projects/"+projectID.String()+"/github/linked-repositories",
 		tok, map[string]string{"owner": "testorg", "repo_name": "testrepo"})
@@ -490,7 +489,7 @@ func TestGitHubE2E_CreateBranch(t *testing.T) {
 	if err := json.NewDecoder(repoResp.Body).Decode(&repoEnv); err != nil {
 		t.Fatalf("decode link repo: %v", err)
 	}
-	repoResp.Body.Close()
+	_ = repoResp.Body.Close()
 	repoIDStr, _ := repoEnv.Data["id"].(string)
 
 	// Create a task.
@@ -503,10 +502,10 @@ func TestGitHubE2E_CreateBranch(t *testing.T) {
 	}
 
 	// Create a branch.
-	resp := g.doGHRequest(t, http.MethodPost,
+	resp = g.doGHRequest(t, http.MethodPost,
 		fmt.Sprintf("/api/v1/projects/%s/tasks/%s/github/branches", projectID, task.ID),
 		tok, map[string]string{"repo_id": repoIDStr, "branch_name": "feat/e2e-new-branch", "source_branch": "main"})
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusCreated {
 		data, code := decodeGHEnvelope(t, resp)
 		t.Fatalf("create branch: expected 201, got %d (code=%s data=%v)", resp.StatusCode, code, data)
@@ -527,13 +526,14 @@ func TestGitHubE2E_Webhook_Delivery(t *testing.T) {
 	tok := issueGHToken(t, userID)
 
 	// Set token and link repository.
-	g.doGHRequest(t, http.MethodPut,
+	resp := g.doGHRequest(t, http.MethodPut,
 		"/api/v1/projects/"+projectID.String()+"/github/token",
-		tok, map[string]string{"token": "ghp_fake_e2e"}).Body.Close()
-	resp := g.doGHRequest(t, http.MethodPost,
+		tok, map[string]string{"token": "ghp_fake_e2e"})
+	_ = resp.Body.Close()
+	resp = g.doGHRequest(t, http.MethodPost,
 		"/api/v1/projects/"+projectID.String()+"/github/linked-repositories",
 		tok, map[string]string{"owner": "testorg", "repo_name": "testrepo"})
-	resp.Body.Close()
+	_ = resp.Body.Close()
 	if resp.StatusCode != http.StatusCreated {
 		t.Fatalf("link repo: expected 201, got %d", resp.StatusCode)
 	}
@@ -558,7 +558,7 @@ func TestGitHubE2E_Webhook_Delivery(t *testing.T) {
 	if err != nil {
 		t.Fatalf("webhook request: %v", err)
 	}
-	wresp.Body.Close()
+	_ = wresp.Body.Close()
 
 	// Webhook always returns 204.
 	if wresp.StatusCode != http.StatusNoContent {
@@ -576,15 +576,16 @@ func TestGitHubE2E_DeleteToken(t *testing.T) {
 	tok := issueGHToken(t, userID)
 
 	// Set token.
-	g.doGHRequest(t, http.MethodPut,
+	resp := g.doGHRequest(t, http.MethodPut,
 		"/api/v1/projects/"+projectID.String()+"/github/token",
-		tok, map[string]string{"token": "ghp_fake_delete"}).Body.Close()
+		tok, map[string]string{"token": "ghp_fake_delete"})
+	_ = resp.Body.Close()
 
 	// Delete token.
-	resp := g.doGHRequest(t, http.MethodDelete,
+	resp = g.doGHRequest(t, http.MethodDelete,
 		"/api/v1/projects/"+projectID.String()+"/github/token",
 		tok, nil)
-	resp.Body.Close()
+	_ = resp.Body.Close()
 	if resp.StatusCode != http.StatusNoContent {
 		t.Fatalf("delete token: expected 204, got %d", resp.StatusCode)
 	}
@@ -593,7 +594,7 @@ func TestGitHubE2E_DeleteToken(t *testing.T) {
 	resp2 := g.doGHRequest(t, http.MethodGet,
 		"/api/v1/projects/"+projectID.String()+"/github",
 		tok, nil)
-	defer resp2.Body.Close()
+	defer func() { _ = resp2.Body.Close() }()
 	if resp2.StatusCode != http.StatusNotFound {
 		t.Fatalf("after delete: expected 404, got %d", resp2.StatusCode)
 	}
@@ -609,9 +610,10 @@ func TestGitHubE2E_ListTaskBranches(t *testing.T) {
 	tok := issueGHToken(t, userID)
 
 	// Set token and link repository.
-	g.doGHRequest(t, http.MethodPut,
+	resp := g.doGHRequest(t, http.MethodPut,
 		"/api/v1/projects/"+projectID.String()+"/github/token",
-		tok, map[string]string{"token": "ghp_fake"}).Body.Close()
+		tok, map[string]string{"token": "ghp_fake"})
+	_ = resp.Body.Close()
 	repoResp := g.doGHRequest(t, http.MethodPost,
 		"/api/v1/projects/"+projectID.String()+"/github/linked-repositories",
 		tok, map[string]string{"owner": "testorg", "repo_name": "testrepo"})
@@ -619,7 +621,7 @@ func TestGitHubE2E_ListTaskBranches(t *testing.T) {
 		Data map[string]any `json:"data"`
 	}
 	json.NewDecoder(repoResp.Body).Decode(&repoEnv) //nolint:errcheck
-	repoResp.Body.Close()
+	_ = repoResp.Body.Close()
 	repoIDStr, _ := repoEnv.Data["id"].(string)
 	if repoIDStr == "" {
 		t.Fatal("link repo: expected repo id in response")
@@ -638,7 +640,7 @@ func TestGitHubE2E_ListTaskBranches(t *testing.T) {
 	respList0 := g.doGHRequest(t, http.MethodGet,
 		fmt.Sprintf("/api/v1/projects/%s/tasks/%s/github/branches", projectID, task.ID),
 		tok, nil)
-	defer respList0.Body.Close()
+	defer func() { _ = respList0.Body.Close() }()
 	if respList0.StatusCode != http.StatusOK {
 		t.Fatalf("initial list: expected 200, got %d", respList0.StatusCode)
 	}
@@ -654,7 +656,7 @@ func TestGitHubE2E_ListTaskBranches(t *testing.T) {
 	respBranch := g.doGHRequest(t, http.MethodPost,
 		fmt.Sprintf("/api/v1/projects/%s/tasks/%s/github/branches", projectID, task.ID),
 		tok, map[string]string{"repo_id": repoIDStr, "branch_name": "feat/e2e-list-branch"})
-	defer respBranch.Body.Close()
+	defer func() { _ = respBranch.Body.Close() }()
 	if respBranch.StatusCode != http.StatusCreated {
 		data, code := decodeGHEnvelope(t, respBranch)
 		t.Fatalf("create branch: expected 201, got %d (code=%s data=%v)", respBranch.StatusCode, code, data)
@@ -664,7 +666,7 @@ func TestGitHubE2E_ListTaskBranches(t *testing.T) {
 	respList1 := g.doGHRequest(t, http.MethodGet,
 		fmt.Sprintf("/api/v1/projects/%s/tasks/%s/github/branches", projectID, task.ID),
 		tok, nil)
-	defer respList1.Body.Close()
+	defer func() { _ = respList1.Body.Close() }()
 	if respList1.StatusCode != http.StatusOK {
 		t.Fatalf("after create: list expected 200, got %d", respList1.StatusCode)
 	}
@@ -705,9 +707,10 @@ func TestGitHubE2E_Webhook_PushEvent_AutoLinksBranch(t *testing.T) {
 	tok := issueGHToken(t, userID)
 
 	// Set token and link repository.
-	g.doGHRequest(t, http.MethodPut,
+	resp := g.doGHRequest(t, http.MethodPut,
 		"/api/v1/projects/"+projectID.String()+"/github/token",
-		tok, map[string]string{"token": "ghp_fake_push"}).Body.Close()
+		tok, map[string]string{"token": "ghp_fake_push"})
+	_ = resp.Body.Close()
 	repoResp := g.doGHRequest(t, http.MethodPost,
 		"/api/v1/projects/"+projectID.String()+"/github/linked-repositories",
 		tok, map[string]string{"owner": "testorg", "repo_name": "testrepo"})
@@ -715,7 +718,7 @@ func TestGitHubE2E_Webhook_PushEvent_AutoLinksBranch(t *testing.T) {
 		Data map[string]any `json:"data"`
 	}
 	json.NewDecoder(repoResp.Body).Decode(&repoEnv) //nolint:errcheck
-	repoResp.Body.Close()
+	_ = repoResp.Body.Close()
 	if repoEnv.Data["id"] == "" {
 		t.Fatal("link repo: no id in response")
 	}
@@ -754,7 +757,7 @@ func TestGitHubE2E_Webhook_PushEvent_AutoLinksBranch(t *testing.T) {
 	if err != nil {
 		t.Fatalf("webhook request: %v", err)
 	}
-	wresp.Body.Close()
+	_ = wresp.Body.Close()
 	if wresp.StatusCode != http.StatusNoContent {
 		t.Fatalf("expected 204, got %d", wresp.StatusCode)
 	}
@@ -764,7 +767,7 @@ func TestGitHubE2E_Webhook_PushEvent_AutoLinksBranch(t *testing.T) {
 	respList := g.doGHRequest(t, http.MethodGet,
 		fmt.Sprintf("/api/v1/projects/%s/tasks/%s/github/branches", projectID, task.ID),
 		tok, nil)
-	defer respList.Body.Close()
+	defer func() { _ = respList.Body.Close() }()
 	if respList.StatusCode != http.StatusOK {
 		t.Fatalf("list branches: expected 200, got %d", respList.StatusCode)
 	}

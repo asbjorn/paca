@@ -317,10 +317,10 @@ func (s *Service) LinkPRToTask(ctx context.Context, projectID, taskID, repoID uu
 	if err != nil {
 		var apiErr *githubclient.APIError
 		if errors.As(err, &apiErr) {
-			switch {
-			case apiErr.StatusCode == 404:
+			switch apiErr.StatusCode {
+			case 404:
 				return nil, githubdom.ErrPRNotFound
-			case apiErr.StatusCode == 401 || apiErr.StatusCode == 403:
+			case 401, 403:
 				return nil, githubdom.ErrTokenInsufficientPermissions
 			default:
 				return nil, apierr.New(apierr.CodeBadRequest, apiErr.Error())

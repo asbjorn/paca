@@ -171,7 +171,7 @@ function LinkPRForm({
 	// Detect when the user types a full GitHub PR URL.
 	const parsed = parseGitHubPRUrl(value);
 	const urlMatchedRepo = parsed
-		? repos.find((r) => r.full_name === parsed.fullName) ?? null
+		? (repos.find((r) => r.full_name === parsed.fullName) ?? null)
 		: null;
 	const effectiveRepoId = parsed ? (urlMatchedRepo?.id ?? "") : selectedRepoId;
 
@@ -215,9 +215,8 @@ function LinkPRForm({
 				return;
 			}
 			if (code === ApiErrorCode.BadRequest) {
-				const msg = (
-					err as { response?: { data?: { error?: string } } }
-				)?.response?.data?.error;
+				const msg = (err as { response?: { data?: { error?: string } } })
+					?.response?.data?.error;
 				setError(msg || "Failed to link pull request. Please try again.");
 				return;
 			}
@@ -304,7 +303,9 @@ function LinkPRForm({
 			</div>
 
 			{error && (
-				<p className="text-[11px] text-destructive/80 leading-relaxed">{error}</p>
+				<p className="text-[11px] text-destructive/80 leading-relaxed">
+					{error}
+				</p>
 			)}
 
 			{/* Action buttons */}

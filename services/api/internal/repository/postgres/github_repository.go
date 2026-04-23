@@ -88,6 +88,7 @@ func NewGitHubRepository(db *gorm.DB) *GitHubRepository {
 // IntegrationRepository
 // -------------------------------------------------------------------------
 
+// FindIntegrationByProject returns the GitHub integration for the given project.
 func (r *GitHubRepository) FindIntegrationByProject(ctx context.Context, projectID uuid.UUID) (*githubdom.Integration, error) {
 	var m githubIntegrationModel
 	err := r.db.WithContext(ctx).
@@ -102,6 +103,7 @@ func (r *GitHubRepository) FindIntegrationByProject(ctx context.Context, project
 	return integrationFromModel(m), nil
 }
 
+// UpsertIntegration inserts or updates a GitHub integration.
 func (r *GitHubRepository) UpsertIntegration(ctx context.Context, integration *githubdom.Integration) error {
 	m := githubIntegrationModel{
 		ID:             integration.ID.String(),
@@ -118,6 +120,7 @@ func (r *GitHubRepository) UpsertIntegration(ctx context.Context, integration *g
 		Create(&m).Error
 }
 
+// DeleteIntegration removes the GitHub integration for the given project.
 func (r *GitHubRepository) DeleteIntegration(ctx context.Context, projectID uuid.UUID) error {
 	return r.db.WithContext(ctx).
 		Where("project_id = ?", projectID.String()).
@@ -128,6 +131,7 @@ func (r *GitHubRepository) DeleteIntegration(ctx context.Context, projectID uuid
 // LinkedRepositoryRepository
 // -------------------------------------------------------------------------
 
+// ListRepositoriesByProject returns all linked repositories for a project.
 func (r *GitHubRepository) ListRepositoriesByProject(ctx context.Context, projectID uuid.UUID) ([]*githubdom.LinkedRepository, error) {
 	var models []githubRepositoryModel
 	err := r.db.WithContext(ctx).
@@ -144,6 +148,7 @@ func (r *GitHubRepository) ListRepositoriesByProject(ctx context.Context, projec
 	return out, nil
 }
 
+// FindRepositoryByID returns a linked repository by its ID.
 func (r *GitHubRepository) FindRepositoryByID(ctx context.Context, repoID uuid.UUID) (*githubdom.LinkedRepository, error) {
 	var m githubRepositoryModel
 	err := r.db.WithContext(ctx).
@@ -158,6 +163,7 @@ func (r *GitHubRepository) FindRepositoryByID(ctx context.Context, repoID uuid.U
 	return repoFromModel(m), nil
 }
 
+// FindRepositoryByFullName returns a linked repository by its full name (owner/repo).
 func (r *GitHubRepository) FindRepositoryByFullName(ctx context.Context, fullName string) (*githubdom.LinkedRepository, error) {
 	var m githubRepositoryModel
 	err := r.db.WithContext(ctx).
@@ -172,6 +178,7 @@ func (r *GitHubRepository) FindRepositoryByFullName(ctx context.Context, fullNam
 	return repoFromModel(m), nil
 }
 
+// InsertRepository creates a new linked repository record.
 func (r *GitHubRepository) InsertRepository(ctx context.Context, repo *githubdom.LinkedRepository) error {
 	m := githubRepositoryModel{
 		ID:               repo.ID.String(),
@@ -189,6 +196,7 @@ func (r *GitHubRepository) InsertRepository(ctx context.Context, repo *githubdom
 	return r.db.WithContext(ctx).Create(&m).Error
 }
 
+// DeleteRepositoryByID removes a linked repository by its ID.
 func (r *GitHubRepository) DeleteRepositoryByID(ctx context.Context, repoID uuid.UUID) error {
 	return r.db.WithContext(ctx).
 		Where("id = ?", repoID.String()).
@@ -199,6 +207,7 @@ func (r *GitHubRepository) DeleteRepositoryByID(ctx context.Context, repoID uuid
 // PRRepository
 // -------------------------------------------------------------------------
 
+// FindPRByRepoAndNumber returns a cached pull request by repo ID and PR number.
 func (r *GitHubRepository) FindPRByRepoAndNumber(ctx context.Context, repoID uuid.UUID, prNumber int) (*githubdom.PullRequest, error) {
 	var m githubPRModel
 	err := r.db.WithContext(ctx).
@@ -213,6 +222,7 @@ func (r *GitHubRepository) FindPRByRepoAndNumber(ctx context.Context, repoID uui
 	return prFromModel(m), nil
 }
 
+// ListPRsForTask returns all pull requests linked to a task.
 func (r *GitHubRepository) ListPRsForTask(ctx context.Context, taskID uuid.UUID) ([]*githubdom.PullRequest, error) {
 	var links []githubTaskPRLinkModel
 	if err := r.db.WithContext(ctx).
@@ -243,6 +253,7 @@ func (r *GitHubRepository) ListPRsForTask(ctx context.Context, taskID uuid.UUID)
 	return result, nil
 }
 
+// UpsertPR inserts or updates a cached pull request.
 func (r *GitHubRepository) UpsertPR(ctx context.Context, pr *githubdom.PullRequest) error {
 	m := githubPRModel{
 		ID:         pr.ID.String(),
@@ -275,6 +286,7 @@ func (r *GitHubRepository) UpsertPR(ctx context.Context, pr *githubdom.PullReque
 // TaskPRLinkRepository
 // -------------------------------------------------------------------------
 
+// LinkPRToTask associates a pull request with a task.
 func (r *GitHubRepository) LinkPRToTask(ctx context.Context, link *githubdom.TaskPRLink) error {
 	m := githubTaskPRLinkModel{
 		ID:            link.ID.String(),
@@ -295,6 +307,7 @@ func (r *GitHubRepository) LinkPRToTask(ctx context.Context, link *githubdom.Tas
 	return nil
 }
 
+// UnlinkPRFromTask removes the association between a task and a pull request.
 func (r *GitHubRepository) UnlinkPRFromTask(ctx context.Context, taskID, prID uuid.UUID) error {
 	res := r.db.WithContext(ctx).
 		Where("task_id = ? AND pull_request_id = ?", taskID.String(), prID.String()).
@@ -308,6 +321,7 @@ func (r *GitHubRepository) UnlinkPRFromTask(ctx context.Context, taskID, prID uu
 	return nil
 }
 
+// FindTaskIDsByPR returns all task IDs associated with a pull request.
 func (r *GitHubRepository) FindTaskIDsByPR(ctx context.Context, prID uuid.UUID) ([]uuid.UUID, error) {
 	var links []githubTaskPRLinkModel
 	if err := r.db.WithContext(ctx).
@@ -340,6 +354,7 @@ type githubTaskBranchModel struct {
 
 func (githubTaskBranchModel) TableName() string { return "github_task_branches" }
 
+// LinkBranchToTask associates a branch with a task.
 func (r *GitHubRepository) LinkBranchToTask(ctx context.Context, link *githubdom.TaskBranch) error {
 	m := githubTaskBranchModel{
 		ID:         link.ID.String(),
@@ -360,6 +375,7 @@ func (r *GitHubRepository) LinkBranchToTask(ctx context.Context, link *githubdom
 	return nil
 }
 
+// ListBranchesForTask returns all branches linked to a task.
 func (r *GitHubRepository) ListBranchesForTask(ctx context.Context, taskID uuid.UUID) ([]*githubdom.TaskBranch, error) {
 	var models []githubTaskBranchModel
 	if err := r.db.WithContext(ctx).
@@ -375,6 +391,7 @@ func (r *GitHubRepository) ListBranchesForTask(ctx context.Context, taskID uuid.
 	return out, nil
 }
 
+// FindBranchByRepoAndName returns a task branch by repo ID and branch name.
 func (r *GitHubRepository) FindBranchByRepoAndName(ctx context.Context, repoID uuid.UUID, branchName string) (*githubdom.TaskBranch, error) {
 	var m githubTaskBranchModel
 	err := r.db.WithContext(ctx).

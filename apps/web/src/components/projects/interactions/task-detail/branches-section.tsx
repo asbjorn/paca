@@ -13,8 +13,8 @@ import { ApiErrorCode, getApiErrorCode } from "@/lib/api-error";
 import {
 	createBranch,
 	linkedRepositoriesQueryOptions,
-	taskBranchesQueryOptions,
 	type TaskBranch,
+	taskBranchesQueryOptions,
 } from "@/lib/github-api";
 import { cn } from "@/lib/utils";
 
@@ -22,8 +22,8 @@ import { cn } from "@/lib/utils";
 
 function CopyButton({ text }: { text: string }) {
 	const [copied, setCopied] = useState(false);
-	
-  const handleCopy = () => {
+
+	const handleCopy = () => {
 		navigator.clipboard?.writeText(text)?.catch(() => {});
 		setCopied(true);
 		setTimeout(() => setCopied(false), 2000);
@@ -178,7 +178,8 @@ function CreateBranchForm({
 				return;
 			}
 			if (code === ApiErrorCode.BadRequest) {
-				const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
+				const msg = (err as { response?: { data?: { error?: string } } })
+					?.response?.data?.error;
 				setError(msg || "Failed to create branch. Please try again.");
 				return;
 			}
@@ -271,7 +272,9 @@ function CreateBranchForm({
 			<div>
 				<p className="text-[11px] text-muted-foreground mb-1">
 					Source branch{" "}
-					<span className="opacity-60">(optional, defaults to repo default)</span>
+					<span className="opacity-60">
+						(optional, defaults to repo default)
+					</span>
 				</p>
 				<input
 					type="text"
@@ -284,7 +287,9 @@ function CreateBranchForm({
 			</div>
 
 			{error && (
-				<p className="text-[11px] text-destructive/80 leading-relaxed">{error}</p>
+				<p className="text-[11px] text-destructive/80 leading-relaxed">
+					{error}
+				</p>
 			)}
 
 			{/* Action buttons */}

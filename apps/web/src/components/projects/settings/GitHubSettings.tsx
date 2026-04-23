@@ -75,9 +75,9 @@ function TokenCard({
 		onError: (err: unknown) => {
 			const code = getApiErrorCode(err);
 			if (code === ApiErrorCode.GitHubInvalidToken) {
-					setError(
-						"GitHub rejected the token. Check it has the required scopes (repo, pull request, admin:repo_hook).",
-					);
+				setError(
+					"GitHub rejected the token. Check it has the required scopes (repo, pull request, admin:repo_hook).",
+				);
 				return;
 			}
 			setError("Failed to save token. Please try again.");

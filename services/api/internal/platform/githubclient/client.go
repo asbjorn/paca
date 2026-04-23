@@ -221,7 +221,7 @@ func (c *Client) get(ctx context.Context, url string, out any) error {
 	if err != nil {
 		return fmt.Errorf("githubclient: execute request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode >= 400 {
 		return parseAPIError(resp)
@@ -251,7 +251,7 @@ func (c *Client) post(ctx context.Context, url string, body, out any) error {
 	if err != nil {
 		return fmt.Errorf("githubclient: execute request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode >= 400 {
 		return parseAPIError(resp)
@@ -275,7 +275,7 @@ func (c *Client) doDelete(ctx context.Context, url string) error {
 	if err != nil {
 		return fmt.Errorf("githubclient: execute request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// Treat 404 as success: the webhook is already gone.
 	if resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusNoContent {

@@ -366,7 +366,8 @@ func httpStatusForCode(code apierr.Code) int {
 		apierr.CodeGitHubPRNotFound,
 		apierr.CodeGitHubPRLinkNotFound:
 		return http.StatusNotFound
-	case apierr.CodeGitHubPRAlreadyLinked:
+	case apierr.CodeGitHubPRAlreadyLinked,
+		apierr.CodeGitHubBranchAlreadyLinked:
 		return http.StatusConflict
 	case apierr.CodeGitHubInvalidToken:
 		return http.StatusUnprocessableEntity
