@@ -106,10 +106,20 @@ function APIKeysPage() {
 
 	function handleCopy() {
 		if (!revealedKey) return;
-		navigator.clipboard.writeText(revealedKey.key).then(() => {
-			setCopied(true);
-			setTimeout(() => setCopied(false), 2000);
-		});
+		if (!navigator.clipboard?.writeText) {
+			window.alert("Copy failed. Please copy the key manually.");
+			return;
+		}
+		navigator.clipboard
+			.writeText(revealedKey.key)
+			.then(() => {
+				setCopied(true);
+				setTimeout(() => setCopied(false), 2000);
+			})
+			.catch(() => {
+				setCopied(false);
+				window.alert("Copy failed. Please copy the key manually.");
+			});
 	}
 
 	function handleCreateClose(open: boolean) {
