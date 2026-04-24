@@ -208,7 +208,7 @@ const (
 	// required permissions to perform the GitHub API operation (e.g. creating a branch).
 	CodeGitHubTokenInsufficientPermissions Code = "GITHUB_TOKEN_INSUFFICIENT_PERMISSIONS"
 
-	// CodeAPIKeyNotFound indicates the requested API key does not exist or was revoked.
+	// CodeAPIKeyNotFound indicates the requested API key was not found.
 	CodeAPIKeyNotFound Code = "API_KEY_NOT_FOUND"
 	// CodeAPIKeyRevoked indicates the API key has been revoked.
 	CodeAPIKeyRevoked Code = "API_KEY_REVOKED"
