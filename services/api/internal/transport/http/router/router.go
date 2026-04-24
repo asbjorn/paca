@@ -18,6 +18,7 @@ import (
 // Deps holds all handler and middleware dependencies.
 type Deps struct {
 	TokenManager *jwttoken.Manager
+	APIKeyAuth   httpmw.APIKeyAuthenticator
 	Authorizer   *authz.Authorizer
 	Health       *handler.HealthHandler
 	Auth         *handler.AuthHandler
@@ -32,6 +33,7 @@ type Deps struct {
 	DocFile      *handler.DocFileHandler
 	Notification *handler.NotificationHandler
 	GitHub       *handler.GitHubHandler
+	APIKey       *handler.APIKeyHandler
 	Log          *slog.Logger
 }
 
@@ -60,11 +62,11 @@ func New(deps Deps) *gin.Engine {
 		}
 
 		users := v1.Group("/users")
-		users.Use(httpmw.Authn(deps.TokenManager))
+		users.Use(httpmw.Authn(deps.TokenManager, deps.APIKeyAuth))
 		{
 			// Password change is allowed even when MustChangePassword=true so
 			// that users can fulfil the forced-change requirement.
-			users.PATCH("/me/password", deps.User.ChangeMyPassword)
+			users.PATCH("/me/password", httpmw.RequireJWTAuth(), deps.User.ChangeMyPassword)
 
 			// All other self-service routes require a fresh (non-forced) password.
 			me := users.Group("")
@@ -73,6 +75,17 @@ func New(deps Deps) *gin.Engine {
 				me.GET("/me", deps.User.GetMe)
 				me.PATCH("/me", deps.User.UpdateMe)
 				me.GET("/me/global-permissions", deps.User.GetMyGlobalPermissions)
+
+				// API key management -- requires JWT/cookie session auth; API key
+				// credentials are explicitly rejected to prevent privilege escalation
+				// via a leaked API key.
+				if deps.APIKey != nil {
+					apiKeys := me.Group("")
+					apiKeys.Use(httpmw.RequireJWTAuth())
+					apiKeys.GET("/me/api-keys", deps.APIKey.List)
+					apiKeys.POST("/me/api-keys", deps.APIKey.Create)
+					apiKeys.DELETE("/me/api-keys/:keyId", deps.APIKey.Revoke)
+				}
 
 				// Notification routes
 				if deps.Notification != nil {
@@ -84,7 +97,7 @@ func New(deps Deps) *gin.Engine {
 		}
 
 		admin := v1.Group("/admin")
-		admin.Use(httpmw.Authn(deps.TokenManager))
+		admin.Use(httpmw.Authn(deps.TokenManager, deps.APIKeyAuth))
 		admin.Use(httpmw.RequireFreshPassword())
 		{
 			// User management — requires users.* permissions
@@ -139,7 +152,7 @@ func New(deps Deps) *gin.Engine {
 		// Project routes — list/create are collection-level; all other actions are
 		// project-scoped and accessible to members with appropriate roles.
 		projects := v1.Group("/projects")
-		projects.Use(httpmw.Authn(deps.TokenManager))
+		projects.Use(httpmw.Authn(deps.TokenManager, deps.APIKeyAuth))
 		projects.Use(httpmw.RequireFreshPassword())
 		{
 			// Collection routes

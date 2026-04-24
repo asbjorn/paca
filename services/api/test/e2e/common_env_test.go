@@ -31,6 +31,7 @@ import (
 	jwttoken "github.com/paca/api/internal/platform/token"
 	pgRepo "github.com/paca/api/internal/repository/postgres"
 	redisRepo "github.com/paca/api/internal/repository/redis"
+	apikeysvc "github.com/paca/api/internal/service/apikey"
 	attachmentsvc "github.com/paca/api/internal/service/attachment"
 	authsvc "github.com/paca/api/internal/service/auth"
 	globalrolesvc "github.com/paca/api/internal/service/globalrole"
@@ -82,6 +83,8 @@ type e2eEnv struct {
 	viewSvc        *sprintsvc.ViewService
 	attachmentRepo *pgRepo.AttachmentRepository
 	attachmentSvc  *attachmentsvc.Service
+	apiKeyRepo     *pgRepo.APIKeyRepository
+	apiKeySvc      *apikeysvc.Service
 	db             *gorm.DB // raw connection for per-test service wiring
 }
 
@@ -180,6 +183,8 @@ func newE2EEnv(t *testing.T) *e2eEnv {
 	viewRepo := pgRepo.NewViewRepository(db)
 	viewService := sprintsvc.NewViewService(viewRepo)
 	attachmentRepo := pgRepo.NewAttachmentRepository(db)
+	apiKeyRepo := pgRepo.NewAPIKeyRepository(db)
+	apiKeyService := apikeysvc.New(apiKeyRepo)
 	activityRepo := pgRepo.NewTaskActivityRepository(db)
 	activityService := tasksvc.NewActivityService(activityRepo, projectRepo, nil)
 	var attachmentService *attachmentsvc.Service
@@ -210,6 +215,7 @@ func newE2EEnv(t *testing.T) *e2eEnv {
 	}
 	engine := router.New(router.Deps{
 		TokenManager: tm,
+		APIKeyAuth:   apiKeyService,
 		Authorizer:   authz.NewAuthorizer(authzStore),
 		Health:       handler.NewHealthHandler(),
 		Auth:         handler.NewAuthHandler(authService, cookieCfg),
@@ -220,6 +226,7 @@ func newE2EEnv(t *testing.T) *e2eEnv {
 		Sprint:       handler.NewSprintHandler(sprintService, viewService),
 		View:         handler.NewViewHandler(viewService),
 		Attachment:   handler.NewAttachmentHandler(attachmentService),
+		APIKey:       handler.NewAPIKeyHandler(apiKeyService),
 		GitHub:       nil, // GitHub handler is wired per-test in github_test.go
 		Log:          log,
 	})
@@ -252,6 +259,8 @@ func newE2EEnv(t *testing.T) *e2eEnv {
 		viewSvc:        viewService,
 		attachmentRepo: attachmentRepo,
 		attachmentSvc:  attachmentService,
+		apiKeyRepo:     apiKeyRepo,
+		apiKeySvc:      apiKeyService,
 		db:             db,
 	}
 }

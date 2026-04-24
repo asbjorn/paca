@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import { ChevronsUpDown, LogOut, User } from "lucide-react";
+import { ChevronsUpDown, Key, LogOut, User } from "lucide-react";
 import { useState } from "react";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -104,6 +104,12 @@ export function UserMenu() {
 						<DropdownMenuItem onClick={() => void navigate({ to: "/profile" })}>
 							<User className="size-4" />
 							My Profile
+						</DropdownMenuItem>
+						<DropdownMenuItem
+							onClick={() => void navigate({ to: "/profile/api-keys" })}
+						>
+							<Key className="size-4" />
+							API Keys
 						</DropdownMenuItem>
 						<DropdownMenuSeparator />
 						<DropdownMenuItem

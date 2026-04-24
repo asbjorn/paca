@@ -207,6 +207,17 @@ const (
 	// CodeGitHubTokenInsufficientPermissions indicates the PAT does not have the
 	// required permissions to perform the GitHub API operation (e.g. creating a branch).
 	CodeGitHubTokenInsufficientPermissions Code = "GITHUB_TOKEN_INSUFFICIENT_PERMISSIONS"
+
+	// CodeAPIKeyNotFound indicates the requested API key was not found.
+	CodeAPIKeyNotFound Code = "API_KEY_NOT_FOUND"
+	// CodeAPIKeyRevoked indicates the API key has been revoked.
+	CodeAPIKeyRevoked Code = "API_KEY_REVOKED"
+	// CodeAPIKeyExpired indicates the API key has expired.
+	CodeAPIKeyExpired Code = "API_KEY_EXPIRED"
+	// CodeAPIKeyNameInvalid indicates an empty or invalid API key name.
+	CodeAPIKeyNameInvalid Code = "API_KEY_NAME_INVALID"
+	// CodeAPIKeyNameTooLong indicates the API key name exceeds the maximum length.
+	CodeAPIKeyNameTooLong Code = "API_KEY_NAME_TOO_LONG"
 )
 
 // Error carries a machine-readable Code alongside a human-readable Message.

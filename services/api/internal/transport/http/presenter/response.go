@@ -9,6 +9,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/paca/api/internal/apierr"
+	apikeydom "github.com/paca/api/internal/domain/apikey"
 	attachmentdom "github.com/paca/api/internal/domain/attachment"
 	domainauth "github.com/paca/api/internal/domain/auth"
 	docdom "github.com/paca/api/internal/domain/doc"
@@ -256,6 +257,18 @@ func statusAndCodeFor(err error) (int, apierr.Code) {
 		return http.StatusConflict, apierr.CodeGitHubBranchAlreadyLinked
 	case errors.Is(err, githubdom.ErrTokenInsufficientPermissions):
 		return http.StatusForbidden, apierr.CodeGitHubTokenInsufficientPermissions
+	case errors.Is(err, apikeydom.ErrNotFound):
+		return http.StatusNotFound, apierr.CodeAPIKeyNotFound
+	case errors.Is(err, apikeydom.ErrRevoked):
+		return http.StatusUnauthorized, apierr.CodeAPIKeyRevoked
+	case errors.Is(err, apikeydom.ErrExpired):
+		return http.StatusUnauthorized, apierr.CodeAPIKeyExpired
+	case errors.Is(err, apikeydom.ErrNameInvalid):
+		return http.StatusBadRequest, apierr.CodeAPIKeyNameInvalid
+	case errors.Is(err, apikeydom.ErrNameTooLong):
+		return http.StatusBadRequest, apierr.CodeAPIKeyNameTooLong
+	case errors.Is(err, apikeydom.ErrForbidden):
+		return http.StatusForbidden, apierr.CodeForbidden
 	default:
 		return http.StatusInternalServerError, apierr.CodeInternalError
 	}
@@ -383,6 +396,12 @@ func httpStatusForCode(code apierr.Code) int {
 		return http.StatusUnprocessableEntity
 	case apierr.CodeGitHubTokenInsufficientPermissions:
 		return http.StatusForbidden
+	case apierr.CodeAPIKeyNotFound:
+		return http.StatusNotFound
+	case apierr.CodeAPIKeyRevoked, apierr.CodeAPIKeyExpired:
+		return http.StatusUnauthorized
+	case apierr.CodeAPIKeyNameInvalid, apierr.CodeAPIKeyNameTooLong:
+		return http.StatusBadRequest
 	case apierr.CodeBadRequest:
 		return http.StatusBadRequest
 	case apierr.CodePasswordChangeRequired:

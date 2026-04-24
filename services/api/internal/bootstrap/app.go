@@ -27,6 +27,7 @@ import (
 	jwttoken "github.com/paca/api/internal/platform/token"
 	pgRepo "github.com/paca/api/internal/repository/postgres"
 	redisRepo "github.com/paca/api/internal/repository/redis"
+	apikeysvc "github.com/paca/api/internal/service/apikey"
 	attachmentsvc "github.com/paca/api/internal/service/attachment"
 	authsvc "github.com/paca/api/internal/service/auth"
 	docsvc "github.com/paca/api/internal/service/doc"
@@ -152,6 +153,10 @@ func New(cfg *config.Config) (*App, error) {
 
 	attachmentService := attachmentsvc.New(attachmentRepo, attachmentsvc.NewTaskOwnerChecker(taskRepo), storageClient, cfg.Storage.Bucket)
 
+	// --- API Key management -------------------------------------------------
+	apiKeyRepo := pgRepo.NewAPIKeyRepository(db)
+	apiKeyService := apikeysvc.New(apiKeyRepo)
+
 	// GitHub integration — optional; only wired when GITHUB_ENCRYPTION_KEY is set.
 	var githubHandler *handler.GitHubHandler
 	if cfg.GitHub.EncryptionKey != "" {
@@ -180,6 +185,7 @@ func New(cfg *config.Config) (*App, error) {
 
 	deps := router.Deps{
 		TokenManager: tokenManager,
+		APIKeyAuth:   apiKeyService,
 		Authorizer:   authorizer,
 		Health:       handler.NewHealthHandler(),
 		Auth:         handler.NewAuthHandler(authService, cookieCfg),
@@ -195,6 +201,7 @@ func New(cfg *config.Config) (*App, error) {
 		DocFile:      handler.NewDocFileHandler(attachmentService),
 		Notification: handler.NewNotificationHandler(notificationService),
 		GitHub:       githubHandler,
+		APIKey:       handler.NewAPIKeyHandler(apiKeyService),
 		Log:          log,
 	}
 

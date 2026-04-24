@@ -1,15 +1,29 @@
 package middleware
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
+	apikeydom "github.com/paca/api/internal/domain/apikey"
 	jwttoken "github.com/paca/api/internal/platform/token"
 )
+
+// stubAPIKeyAuth is a minimal APIKeyAuthenticator for unit tests.
+type stubAPIKeyAuth struct {
+	key *apikeydom.APIKey
+	err error
+}
+
+func (s *stubAPIKeyAuth) Authenticate(_ context.Context, _ string) (*apikeydom.APIKey, error) {
+	return s.key, s.err
+}
 
 func newTestTokenManager() *jwttoken.Manager {
 	return jwttoken.New("test-secret", 15*time.Minute, 24*time.Hour)
@@ -109,5 +123,190 @@ func TestClaimsFrom_Missing(t *testing.T) {
 	c, _ := gin.CreateTestContext(httptest.NewRecorder())
 	if claims := ClaimsFrom(c); claims != nil {
 		t.Fatal("expected nil claims when absent")
+	}
+}
+
+func TestAuthn_APIKey_AuthorizationHeader(t *testing.T) {
+	userID := uuid.New()
+	stub := &stubAPIKeyAuth{key: &apikeydom.APIKey{ID: uuid.New(), UserID: userID}}
+
+	r := gin.New()
+	r.GET("/protected", Authn(newTestTokenManager(), stub), func(c *gin.Context) {
+		if !IsAPIKeyAuth(c) {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "expected API key auth"})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"ok": true})
+	})
+
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/protected", nil)
+	req.Header.Set("Authorization", "ApiKey test-api-key")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d (%s)", w.Code, w.Body.String())
+	}
+}
+
+func TestAuthn_APIKey_XAPIKeyHeader(t *testing.T) {
+	userID := uuid.New()
+	stub := &stubAPIKeyAuth{key: &apikeydom.APIKey{ID: uuid.New(), UserID: userID}}
+
+	r := gin.New()
+	r.GET("/protected", Authn(newTestTokenManager(), stub), func(c *gin.Context) {
+		if !IsAPIKeyAuth(c) {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "expected API key auth"})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"ok": true})
+	})
+
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/protected", nil)
+	req.Header.Set("X-API-Key", "test-api-key")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d (%s)", w.Code, w.Body.String())
+	}
+}
+
+func TestAuthn_APIKey_InvalidKey(t *testing.T) {
+	stub := &stubAPIKeyAuth{err: errors.New("bad key")}
+
+	r := gin.New()
+	r.GET("/protected", Authn(newTestTokenManager(), stub), func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"ok": true})
+	})
+
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/protected", nil)
+	req.Header.Set("X-API-Key", "invalid-key")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusUnauthorized {
+		t.Fatalf("expected 401, got %d", w.Code)
+	}
+}
+
+func TestAuthn_APIKey_RevokedKey(t *testing.T) {
+	stub := &stubAPIKeyAuth{err: apikeydom.ErrRevoked}
+
+	r := gin.New()
+	r.GET("/protected", Authn(newTestTokenManager(), stub), func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"ok": true})
+	})
+
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/protected", nil)
+	req.Header.Set("X-API-Key", "revoked-key")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusUnauthorized {
+		t.Fatalf("expected 401, got %d", w.Code)
+	}
+	var env struct {
+		ErrorCode string `json:"error_code"`
+	}
+	if err := json.NewDecoder(w.Body).Decode(&env); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if env.ErrorCode != "API_KEY_REVOKED" {
+		t.Fatalf("expected API_KEY_REVOKED, got %q", env.ErrorCode)
+	}
+}
+
+func TestAuthn_APIKey_ExpiredKey(t *testing.T) {
+	stub := &stubAPIKeyAuth{err: apikeydom.ErrExpired}
+
+	r := gin.New()
+	r.GET("/protected", Authn(newTestTokenManager(), stub), func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"ok": true})
+	})
+
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/protected", nil)
+	req.Header.Set("X-API-Key", "expired-key")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusUnauthorized {
+		t.Fatalf("expected 401, got %d", w.Code)
+	}
+	var env struct {
+		ErrorCode string `json:"error_code"`
+	}
+	if err := json.NewDecoder(w.Body).Decode(&env); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if env.ErrorCode != "API_KEY_EXPIRED" {
+		t.Fatalf("expected API_KEY_EXPIRED, got %q", env.ErrorCode)
+	}
+}
+
+func TestAuthn_APIKey_NotConfigured(t *testing.T) {
+	// No API key authenticator passed — should reject ApiKey header.
+	r := gin.New()
+	r.GET("/protected", Authn(newTestTokenManager()), func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"ok": true})
+	})
+
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/protected", nil)
+	req.Header.Set("Authorization", "ApiKey some-key")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusUnauthorized {
+		t.Fatalf("expected 401, got %d", w.Code)
+	}
+}
+
+func TestRequireJWTAuth_BlocksAPIKey(t *testing.T) {
+	userID := uuid.New()
+	stub := &stubAPIKeyAuth{key: &apikeydom.APIKey{ID: uuid.New(), UserID: userID}}
+
+	r := gin.New()
+	r.GET("/sensitive", Authn(newTestTokenManager(), stub), RequireJWTAuth(), func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"ok": true})
+	})
+
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/sensitive", nil)
+	req.Header.Set("X-API-Key", "some-key")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusForbidden {
+		t.Fatalf("expected 403, got %d", w.Code)
+	}
+	var env struct {
+		ErrorCode string `json:"error_code"`
+	}
+	if err := json.NewDecoder(w.Body).Decode(&env); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if env.ErrorCode != "FORBIDDEN" {
+		t.Fatalf("expected FORBIDDEN error code, got %q", env.ErrorCode)
+	}
+}
+
+func TestRequireJWTAuth_AllowsJWT(t *testing.T) {
+	tm := newTestTokenManager()
+	at, err := tm.IssueAccess("user-id", "alice", "USER", "fam", false)
+	if err != nil {
+		t.Fatalf("issue access token: %v", err)
+	}
+
+	r := gin.New()
+	r.GET("/sensitive", Authn(tm), RequireJWTAuth(), func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"ok": true})
+	})
+
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/sensitive", nil)
+	req.Header.Set("Authorization", "Bearer "+at)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d (%s)", w.Code, w.Body.String())
 	}
 }
