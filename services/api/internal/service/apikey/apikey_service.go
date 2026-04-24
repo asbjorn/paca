@@ -31,7 +31,7 @@ func New(repo apikeydom.Repository) *Service {
 	return &Service{repo: repo}
 }
 
-// List returns all active (non-revoked) API keys for the given user.
+// List returns all non-revoked API keys for the given user.
 func (s *Service) List(ctx context.Context, userID uuid.UUID) ([]*apikeydom.APIKey, error) {
 	return s.repo.ListByUserID(ctx, userID)
 }
