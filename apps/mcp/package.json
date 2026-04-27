@@ -1,9 +1,12 @@
 {
-  "name": "paca",
+  "name": "@paca-ai/paca",
   "version": "0.1.0",
   "description": "Paca MCP server - Complete API access for AI-powered project management",
-  "private": true,
   "type": "module",
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com",
+    "access": "public"
+  },
   "bin": {
     "paca": "./build/index.js"
   },

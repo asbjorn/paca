@@ -1,0 +1,215 @@
+name: cd
+
+# Triggered when a GitHub Release is published (draft → published or created as
+# published).  Each job builds one artefact and pushes it to the appropriate
+# GitHub registry so that self-hosters can pull pre-built images/packages.
+#
+# Artefacts produced per release:
+#   ghcr.io/paca-ai/paca-api:<tag>       — Go API service Docker image
+#   ghcr.io/paca-ai/paca-realtime:<tag>  — Node realtime service Docker image
+#   ghcr.io/paca-ai/paca-web:<tag>       — Web app Docker image (nginx)
+#   npm.pkg.github.com @paca-ai/paca     — MCP server npm package
+
+on:
+  release:
+    types: [published]
+
+# All jobs need read on contents (checkout) and write on packages (push/publish).
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+
+# ─────────────────────────────────────────────────────────────────────────────
+# API service image
+# ─────────────────────────────────────────────────────────────────────────────
+jobs:
+  api-image:
+    name: Build and push API image
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/paca-api
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: services/api
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Realtime service image
+  # ─────────────────────────────────────────────────────────────────────────────
+  realtime-image:
+    name: Build and push Realtime image
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/paca-realtime
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: services/realtime
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Web app image
+  # ─────────────────────────────────────────────────────────────────────────────
+  # The Vite bundle bakes VITE_API_BASE_URL at compile time.
+  # The pre-built image uses an empty string so all API calls are relative to
+  # the current origin — nginx proxies /api/* to the backend automatically.
+  # Self-hosters who need a custom absolute URL can rebuild with:
+  #   PACA_WEB_IMAGE=my-registry/paca-web:tag and --build in docker compose.
+  web-image:
+    name: Build and push Web image
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/paca-web
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: apps/web
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          # Empty string → relative URLs; works with nginx /api proxy out of the box.
+          build-args: |
+            VITE_API_BASE_URL=
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # MCP server npm package → GitHub Packages
+  # ─────────────────────────────────────────────────────────────────────────────
+  publish-mcp:
+    name: Publish MCP package
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    defaults:
+      run:
+        working-directory: apps/mcp
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.2.23"
+
+      - name: Cache Bun packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-mcp-${{ hashFiles('apps/mcp/bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-mcp-
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build
+        run: bun run build
+
+      # Strip the leading 'v' from the release tag (v1.2.3 → 1.2.3) so it
+      # matches npm's semver format, then stamp package.json without a git tag.
+      - name: Set package version
+        run: |
+          VERSION="${{ github.event.release.tag_name }}"
+          npm version "${VERSION#v}" --no-git-tag-version
+
+      - name: Setup Node.js with GitHub Packages registry
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          registry-url: "https://npm.pkg.github.com"
+          scope: "@paca-ai"
+
+      - name: Publish to GitHub Packages
+        run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

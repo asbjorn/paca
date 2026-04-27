@@ -66,6 +66,7 @@ Paca centralizes the source of truth, ensuring that even in highly volatile proj
 - **AI-PO & BA Support**: Collaborate with AI to refine the backlog and break down "complex" epics into structured BDD scenarios.
 - **Unified Scrumban Board**: A real-time workspace where humans and Agents update statuses and discuss requirements together.
 - **SDD Documentation Hub**: High-level documentation that bridges the gap between code and business logic for the entire team.
+- **MCP Server Integration**: Connect your AI agents (Claude, custom agents) directly to Paca via Model Context Protocol for seamless project management automation.
 - **Server-Side Agent Orchestration**: Agents run on your infrastructure, maintaining full team context and security.
 - **Open Source**: Complete control over your project management environment and AI data.
 
@@ -83,6 +84,7 @@ But Paca is a project born from passion, not profit. We believe there is wisdom 
 - [ROADMAP.md](ROADMAP.md): project roadmap and future plans.
 - [docs/README.md](docs/README.md): documentation index.
 - [docs/architecture/overview.md](docs/architecture/overview.md): high-level system architecture.
+- [docs/guides/mcp-server-setup.md](docs/guides/mcp-server-setup.md): setup guide for integrating AI agents via MCP server.
 
 ## License
 
