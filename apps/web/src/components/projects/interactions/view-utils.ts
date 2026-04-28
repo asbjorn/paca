@@ -353,7 +353,12 @@ export const BUILTIN_FIELDS: { key: string; label: string }[] = [
  * Default visible fields (excluding title, which is always shown).
  * Used when a view has no field config saved yet.
  */
-export const DEFAULT_VISIBLE_FIELDS = ["assignee", "importance", "story_points", "type"];
+export const DEFAULT_VISIBLE_FIELDS = [
+	"assignee",
+	"importance",
+	"story_points",
+	"type",
+];
 
 export function buildColumnByOptions(
 	customFields: CustomFieldDefinition[],
@@ -392,7 +397,11 @@ export function buildFieldSumOptions(
 	const custom = customFields
 		.filter((cf) => cf.field_type === "number")
 		.map((cf) => ({ key: cf.field_key, label: cf.display_name }));
-	return [FIELD_SUM_COUNT, { key: "story_points", label: "Story Points" }, ...custom];
+	return [
+		FIELD_SUM_COUNT,
+		{ key: "story_points", label: "Story Points" },
+		...custom,
+	];
 }
 
 export function buildSliceByOptions(

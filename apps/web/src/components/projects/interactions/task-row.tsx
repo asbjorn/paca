@@ -558,7 +558,11 @@ export function TaskRow({
 				return (
 					<div
 						key="story_points"
-						className={cn(col.className, responsiveClass, "items-center justify-center")}
+						className={cn(
+							col.className,
+							responsiveClass,
+							"items-center justify-center",
+						)}
 					>
 						{task.story_points != null ? (
 							<span className="text-[11px] font-medium tabular-nums">

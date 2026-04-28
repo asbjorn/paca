@@ -5,7 +5,10 @@ const FIBONACCI_SP = [0, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144];
 
 function nextFibSP(current: number | null): number {
 	if (current === null || current < 0) return 1;
-	return FIBONACCI_SP.find((f) => f > current) ?? FIBONACCI_SP[FIBONACCI_SP.length - 1];
+	return (
+		FIBONACCI_SP.find((f) => f > current) ??
+		FIBONACCI_SP[FIBONACCI_SP.length - 1]
+	);
 }
 
 function prevFibSP(current: number | null): number | null {
@@ -20,7 +23,9 @@ export function StoryPointsEditor({
 	value: number | null;
 	onChange?: (value: number | null) => void;
 }) {
-	const [local, setLocal] = useState<string>(value != null ? String(value) : "");
+	const [local, setLocal] = useState<string>(
+		value != null ? String(value) : "",
+	);
 
 	useEffect(() => {
 		setLocal(value != null ? String(value) : "");
