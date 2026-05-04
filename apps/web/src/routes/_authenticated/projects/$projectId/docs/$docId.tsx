@@ -336,7 +336,7 @@ function DocEditorPage() {
 						)}
 
 						{!doc && (
-							<div className="space-y-6 animate-pulse">
+							<div className="space-y-6">
 								{/* Title skeleton */}
 								<Skeleton className="h-9 w-2/3 rounded-md" />
 								{/* Content blocks skeleton */}
