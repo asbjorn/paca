@@ -1,4 +1,4 @@
-import { PluginApiClient, PluginQueryClientProvider } from "@paca/plugin-sdk";
+import { PluginApiClient, PluginQueryClientProvider } from "@paca-ai/plugin-sdk-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ListChecks, Plus } from "lucide-react";
 import { useMemo } from "react";

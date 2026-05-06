@@ -4,9 +4,9 @@ import (
 	"testing"
 	"time"
 
+	sprintdom "github.com/Paca-AI/api/internal/domain/sprint"
+	"github.com/Paca-AI/api/internal/transport/http/dto"
 	"github.com/google/uuid"
-	sprintdom "github.com/paca/api/internal/domain/sprint"
-	"github.com/paca/api/internal/transport/http/dto"
 )
 
 // ---------------------------------------------------------------------------

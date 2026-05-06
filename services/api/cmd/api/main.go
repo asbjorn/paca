@@ -11,8 +11,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/paca/api/internal/bootstrap"
-	"github.com/paca/api/internal/config"
+	"github.com/Paca-AI/api/internal/bootstrap"
+	"github.com/Paca-AI/api/internal/config"
 )
 
 func main() {

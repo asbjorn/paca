@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"time"
 
+	domainauth "github.com/Paca-AI/api/internal/domain/auth"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
-	domainauth "github.com/paca/api/internal/domain/auth"
 )
 
 // Manager handles JWT creation and verification.

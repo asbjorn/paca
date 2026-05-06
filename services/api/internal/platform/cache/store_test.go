@@ -8,7 +8,7 @@ import (
 	"github.com/alicebob/miniredis/v2"
 	"github.com/redis/go-redis/v9"
 
-	"github.com/paca/api/internal/platform/cache"
+	"github.com/Paca-AI/api/internal/platform/cache"
 )
 
 // newTestStore starts a miniredis instance and returns a Store backed by it.

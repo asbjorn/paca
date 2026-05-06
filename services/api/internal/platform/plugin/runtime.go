@@ -11,8 +11,8 @@ import (
 	"sync"
 	"time"
 
+	plugindom "github.com/Paca-AI/api/internal/domain/plugin"
 	"github.com/google/uuid"
-	plugindom "github.com/paca/api/internal/domain/plugin"
 	"github.com/tetratelabs/wazero"
 	"github.com/tetratelabs/wazero/api"
 	"github.com/tetratelabs/wazero/imports/wasi_snapshot_preview1"

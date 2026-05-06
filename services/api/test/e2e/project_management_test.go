@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
+	globalroledom "github.com/Paca-AI/api/internal/domain/globalrole"
+	projectdom "github.com/Paca-AI/api/internal/domain/project"
 	"github.com/google/uuid"
-	globalroledom "github.com/paca/api/internal/domain/globalrole"
-	projectdom "github.com/paca/api/internal/domain/project"
 )
 
 // seedProjectAdminUser creates a user and assigns them a global role that grants

@@ -23,7 +23,7 @@ Paca's plugin system lets developers extend the product without forking the core
 | **Extension Point** | A named slot in the Paca UI or backend where a plugin can inject behaviour. |
 | **Plugin Manifest** | A `plugin.json` file that declares the plugin's ID, version, permissions, and extension point registrations. |
 | **Plugin Registry** | The per-installation record of which plugins are installed, enabled, and at what version. |
-| **Plugin SDK** | The TypeScript (`@paca/plugin-sdk`) and Go (`github.com/paca/plugin-sdk`) packages that provide typed APIs against the Paca host. |
+| **Plugin SDK** | The TypeScript (`@paca-ai/plugin-sdk-react`) and Go (`github.com/Paca-AI/plugin-sdk`) packages that provide typed APIs against the Paca host. |
 
 ## Architecture at a Glance
 
@@ -105,8 +105,8 @@ Uploaded → Validated (manifest + WASM signature check) → Installed
 ```
 plugins/                          ← new top-level directory
   sdk/
-    frontend/                     ← @paca/plugin-sdk (TypeScript)
-    backend/                      ← github.com/paca/plugin-sdk (Go)
+    frontend/                     ← @paca-ai/plugin-sdk-react (TypeScript)
+    backend/                      ← github.com/Paca-AI/plugin-sdk (Go)
   first-party/
     bdd/                          ← BDD Scenario plugin
     checklist/                    ← Checklist plugin

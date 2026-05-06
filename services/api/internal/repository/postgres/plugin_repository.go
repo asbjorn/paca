@@ -6,8 +6,8 @@ import (
 	"errors"
 	"time"
 
+	plugindom "github.com/Paca-AI/api/internal/domain/plugin"
 	"github.com/google/uuid"
-	plugindom "github.com/paca/api/internal/domain/plugin"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )

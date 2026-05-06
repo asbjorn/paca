@@ -14,9 +14,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 
-	projectdom "github.com/paca/api/internal/domain/project"
-	"github.com/paca/api/internal/platform/cache"
-	projectsvc "github.com/paca/api/internal/service/project"
+	projectdom "github.com/Paca-AI/api/internal/domain/project"
+	"github.com/Paca-AI/api/internal/platform/cache"
+	projectsvc "github.com/Paca-AI/api/internal/service/project"
 )
 
 // ---------------------------------------------------------------------------

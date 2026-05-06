@@ -133,7 +133,7 @@ bun run dev
 bun run build
 ```
 
-The frontend uses the `@paca/plugin-sdk` package (resolved locally from `plugins/sdk/frontend`).  
+The frontend uses the `@paca-ai/plugin-sdk-react` package (resolved locally from `plugins/sdk/frontend`).  
 Shared singletons (`react`, `react-dom`, `@tanstack/react-query`) are provided by the host shell and must not be bundled.
 
 ---

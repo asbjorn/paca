@@ -30,7 +30,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	plugin "github.com/paca/plugin-sdk"
+	plugin "github.com/Paca-AI/plugin-sdk"
 )
 
 // Context is a test harness that wraps a plugin.Context with in-memory

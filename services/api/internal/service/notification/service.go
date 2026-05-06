@@ -7,11 +7,11 @@ import (
 	"strings"
 	"time"
 
+	notificationdom "github.com/Paca-AI/api/internal/domain/notification"
+	projectdom "github.com/Paca-AI/api/internal/domain/project"
+	"github.com/Paca-AI/api/internal/events"
+	"github.com/Paca-AI/api/internal/platform/messaging"
 	"github.com/google/uuid"
-	notificationdom "github.com/paca/api/internal/domain/notification"
-	projectdom "github.com/paca/api/internal/domain/project"
-	"github.com/paca/api/internal/events"
-	"github.com/paca/api/internal/platform/messaging"
 )
 
 // mentionRegexp matches @username tokens in comment text.

@@ -7,14 +7,14 @@ import (
 	"errors"
 	"strings"
 
+	"github.com/Paca-AI/api/internal/apierr"
+	apikeydom "github.com/Paca-AI/api/internal/domain/apikey"
+	domainauth "github.com/Paca-AI/api/internal/domain/auth"
+	jwttoken "github.com/Paca-AI/api/internal/platform/token"
+	"github.com/Paca-AI/api/internal/transport/http/presenter"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
-	"github.com/paca/api/internal/apierr"
-	apikeydom "github.com/paca/api/internal/domain/apikey"
-	domainauth "github.com/paca/api/internal/domain/auth"
-	jwttoken "github.com/paca/api/internal/platform/token"
-	"github.com/paca/api/internal/transport/http/presenter"
 )
 
 const claimsKey = "claims"

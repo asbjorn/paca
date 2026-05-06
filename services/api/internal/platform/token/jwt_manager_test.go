@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	jwttoken "github.com/paca/api/internal/platform/token"
+	jwttoken "github.com/Paca-AI/api/internal/platform/token"
 )
 
 func newTestManager() *jwttoken.Manager {

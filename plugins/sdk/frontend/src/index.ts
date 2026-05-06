@@ -1,5 +1,5 @@
 /**
- * @paca/plugin-sdk — public API
+ * @paca-ai/plugin-sdk-react — public API
  *
  * Re-exports every symbol that plugin micro-frontends may import.
  * Only types and functions listed here are considered stable.

@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/Paca-AI/api/internal/platform/authz"
 	"github.com/google/uuid"
-	"github.com/paca/api/internal/platform/authz"
 	"gorm.io/gorm"
 )
 

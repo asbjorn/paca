@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
+	docdom "github.com/Paca-AI/api/internal/domain/doc"
 	"github.com/google/uuid"
-	docdom "github.com/paca/api/internal/domain/doc"
 )
 
 // Service is the concrete implementation of docdom.Service.

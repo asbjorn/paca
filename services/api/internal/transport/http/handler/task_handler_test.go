@@ -11,12 +11,12 @@ import (
 	"testing"
 	"time"
 
+	sprintdom "github.com/Paca-AI/api/internal/domain/sprint"
+	taskdom "github.com/Paca-AI/api/internal/domain/task"
+	"github.com/Paca-AI/api/internal/transport/http/handler"
+	"github.com/Paca-AI/api/internal/transport/http/middleware"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	sprintdom "github.com/paca/api/internal/domain/sprint"
-	taskdom "github.com/paca/api/internal/domain/task"
-	"github.com/paca/api/internal/transport/http/handler"
-	"github.com/paca/api/internal/transport/http/middleware"
 )
 
 // ---------------------------------------------------------------------------

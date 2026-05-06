@@ -8,10 +8,10 @@ import (
 	"sort"
 	"time"
 
+	globalroledom "github.com/Paca-AI/api/internal/domain/globalrole"
+	userdom "github.com/Paca-AI/api/internal/domain/user"
+	"github.com/Paca-AI/api/internal/platform/authz"
 	"github.com/google/uuid"
-	globalroledom "github.com/paca/api/internal/domain/globalrole"
-	userdom "github.com/paca/api/internal/domain/user"
-	"github.com/paca/api/internal/platform/authz"
 	"golang.org/x/crypto/bcrypt"
 )
 

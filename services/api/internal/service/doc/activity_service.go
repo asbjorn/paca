@@ -6,11 +6,11 @@ import (
 	"strings"
 	"time"
 
+	docdom "github.com/Paca-AI/api/internal/domain/doc"
+	projectdom "github.com/Paca-AI/api/internal/domain/project"
+	"github.com/Paca-AI/api/internal/events"
+	"github.com/Paca-AI/api/internal/platform/messaging"
 	"github.com/google/uuid"
-	docdom "github.com/paca/api/internal/domain/doc"
-	projectdom "github.com/paca/api/internal/domain/project"
-	"github.com/paca/api/internal/events"
-	"github.com/paca/api/internal/platform/messaging"
 )
 
 // memberLookup is the minimal interface ActivitySvc needs to resolve a user

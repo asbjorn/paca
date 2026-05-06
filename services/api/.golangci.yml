@@ -23,7 +23,7 @@ formatters-settings:
   gofmt:
     simplify: true
   goimports:
-    local-prefixes: github.com/paca/api
+    local-prefixes: github.com/Paca-AI/api
 
 linters-settings:
   revive:

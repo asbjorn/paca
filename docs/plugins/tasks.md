@@ -18,7 +18,7 @@
 
 ## Epic 2 — Frontend Plugin Infrastructure
 
-- [x] **PLUG-FE-01** Set up Module Federation in `apps/web` (add `@originjs/vite-plugin-federation` to `vite.config.ts`, configure host mode, mark `react`, `react-dom`, `@paca/plugin-sdk` as shared singletons)
+- [x] **PLUG-FE-01** Set up Module Federation in `apps/web` (add `@originjs/vite-plugin-federation` to `vite.config.ts`, configure host mode, mark `react`, `react-dom`, `@paca-ai/plugin-sdk-react` as shared singletons)
 - [x] **PLUG-FE-02** Implement `PluginRegistryContext` (`apps/web/src/lib/plugins/registry.ts` fetching `GET /api/v1/plugins`, build `Map<ExtensionPointId, Registration[]>`; React context + provider loaded on app mount)
 - [x] **PLUG-FE-03** Implement remote component loader (`apps/web/src/lib/plugins/loader.tsx` — `React.lazy` + dynamic Module Federation `import()` keyed by `remoteEntryUrl` + component name, `<ErrorBoundary>` wrapper per remote component)
 - [x] **PLUG-FE-04** Implement `<ExtensionPoint>` and `<PluginSlot>` primitives (`apps/web/src/lib/plugins/extension-point.tsx` — reads registry, renders all registrations in order, each in an error boundary; `<PluginSlot>` for single named slots)
@@ -32,8 +32,8 @@
 
 ## Epic 3 — Plugin SDK
 
-- [x] **PLUG-SDK-01** Create `plugins/sdk/frontend/` TypeScript package `@paca/plugin-sdk` (`PluginApiClient`, `PluginUI` with `toast/confirm/navigate`, `PluginMeta`, all extension point prop interfaces, shared types `TaskSummary`/`ProjectPermissions`/`TaskFilters`, `PluginQueryClientProvider` + `usePluginQuery`)
-- [x] **PLUG-SDK-02** Create `plugins/sdk/backend/` Go package `github.com/paca/plugin-sdk` (`Plugin` interface, `plugin.Run()` dispatcher, `Context` with route/event registration, `RouteHandler` with `Request`/`Response`/`CallerIdentity`, `EventHandler`, `DB` typed query builder, `KV` store, `Logger`, `plugin.JSONBody()` helper)
+- [x] **PLUG-SDK-01** Create `plugins/sdk/frontend/` TypeScript package `@paca-ai/plugin-sdk-react` (`PluginApiClient`, `PluginUI` with `toast/confirm/navigate`, `PluginMeta`, all extension point prop interfaces, shared types `TaskSummary`/`ProjectPermissions`/`TaskFilters`, `PluginQueryClientProvider` + `usePluginQuery`)
+- [x] **PLUG-SDK-02** Create `plugins/sdk/backend/` Go package `github.com/Paca-AI/plugin-sdk` (`Plugin` interface, `plugin.Run()` dispatcher, `Context` with route/event registration, `RouteHandler` with `Request`/`Response`/`CallerIdentity`, `EventHandler`, `DB` typed query builder, `KV` store, `Logger`, `plugin.JSONBody()` helper)
 - [x] **PLUG-SDK-03** Create `plugintest` package for Go unit testing (`plugintest.NewContext()`, `plugintest.Request`, `plugintest.NewResponse()`, in-memory DB seed helpers)
 
 ---
@@ -85,7 +85,7 @@
 
 ## Epic 8 — SDK Publication & Developer Experience
 
-- [ ] **PLUG-DX-01** Publish `@paca/plugin-sdk` to npm (or internal registry)
-- [ ] **PLUG-DX-02** Publish `github.com/paca/plugin-sdk` to pkg.go.dev
+- [ ] **PLUG-DX-01** Publish `@paca-ai/plugin-sdk-react` to npm (or internal registry)
+- [ ] **PLUG-DX-02** Publish `github.com/Paca-AI/plugin-sdk` to pkg.go.dev
 - [ ] **PLUG-DX-03** Add `plugins/` directory to repo with SDK packages, first-party plugin directories, and docs index
 - [ ] **PLUG-DX-04** Add Vite Module Federation dev server configuration for local plugin development (hot reload for frontend plugin components without restarting the host app)

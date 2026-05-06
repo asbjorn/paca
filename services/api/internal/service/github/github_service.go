@@ -18,12 +18,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Paca-AI/api/internal/apierr"
+	githubdom "github.com/Paca-AI/api/internal/domain/github"
+	"github.com/Paca-AI/api/internal/events"
+	"github.com/Paca-AI/api/internal/platform/githubclient"
+	"github.com/Paca-AI/api/internal/platform/secret"
 	"github.com/google/uuid"
-	"github.com/paca/api/internal/apierr"
-	githubdom "github.com/paca/api/internal/domain/github"
-	"github.com/paca/api/internal/events"
-	"github.com/paca/api/internal/platform/githubclient"
-	"github.com/paca/api/internal/platform/secret"
 )
 
 // branchTaskRefRe matches the task-ID-prefix pattern inside a branch name.

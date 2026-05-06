@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 
+	projectdom "github.com/Paca-AI/api/internal/domain/project"
 	"github.com/google/uuid"
-	projectdom "github.com/paca/api/internal/domain/project"
 )
 
 // ListMembers returns all members of the given project.

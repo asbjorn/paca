@@ -7,10 +7,10 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/Paca-AI/api/internal/apierr"
+	domainauth "github.com/Paca-AI/api/internal/domain/auth"
+	userdom "github.com/Paca-AI/api/internal/domain/user"
 	"github.com/gin-gonic/gin"
-	"github.com/paca/api/internal/apierr"
-	domainauth "github.com/paca/api/internal/domain/auth"
-	userdom "github.com/paca/api/internal/domain/user"
 )
 
 func TestOK(t *testing.T) {

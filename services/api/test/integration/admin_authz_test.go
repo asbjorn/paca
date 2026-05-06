@@ -10,15 +10,15 @@ import (
 	"testing"
 	"time"
 
+	globalroledom "github.com/Paca-AI/api/internal/domain/globalrole"
+	"github.com/Paca-AI/api/internal/platform/authz"
+	jwttoken "github.com/Paca-AI/api/internal/platform/token"
+	authsvc "github.com/Paca-AI/api/internal/service/auth"
+	usersvc "github.com/Paca-AI/api/internal/service/user"
+	"github.com/Paca-AI/api/internal/transport/http/handler"
+	"github.com/Paca-AI/api/internal/transport/http/router"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	globalroledom "github.com/paca/api/internal/domain/globalrole"
-	"github.com/paca/api/internal/platform/authz"
-	jwttoken "github.com/paca/api/internal/platform/token"
-	authsvc "github.com/paca/api/internal/service/auth"
-	usersvc "github.com/paca/api/internal/service/user"
-	"github.com/paca/api/internal/transport/http/handler"
-	"github.com/paca/api/internal/transport/http/router"
 )
 
 type integrationPermissionStore struct {

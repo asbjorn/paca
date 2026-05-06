@@ -5,7 +5,7 @@ import (
 	"strings"
 	"sync"
 
-	plugin "github.com/paca/plugin-sdk"
+	plugin "github.com/Paca-AI/plugin-sdk"
 )
 
 // ── InMemoryDB ────────────────────────────────────────────────────────────────

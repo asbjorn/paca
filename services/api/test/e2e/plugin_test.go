@@ -10,12 +10,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/paca/api/internal/platform/authz"
-	jwttoken "github.com/paca/api/internal/platform/token"
-	pgRepo "github.com/paca/api/internal/repository/postgres"
-	pluginsvc "github.com/paca/api/internal/service/plugin"
-	"github.com/paca/api/internal/transport/http/handler"
-	"github.com/paca/api/internal/transport/http/router"
+	"github.com/Paca-AI/api/internal/platform/authz"
+	jwttoken "github.com/Paca-AI/api/internal/platform/token"
+	pgRepo "github.com/Paca-AI/api/internal/repository/postgres"
+	pluginsvc "github.com/Paca-AI/api/internal/service/plugin"
+	"github.com/Paca-AI/api/internal/transport/http/handler"
+	"github.com/Paca-AI/api/internal/transport/http/router"
 )
 
 // ---------------------------------------------------------------------------

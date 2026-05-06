@@ -4,12 +4,12 @@ import (
 	"context"
 	"errors"
 
+	"github.com/Paca-AI/api/internal/apierr"
+	projectdom "github.com/Paca-AI/api/internal/domain/project"
+	"github.com/Paca-AI/api/internal/platform/authz"
+	"github.com/Paca-AI/api/internal/transport/http/presenter"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/paca/api/internal/apierr"
-	projectdom "github.com/paca/api/internal/domain/project"
-	"github.com/paca/api/internal/platform/authz"
-	"github.com/paca/api/internal/transport/http/presenter"
 )
 
 // ScopeResolver resolves a scope-specific project ID for permission checks.

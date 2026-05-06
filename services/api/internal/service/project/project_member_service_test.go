@@ -5,8 +5,8 @@ import (
 	"errors"
 	"testing"
 
+	projectdom "github.com/Paca-AI/api/internal/domain/project"
 	"github.com/google/uuid"
-	projectdom "github.com/paca/api/internal/domain/project"
 )
 
 type memberServiceRepoMock struct {

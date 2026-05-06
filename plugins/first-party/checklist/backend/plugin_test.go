@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"testing"
 
-	plugin "github.com/paca/plugin-sdk"
-	"github.com/paca/plugin-sdk/plugintest"
+	plugin "github.com/Paca-AI/plugin-sdk"
+	"github.com/Paca-AI/plugin-sdk/plugintest"
 )
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

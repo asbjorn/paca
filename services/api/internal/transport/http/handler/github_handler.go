@@ -5,12 +5,12 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/Paca-AI/api/internal/apierr"
+	githubdom "github.com/Paca-AI/api/internal/domain/github"
+	"github.com/Paca-AI/api/internal/transport/http/dto"
+	"github.com/Paca-AI/api/internal/transport/http/presenter"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/paca/api/internal/apierr"
-	githubdom "github.com/paca/api/internal/domain/github"
-	"github.com/paca/api/internal/transport/http/dto"
-	"github.com/paca/api/internal/transport/http/presenter"
 )
 
 // GitHubHandler handles GitHub integration endpoints.

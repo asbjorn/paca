@@ -1,4 +1,4 @@
-module github.com/paca/api
+module github.com/Paca-AI/api
 
 go 1.26.0
 

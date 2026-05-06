@@ -1,9 +1,9 @@
 package middleware
 
 import (
+	"github.com/Paca-AI/api/internal/apierr"
+	"github.com/Paca-AI/api/internal/transport/http/presenter"
 	"github.com/gin-gonic/gin"
-	"github.com/paca/api/internal/apierr"
-	"github.com/paca/api/internal/transport/http/presenter"
 )
 
 // RequireFreshPassword rejects any request whose access token carries

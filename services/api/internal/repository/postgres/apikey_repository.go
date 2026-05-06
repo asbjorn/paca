@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	apikeydom "github.com/Paca-AI/api/internal/domain/apikey"
 	"github.com/google/uuid"
-	apikeydom "github.com/paca/api/internal/domain/apikey"
 	"gorm.io/gorm"
 )
 

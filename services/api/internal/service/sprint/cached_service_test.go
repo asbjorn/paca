@@ -14,9 +14,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 
-	sprintdom "github.com/paca/api/internal/domain/sprint"
-	"github.com/paca/api/internal/platform/cache"
-	sprintsvc "github.com/paca/api/internal/service/sprint"
+	sprintdom "github.com/Paca-AI/api/internal/domain/sprint"
+	"github.com/Paca-AI/api/internal/platform/cache"
+	sprintsvc "github.com/Paca-AI/api/internal/service/sprint"
 )
 
 // ---------------------------------------------------------------------------

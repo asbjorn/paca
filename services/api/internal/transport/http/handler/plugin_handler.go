@@ -6,15 +6,15 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/Paca-AI/api/internal/apierr"
+	plugindom "github.com/Paca-AI/api/internal/domain/plugin"
+	projectdom "github.com/Paca-AI/api/internal/domain/project"
+	pluginrt "github.com/Paca-AI/api/internal/platform/plugin"
+	"github.com/Paca-AI/api/internal/transport/http/dto"
+	"github.com/Paca-AI/api/internal/transport/http/middleware"
+	"github.com/Paca-AI/api/internal/transport/http/presenter"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/paca/api/internal/apierr"
-	plugindom "github.com/paca/api/internal/domain/plugin"
-	projectdom "github.com/paca/api/internal/domain/project"
-	pluginrt "github.com/paca/api/internal/platform/plugin"
-	"github.com/paca/api/internal/transport/http/dto"
-	"github.com/paca/api/internal/transport/http/middleware"
-	"github.com/paca/api/internal/transport/http/presenter"
 )
 
 // PluginHandler handles plugin management endpoints.

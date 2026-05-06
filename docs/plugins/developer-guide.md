@@ -94,7 +94,7 @@ module github.com/example/my-plugin
 
 go 1.21
 
-require github.com/paca/plugin-sdk v0.1.0
+require github.com/Paca-AI/plugin-sdk v0.1.0
 ```
 
 ### `backend/main.go`
@@ -102,7 +102,7 @@ require github.com/paca/plugin-sdk v0.1.0
 ```go
 package main
 
-import "github.com/paca/plugin-sdk/plugin"
+import "github.com/Paca-AI/plugin-sdk/plugin"
 
 type MyPlugin struct{}
 
@@ -135,7 +135,7 @@ func main() {}
 package main
 
 import (
-    "github.com/paca/plugin-sdk/plugin"
+    "github.com/Paca-AI/plugin-sdk/plugin"
 )
 
 type MyItem struct {
@@ -230,7 +230,7 @@ GOOS=wasip1 GOARCH=wasm go build -o ../dist/my-plugin.wasm .
     "build": "vite build"
   },
   "dependencies": {
-    "@paca/plugin-sdk": "^0.1.0",
+    "@paca-ai/plugin-sdk-react": "^0.1.0",
     "react": "^18.3.0",
     "react-dom": "^18.3.0"
   },
@@ -262,7 +262,7 @@ export default defineConfig({
       shared: {
         react: { singleton: true, requiredVersion: "^18.3.0" },
         "react-dom": { singleton: true, requiredVersion: "^18.3.0" },
-        "@paca/plugin-sdk": { singleton: true },
+        "@paca-ai/plugin-sdk-react": { singleton: true },
       },
     }),
   ],
@@ -277,11 +277,11 @@ export default defineConfig({
 ### `frontend/src/TaskDetailSection.tsx`
 
 ```tsx
-import type { TaskDetailSectionProps } from "@paca/plugin-sdk";
+import type { TaskDetailSectionProps } from "@paca-ai/plugin-sdk-react";
 import {
   PluginQueryClientProvider,
   usePluginQuery,
-} from "@paca/plugin-sdk";
+} from "@paca-ai/plugin-sdk-react";
 
 export default function TaskDetailSection(props: TaskDetailSectionProps) {
   return (
@@ -386,7 +386,7 @@ package main_test
 
 import (
     "testing"
-    "github.com/paca/plugin-sdk/plugintest"
+    "github.com/Paca-AI/plugin-sdk/plugintest"
 )
 
 func TestListItems(t *testing.T) {

@@ -3,7 +3,7 @@ package authz_test
 import (
 	"testing"
 
-	"github.com/paca/api/internal/platform/authz"
+	"github.com/Paca-AI/api/internal/platform/authz"
 )
 
 func TestRequire_AllowsMatchingRole(t *testing.T) {

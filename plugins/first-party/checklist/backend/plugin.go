@@ -7,7 +7,7 @@ package main
 import (
 	"time"
 
-	plugin "github.com/paca/plugin-sdk"
+	plugin "github.com/Paca-AI/plugin-sdk"
 )
 
 // nowStr returns the current UTC time as an RFC3339Nano string.

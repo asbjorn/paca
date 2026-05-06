@@ -17,7 +17,7 @@
   },
   "devDependencies": {
     "@originjs/vite-plugin-federation": "^1.3.6",
-    "@paca/plugin-sdk": "file:../../../../plugins/sdk/frontend",
+    "@paca-ai/plugin-sdk-react": "file:../../../../plugins/sdk/frontend",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "typescript": "^5.8.3",

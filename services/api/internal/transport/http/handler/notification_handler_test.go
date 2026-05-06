@@ -12,11 +12,11 @@ import (
 	"testing"
 	"time"
 
+	notificationdom "github.com/Paca-AI/api/internal/domain/notification"
+	"github.com/Paca-AI/api/internal/transport/http/handler"
+	"github.com/Paca-AI/api/internal/transport/http/middleware"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	notificationdom "github.com/paca/api/internal/domain/notification"
-	"github.com/paca/api/internal/transport/http/handler"
-	"github.com/paca/api/internal/transport/http/middleware"
 )
 
 type mockNotificationSvc struct {

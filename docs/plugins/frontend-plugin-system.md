@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Paca frontend plugin system is built on **Vite Module Federation** (via `@originjs/vite-plugin-federation`). The core `apps/web` application acts as the **host**. Each plugin ships as a **remote entry** — a separately built JavaScript bundle that exposes React components through a well-known contract defined by `@paca/plugin-sdk`.
+The Paca frontend plugin system is built on **Vite Module Federation** (via `@originjs/vite-plugin-federation`). The core `apps/web` application acts as the **host**. Each plugin ships as a **remote entry** — a separately built JavaScript bundle that exposes React components through a well-known contract defined by `@paca-ai/plugin-sdk-react`.
 
 Plugins are loaded lazily when the user first navigates to a surface that has an active plugin registered for it. No plugin code is fetched until it is needed.
 
@@ -151,14 +151,14 @@ export default {
         "./TaskDetailSection": "./src/TaskDetailSection.tsx",
         "./ProjectSettingsTab": "./src/ProjectSettingsTab.tsx",
       },
-      shared: ["react", "react-dom", "@paca/plugin-sdk"],
+      shared: ["react", "react-dom", "@paca-ai/plugin-sdk-react"],
     }),
   ],
   build: { target: "esnext" },
 };
 ```
 
-Shared libraries (`react`, `react-dom`, `@paca/plugin-sdk`) are marked as shared so the host's singleton instances are used. This prevents duplicate React instances and ensures the plugin SDK is the same object the host provides.
+Shared libraries (`react`, `react-dom`, `@paca-ai/plugin-sdk-react`) are marked as shared so the host's singleton instances are used. This prevents duplicate React instances and ensures the plugin SDK is the same object the host provides.
 
 ## Content Security Policy
 

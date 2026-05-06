@@ -9,10 +9,10 @@ import (
 	"net/http"
 	"testing"
 
+	domainuser "github.com/Paca-AI/api/internal/domain/user"
+	"github.com/Paca-AI/api/internal/transport/http/handler"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	domainuser "github.com/paca/api/internal/domain/user"
-	"github.com/paca/api/internal/transport/http/handler"
 )
 
 // ---------------------------------------------------------------------------

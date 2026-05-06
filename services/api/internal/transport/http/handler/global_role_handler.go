@@ -1,13 +1,13 @@
 package handler
 
 import (
+	"github.com/Paca-AI/api/internal/apierr"
+	globalroledom "github.com/Paca-AI/api/internal/domain/globalrole"
+	"github.com/Paca-AI/api/internal/transport/http/dto"
+	"github.com/Paca-AI/api/internal/transport/http/middleware"
+	"github.com/Paca-AI/api/internal/transport/http/presenter"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/paca/api/internal/apierr"
-	globalroledom "github.com/paca/api/internal/domain/globalrole"
-	"github.com/paca/api/internal/transport/http/dto"
-	"github.com/paca/api/internal/transport/http/middleware"
-	"github.com/paca/api/internal/transport/http/presenter"
 )
 
 // GlobalRoleHandler handles super-admin global-role endpoints.

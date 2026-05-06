@@ -6,11 +6,11 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	domainauth "github.com/Paca-AI/api/internal/domain/auth"
+	"github.com/Paca-AI/api/internal/platform/authz"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
-	domainauth "github.com/paca/api/internal/domain/auth"
-	"github.com/paca/api/internal/platform/authz"
 )
 
 type mockPermissionStore struct {

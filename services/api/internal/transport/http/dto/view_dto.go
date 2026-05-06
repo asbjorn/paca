@@ -3,8 +3,8 @@ package dto
 import (
 	"time"
 
+	sprintdom "github.com/Paca-AI/api/internal/domain/sprint"
 	"github.com/google/uuid"
-	sprintdom "github.com/paca/api/internal/domain/sprint"
 )
 
 // --- View DTOs --------------------------------------------------------------

@@ -1,9 +1,9 @@
 package middleware
 
 import (
+	"github.com/Paca-AI/api/internal/apierr"
+	"github.com/Paca-AI/api/internal/transport/http/presenter"
 	"github.com/gin-gonic/gin"
-	"github.com/paca/api/internal/apierr"
-	"github.com/paca/api/internal/transport/http/presenter"
 )
 
 // BindJSON binds the JSON body into dst and aborts with 400 on failure.

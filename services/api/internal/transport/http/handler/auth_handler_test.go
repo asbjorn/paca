@@ -10,10 +10,10 @@ import (
 	"testing"
 	"time"
 
+	domainauth "github.com/Paca-AI/api/internal/domain/auth"
+	"github.com/Paca-AI/api/internal/transport/http/handler"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
-	domainauth "github.com/paca/api/internal/domain/auth"
-	"github.com/paca/api/internal/transport/http/handler"
 )
 
 func init() { gin.SetMode(gin.TestMode) }

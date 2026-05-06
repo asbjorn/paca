@@ -1,11 +1,11 @@
-# @paca/plugin-sdk — Frontend
+# @paca-ai/plugin-sdk-react — Frontend
 
 TypeScript/React SDK for building Paca plugin micro-frontends.
 
 ## Installation
 
 ```bash
-npm install @paca/plugin-sdk
+npm install @paca-ai/plugin-sdk-react
 ```
 
 > `react`, `react-dom`, and `@tanstack/react-query` are peer dependencies and
@@ -14,7 +14,7 @@ npm install @paca/plugin-sdk
 ## Quick start
 
 ```tsx
-import { usePlugin, usePluginQuery } from "@paca/plugin-sdk";
+import { usePlugin, usePluginQuery } from "@paca-ai/plugin-sdk-react";
 
 export function ChecklistSection() {
   const { api, ui, meta } = usePlugin();

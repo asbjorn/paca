@@ -3,13 +3,13 @@ package handler
 import (
 	"encoding/json"
 
+	"github.com/Paca-AI/api/internal/apierr"
+	docdom "github.com/Paca-AI/api/internal/domain/doc"
+	"github.com/Paca-AI/api/internal/transport/http/dto"
+	"github.com/Paca-AI/api/internal/transport/http/middleware"
+	"github.com/Paca-AI/api/internal/transport/http/presenter"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/paca/api/internal/apierr"
-	docdom "github.com/paca/api/internal/domain/doc"
-	"github.com/paca/api/internal/transport/http/dto"
-	"github.com/paca/api/internal/transport/http/middleware"
-	"github.com/paca/api/internal/transport/http/presenter"
 )
 
 // DocumentHandler handles documentation endpoints.

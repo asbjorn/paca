@@ -14,9 +14,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 
-	globalroledom "github.com/paca/api/internal/domain/globalrole"
-	"github.com/paca/api/internal/platform/cache"
-	globalrolesvc "github.com/paca/api/internal/service/globalrole"
+	globalroledom "github.com/Paca-AI/api/internal/domain/globalrole"
+	"github.com/Paca-AI/api/internal/platform/cache"
+	globalrolesvc "github.com/Paca-AI/api/internal/service/globalrole"
 )
 
 // ---------------------------------------------------------------------------

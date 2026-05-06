@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
+	notificationdom "github.com/Paca-AI/api/internal/domain/notification"
+	projectdom "github.com/Paca-AI/api/internal/domain/project"
 	"github.com/google/uuid"
-	notificationdom "github.com/paca/api/internal/domain/notification"
-	projectdom "github.com/paca/api/internal/domain/project"
 )
 
 type fakeNotificationRepo struct {

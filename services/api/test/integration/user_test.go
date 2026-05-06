@@ -11,15 +11,15 @@ import (
 	"testing"
 	"time"
 
+	userdom "github.com/Paca-AI/api/internal/domain/user"
+	"github.com/Paca-AI/api/internal/platform/authz"
+	jwttoken "github.com/Paca-AI/api/internal/platform/token"
+	authsvc "github.com/Paca-AI/api/internal/service/auth"
+	usersvc "github.com/Paca-AI/api/internal/service/user"
+	"github.com/Paca-AI/api/internal/transport/http/handler"
+	"github.com/Paca-AI/api/internal/transport/http/router"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	userdom "github.com/paca/api/internal/domain/user"
-	"github.com/paca/api/internal/platform/authz"
-	jwttoken "github.com/paca/api/internal/platform/token"
-	authsvc "github.com/paca/api/internal/service/auth"
-	usersvc "github.com/paca/api/internal/service/user"
-	"github.com/paca/api/internal/transport/http/handler"
-	"github.com/paca/api/internal/transport/http/router"
 	"golang.org/x/crypto/bcrypt"
 )
 

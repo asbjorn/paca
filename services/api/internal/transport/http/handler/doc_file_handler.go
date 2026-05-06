@@ -3,13 +3,13 @@ package handler
 import (
 	"time"
 
+	"github.com/Paca-AI/api/internal/apierr"
+	attachmentdom "github.com/Paca-AI/api/internal/domain/attachment"
+	"github.com/Paca-AI/api/internal/transport/http/dto"
+	"github.com/Paca-AI/api/internal/transport/http/middleware"
+	"github.com/Paca-AI/api/internal/transport/http/presenter"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/paca/api/internal/apierr"
-	attachmentdom "github.com/paca/api/internal/domain/attachment"
-	"github.com/paca/api/internal/transport/http/dto"
-	"github.com/paca/api/internal/transport/http/middleware"
-	"github.com/paca/api/internal/transport/http/presenter"
 )
 
 // DocFileHandler handles file upload/download endpoints for documents.

@@ -3,8 +3,8 @@ package main
 import (
 	"fmt"
 
+	plugin "github.com/Paca-AI/plugin-sdk"
 	"github.com/google/uuid"
-	plugin "github.com/paca/plugin-sdk"
 )
 
 // ── Domain types ──────────────────────────────────────────────────────────────

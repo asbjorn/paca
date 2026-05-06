@@ -5,8 +5,8 @@ import (
 	"errors"
 	"time"
 
+	githubdom "github.com/Paca-AI/api/internal/domain/github"
 	"github.com/google/uuid"
-	githubdom "github.com/paca/api/internal/domain/github"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )

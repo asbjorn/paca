@@ -14,9 +14,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 
-	taskdom "github.com/paca/api/internal/domain/task"
-	"github.com/paca/api/internal/platform/cache"
-	tasksvc "github.com/paca/api/internal/service/task"
+	taskdom "github.com/Paca-AI/api/internal/domain/task"
+	"github.com/Paca-AI/api/internal/platform/cache"
+	tasksvc "github.com/Paca-AI/api/internal/service/task"
 )
 
 // ---------------------------------------------------------------------------

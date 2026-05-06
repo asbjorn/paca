@@ -12,17 +12,17 @@ import (
 	"testing"
 	"time"
 
+	apikeydom "github.com/Paca-AI/api/internal/domain/apikey"
+	userdom "github.com/Paca-AI/api/internal/domain/user"
+	"github.com/Paca-AI/api/internal/platform/authz"
+	jwttoken "github.com/Paca-AI/api/internal/platform/token"
+	apikeysvc "github.com/Paca-AI/api/internal/service/apikey"
+	authsvc "github.com/Paca-AI/api/internal/service/auth"
+	usersvc "github.com/Paca-AI/api/internal/service/user"
+	"github.com/Paca-AI/api/internal/transport/http/handler"
+	"github.com/Paca-AI/api/internal/transport/http/router"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	apikeydom "github.com/paca/api/internal/domain/apikey"
-	userdom "github.com/paca/api/internal/domain/user"
-	"github.com/paca/api/internal/platform/authz"
-	jwttoken "github.com/paca/api/internal/platform/token"
-	apikeysvc "github.com/paca/api/internal/service/apikey"
-	authsvc "github.com/paca/api/internal/service/auth"
-	usersvc "github.com/paca/api/internal/service/user"
-	"github.com/paca/api/internal/transport/http/handler"
-	"github.com/paca/api/internal/transport/http/router"
 )
 
 // ---------------------------------------------------------------------------

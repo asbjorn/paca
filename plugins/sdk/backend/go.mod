@@ -1,4 +1,4 @@
-module github.com/paca/plugin-sdk
+module github.com/Paca-AI/plugin-sdk
 
 go 1.24
 

@@ -8,10 +8,10 @@ import (
 	"os"
 	"time"
 
+	docdom "github.com/Paca-AI/api/internal/domain/doc"
+	projectdom "github.com/Paca-AI/api/internal/domain/project"
+	"github.com/Paca-AI/api/internal/events"
 	"github.com/google/uuid"
-	docdom "github.com/paca/api/internal/domain/doc"
-	projectdom "github.com/paca/api/internal/domain/project"
-	"github.com/paca/api/internal/events"
 	"github.com/redis/go-redis/v9"
 )
 

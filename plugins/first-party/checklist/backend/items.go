@@ -1,8 +1,8 @@
 package main
 
 import (
+	plugin "github.com/Paca-AI/plugin-sdk"
 	"github.com/google/uuid"
-	plugin "github.com/paca/plugin-sdk"
 )
 
 // ── Item route handlers ───────────────────────────────────────────────────────

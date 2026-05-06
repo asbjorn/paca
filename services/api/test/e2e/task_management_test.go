@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
+	globalroledom "github.com/Paca-AI/api/internal/domain/globalrole"
 	"github.com/google/uuid"
-	globalroledom "github.com/paca/api/internal/domain/globalrole"
 )
 
 func seedTaskMemberUser(t *testing.T, env *e2eEnv, username, password string) {

@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"time"
 
+	taskdom "github.com/Paca-AI/api/internal/domain/task"
 	"github.com/google/uuid"
-	taskdom "github.com/paca/api/internal/domain/task"
 	"gorm.io/gorm"
 )
 

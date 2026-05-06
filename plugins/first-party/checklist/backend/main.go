@@ -2,7 +2,7 @@
 
 package main
 
-import plugin "github.com/paca/plugin-sdk"
+import plugin "github.com/Paca-AI/plugin-sdk"
 
 func init() {
 	plugin.Run(&checklistPlugin{})

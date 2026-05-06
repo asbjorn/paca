@@ -7,10 +7,10 @@ import (
 	"fmt"
 	"time"
 
+	domainauth "github.com/Paca-AI/api/internal/domain/auth"
+	userdom "github.com/Paca-AI/api/internal/domain/user"
+	jwttoken "github.com/Paca-AI/api/internal/platform/token"
 	"github.com/google/uuid"
-	domainauth "github.com/paca/api/internal/domain/auth"
-	userdom "github.com/paca/api/internal/domain/user"
-	jwttoken "github.com/paca/api/internal/platform/token"
 	"golang.org/x/crypto/bcrypt"
 )
 

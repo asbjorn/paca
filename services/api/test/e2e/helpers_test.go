@@ -9,7 +9,7 @@ import (
 
 	"github.com/google/uuid"
 
-	userdom "github.com/paca/api/internal/domain/user"
+	userdom "github.com/Paca-AI/api/internal/domain/user"
 )
 
 // envelope mirrors the presenter.envelope shape for JSON decoding.

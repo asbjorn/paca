@@ -2,19 +2,19 @@
 
 The Paca Plugin SDK consists of two packages:
 
-- **`@paca/plugin-sdk`** — TypeScript/React SDK for frontend plugin components.
-- **`github.com/paca/plugin-sdk`** — Go SDK for backend WASM plugins.
+- **`@paca-ai/plugin-sdk-react`** — TypeScript/React SDK for frontend plugin components.
+- **`github.com/Paca-AI/plugin-sdk`** — Go SDK for backend WASM plugins.
 
 Both packages are maintained in `plugins/sdk/` within the monorepo.
 
 ---
 
-## TypeScript SDK (`@paca/plugin-sdk`)
+## TypeScript SDK (`@paca-ai/plugin-sdk-react`)
 
 ### Installation
 
 ```sh
-pnpm add @paca/plugin-sdk
+bun add @paca-ai/plugin-sdk-react
 ```
 
 The package is also declared as a `shared` dependency in Module Federation config so the host's singleton instance is used (see [Frontend Plugin System](frontend-plugin-system.md)).
@@ -124,7 +124,7 @@ Each extension point has a typed React component interface. Your exported compon
 #### `task.detail.section`
 
 ```ts
-import type { TaskDetailSectionProps } from "@paca/plugin-sdk";
+import type { TaskDetailSectionProps } from "@paca-ai/plugin-sdk-react";
 
 export default function MyTaskDetailSection(props: TaskDetailSectionProps) { ... }
 
@@ -140,7 +140,7 @@ interface TaskDetailSectionProps {
 #### `sidebar.general.section`
 
 ```ts
-import type { GeneralSidebarSectionProps } from "@paca/plugin-sdk";
+import type { GeneralSidebarSectionProps } from "@paca-ai/plugin-sdk-react";
 
 export default function MyGeneralSection(props: GeneralSidebarSectionProps) { ... }
 
@@ -152,7 +152,7 @@ interface GeneralSidebarSectionProps {
 #### `sidebar.project.section`
 
 ```ts
-import type { ProjectSidebarSectionProps } from "@paca/plugin-sdk";
+import type { ProjectSidebarSectionProps } from "@paca-ai/plugin-sdk-react";
 
 export default function MyProjectSection(props: ProjectSidebarSectionProps) { ... }
 
@@ -166,7 +166,7 @@ interface ProjectSidebarSectionProps {
 #### `project.settings.tab`
 
 ```ts
-import type { ProjectSettingsTabProps } from "@paca/plugin-sdk";
+import type { ProjectSettingsTabProps } from "@paca-ai/plugin-sdk-react";
 
 export default function MySettingsTab(props: ProjectSettingsTabProps) { ... }
 
@@ -180,7 +180,7 @@ interface ProjectSettingsTabProps {
 #### `view`
 
 ```ts
-import type { ViewProps } from "@paca/plugin-sdk";
+import type { ViewProps } from "@paca-ai/plugin-sdk-react";
 
 export default function MyView(props: ViewProps) { ... }
 
@@ -234,7 +234,7 @@ interface TaskFilters {
 Plugins may use TanStack Query locally. The SDK exports a pre-configured `QueryClient` scoped to the plugin (keyed under the plugin ID) so plugin queries don't pollute the host's cache:
 
 ```ts
-import { PluginQueryClientProvider, usePluginQuery } from "@paca/plugin-sdk";
+import { PluginQueryClientProvider, usePluginQuery } from "@paca-ai/plugin-sdk-react";
 
 // Wrap your root component
 export default function Root(props: TaskDetailSectionProps) {
@@ -256,12 +256,12 @@ function MyComponent({ sdk, taskId }: TaskDetailSectionProps) {
 
 ---
 
-## Go SDK (`github.com/paca/plugin-sdk`)
+## Go SDK (`github.com/Paca-AI/plugin-sdk`)
 
 ### Installation
 
 ```sh
-go get github.com/paca/plugin-sdk
+go get github.com/Paca-AI/plugin-sdk
 ```
 
 Build target must be `GOARCH=wasm GOOS=wasip1` (using TinyGo for smaller binaries, or standard Go 1.21+ WASI preview 1 support).
@@ -275,7 +275,7 @@ Every plugin must export three functions for the host to call:
 ```go
 package main
 
-import "github.com/paca/plugin-sdk/plugin"
+import "github.com/Paca-AI/plugin-sdk/plugin"
 
 func main() {} // required for WASM
 
@@ -479,7 +479,7 @@ package main
 
 import (
     "encoding/json"
-    "github.com/paca/plugin-sdk/plugin"
+    "github.com/Paca-AI/plugin-sdk/plugin"
 )
 
 type BDDPlugin struct{}

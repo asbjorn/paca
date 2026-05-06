@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
+	docdom "github.com/Paca-AI/api/internal/domain/doc"
+	docsvc "github.com/Paca-AI/api/internal/service/doc"
 	"github.com/google/uuid"
-	docdom "github.com/paca/api/internal/domain/doc"
-	docsvc "github.com/paca/api/internal/service/doc"
 )
 
 // ---------------------------------------------------------------------------

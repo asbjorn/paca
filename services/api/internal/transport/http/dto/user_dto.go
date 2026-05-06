@@ -4,8 +4,8 @@ package dto
 import (
 	"time"
 
+	userdom "github.com/Paca-AI/api/internal/domain/user"
 	"github.com/google/uuid"
-	userdom "github.com/paca/api/internal/domain/user"
 )
 
 // CreateUserRequest is the body for POST /admin/users.

@@ -3,8 +3,8 @@ package dto
 import (
 	"time"
 
+	projectdom "github.com/Paca-AI/api/internal/domain/project"
 	"github.com/google/uuid"
-	projectdom "github.com/paca/api/internal/domain/project"
 )
 
 // --- Project DTOs -----------------------------------------------------------

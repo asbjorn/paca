@@ -7,12 +7,12 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/Paca-AI/api/internal/platform/authz"
+	jwttoken "github.com/Paca-AI/api/internal/platform/token"
+	"github.com/Paca-AI/api/internal/transport/http/handler"
+	httpmw "github.com/Paca-AI/api/internal/transport/http/middleware"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/paca/api/internal/platform/authz"
-	jwttoken "github.com/paca/api/internal/platform/token"
-	"github.com/paca/api/internal/transport/http/handler"
-	httpmw "github.com/paca/api/internal/transport/http/middleware"
 )
 
 // Deps holds all handler and middleware dependencies.

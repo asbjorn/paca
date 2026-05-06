@@ -6,9 +6,9 @@ import (
 	"log/slog"
 	"time"
 
+	sprintdom "github.com/Paca-AI/api/internal/domain/sprint"
+	"github.com/Paca-AI/api/internal/platform/cache"
 	"github.com/google/uuid"
-	sprintdom "github.com/paca/api/internal/domain/sprint"
-	"github.com/paca/api/internal/platform/cache"
 )
 
 // ErrViewNotFound is re-exported from the domain package so callers can

@@ -8,9 +8,9 @@ import (
 	"os"
 	"time"
 
+	notificationdom "github.com/Paca-AI/api/internal/domain/notification"
+	"github.com/Paca-AI/api/internal/events"
 	"github.com/google/uuid"
-	notificationdom "github.com/paca/api/internal/domain/notification"
-	"github.com/paca/api/internal/events"
 	"github.com/redis/go-redis/v9"
 )
 

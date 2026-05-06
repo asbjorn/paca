@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
+	apikeydom "github.com/Paca-AI/api/internal/domain/apikey"
+	apikeysvc "github.com/Paca-AI/api/internal/service/apikey"
 	"github.com/google/uuid"
-	apikeydom "github.com/paca/api/internal/domain/apikey"
-	apikeysvc "github.com/paca/api/internal/service/apikey"
 )
 
 // ---------------------------------------------------------------------------

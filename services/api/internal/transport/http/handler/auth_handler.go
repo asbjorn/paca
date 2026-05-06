@@ -4,12 +4,12 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/Paca-AI/api/internal/apierr"
+	domainauth "github.com/Paca-AI/api/internal/domain/auth"
+	"github.com/Paca-AI/api/internal/transport/http/dto"
+	"github.com/Paca-AI/api/internal/transport/http/middleware"
+	"github.com/Paca-AI/api/internal/transport/http/presenter"
 	"github.com/gin-gonic/gin"
-	"github.com/paca/api/internal/apierr"
-	domainauth "github.com/paca/api/internal/domain/auth"
-	"github.com/paca/api/internal/transport/http/dto"
-	"github.com/paca/api/internal/transport/http/middleware"
-	"github.com/paca/api/internal/transport/http/presenter"
 )
 
 const (

@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"time"
 
+	docdom "github.com/Paca-AI/api/internal/domain/doc"
 	"github.com/google/uuid"
-	docdom "github.com/paca/api/internal/domain/doc"
 )
 
 // =============================================================================

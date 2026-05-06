@@ -6,9 +6,9 @@ import (
 	"strings"
 	"time"
 
+	attachmentdom "github.com/Paca-AI/api/internal/domain/attachment"
+	"github.com/Paca-AI/api/internal/platform/storage"
 	"github.com/google/uuid"
-	attachmentdom "github.com/paca/api/internal/domain/attachment"
-	"github.com/paca/api/internal/platform/storage"
 )
 
 // InitiateDocUpload creates a pending File record for a document and returns a

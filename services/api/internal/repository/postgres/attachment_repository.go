@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"time"
 
+	attachmentdom "github.com/Paca-AI/api/internal/domain/attachment"
 	"github.com/google/uuid"
-	attachmentdom "github.com/paca/api/internal/domain/attachment"
 	"gorm.io/gorm"
 )
 

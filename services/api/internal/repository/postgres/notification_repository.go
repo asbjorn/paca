@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	notificationdom "github.com/Paca-AI/api/internal/domain/notification"
 	"github.com/google/uuid"
-	notificationdom "github.com/paca/api/internal/domain/notification"
 	"gorm.io/gorm"
 )
 
