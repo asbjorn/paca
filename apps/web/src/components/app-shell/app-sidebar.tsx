@@ -1315,11 +1315,12 @@ export function AppSidebar() {
 						<SidebarSeparator />
 						<DocsSidebarSection projectId={projectId} />
 						<SidebarSeparator />
-						<ProjectNavItems projectId={projectId} isAnonymous={isAnonymous} />
 						<ExtensionPoint
 							point="sidebar.project.section"
 							componentProps={{ projectId }}
 						/>
+						<SidebarSeparator />
+						<ProjectNavItems projectId={projectId} isAnonymous={isAnonymous} />
 					</>
 				) : (
 					<>

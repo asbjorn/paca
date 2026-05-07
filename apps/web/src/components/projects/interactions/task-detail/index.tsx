@@ -381,14 +381,6 @@ export function TaskDetailModal({
 							/>
 						)}
 
-						{/* Checklists are now provided by the com.paca.checklist plugin */}
-						{/* Attachments */}
-						<AttachmentsSection
-							projectId={projectId ?? ""}
-							taskId={task.id}
-							canEdit={canEdit}
-						/>
-
 						{/* Branches */}
 						{projectId && hasLinkedRepo && (
 							<BranchesSection
@@ -417,6 +409,13 @@ export function TaskDetailModal({
 								componentProps={{ projectId, taskId: task.id, canEdit }}
 							/>
 						)}
+
+						{/* Attachments */}
+						<AttachmentsSection
+							projectId={projectId ?? ""}
+							taskId={task.id}
+							canEdit={canEdit}
+						/>
 
 						{/* Bottom breathing room */}
 						<div className="h-8" />
