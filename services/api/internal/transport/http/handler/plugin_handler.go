@@ -19,14 +19,29 @@ import (
 
 // PluginHandler handles plugin management endpoints.
 type PluginHandler struct {
-	svc        plugindom.Service
-	runtime    *pluginrt.Runtime
-	memberRepo projectdom.MemberRepository
+	svc             plugindom.Service
+	runtime         *pluginrt.Runtime
+	memberRepo      projectdom.MemberRepository
+	marketplace     *pluginrt.MarketplaceClient
+	installer       *pluginrt.Installer
+	migrationRunner *pluginrt.MigrationRunner
 }
 
 // NewPluginHandler creates a PluginHandler.
 func NewPluginHandler(svc plugindom.Service, runtime *pluginrt.Runtime, memberRepo projectdom.MemberRepository) *PluginHandler {
 	return &PluginHandler{svc: svc, runtime: runtime, memberRepo: memberRepo}
+}
+
+// WithMarketplace wires marketplace dependencies onto the existing handler.
+func (h *PluginHandler) WithMarketplace(
+	marketplace *pluginrt.MarketplaceClient,
+	installer *pluginrt.Installer,
+	migrationRunner *pluginrt.MigrationRunner,
+) *PluginHandler {
+	h.marketplace = marketplace
+	h.installer = installer
+	h.migrationRunner = migrationRunner
+	return h
 }
 
 // -------------------------------------------------------------------------
@@ -63,6 +78,86 @@ func (h *PluginHandler) InstallPlugin(c *gin.Context) {
 	presenter.Created(c, dto.PluginResponseFromEntity(plugin))
 }
 
+// ListMarketplacePlugins handles GET /api/v1/admin/plugins/marketplace.
+func (h *PluginHandler) ListMarketplacePlugins(c *gin.Context) {
+	if h.marketplace == nil {
+		presenter.Error(c, apierr.New(apierr.CodeInternalError, "marketplace not configured"))
+		return
+	}
+
+	catalog, err := h.marketplace.List(c.Request.Context())
+	if err != nil {
+		presenter.Error(c, apierr.New(apierr.CodeBadRequest, "failed to fetch marketplace catalog: "+err.Error()))
+		return
+	}
+
+	presenter.OK(c, dto.MarketplacePluginListResponseFromCatalog(catalog))
+}
+
+// InstallMarketplacePlugin handles POST /api/v1/admin/plugins/marketplace/install.
+func (h *PluginHandler) InstallMarketplacePlugin(c *gin.Context) {
+	if h.marketplace == nil || h.installer == nil {
+		presenter.Error(c, apierr.New(apierr.CodeInternalError, "marketplace installer not configured"))
+		return
+	}
+
+	var req dto.InstallMarketplacePluginRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		presenter.Error(c, apierr.New(apierr.CodeBadRequest, err.Error()))
+		return
+	}
+
+	entry, err := h.marketplace.FindPlugin(c.Request.Context(), req.Name)
+	if err != nil {
+		if err == pluginrt.ErrMarketplacePluginNotFound {
+			presenter.Error(c, apierr.New(apierr.CodePluginNotFound, "plugin not found in marketplace"))
+			return
+		}
+		presenter.Error(c, apierr.New(apierr.CodeBadRequest, "failed to resolve marketplace plugin: "+err.Error()))
+		return
+	}
+
+	manifest, err := h.installer.Install(c.Request.Context(), *entry)
+	if err != nil {
+		presenter.Error(c, apierr.New(apierr.CodeBadRequest, "failed to install plugin artifacts: "+err.Error()))
+		return
+	}
+
+	enabled := true
+	if req.Enabled != nil {
+		enabled = *req.Enabled
+	}
+
+	pl, err := h.svc.InstallPlugin(c.Request.Context(), plugindom.InstallInput{
+		Name:     entry.Name,
+		Version:  entry.Version,
+		Manifest: manifest,
+		Enabled:  enabled,
+	})
+	if err != nil {
+		presenter.Error(c, err)
+		return
+	}
+
+	if h.migrationRunner != nil {
+		if err := h.migrationRunner.Run(c.Request.Context(), pl.Name); err != nil {
+			_ = h.svc.DeletePlugin(c.Request.Context(), pl.ID)
+			presenter.Error(c, apierr.New(apierr.CodeInternalError, "failed to run plugin migrations: "+err.Error()))
+			return
+		}
+	}
+
+	if pl.Enabled && h.runtime != nil {
+		if err := h.runtime.Load(c.Request.Context(), *pl); err != nil {
+			_ = h.svc.DeletePlugin(c.Request.Context(), pl.ID)
+			presenter.Error(c, apierr.New(apierr.CodeInternalError, "failed to load plugin runtime: "+err.Error()))
+			return
+		}
+	}
+
+	presenter.Created(c, dto.PluginResponseFromEntity(pl))
+}
+
 // UpdatePlugin handles PATCH /api/v1/admin/plugins/:pluginId.
 func (h *PluginHandler) UpdatePlugin(c *gin.Context) {
 	id, err := parsePluginID(c)
@@ -94,9 +189,32 @@ func (h *PluginHandler) DeletePlugin(c *gin.Context) {
 		presenter.Error(c, err)
 		return
 	}
+
+	var pluginName string
+	plugins, err := h.svc.ListPlugins(c.Request.Context())
+	if err != nil {
+		presenter.Error(c, err)
+		return
+	}
+	for _, p := range plugins {
+		if p.ID == id {
+			pluginName = p.Name
+			break
+		}
+	}
+
 	if err := h.svc.DeletePlugin(c.Request.Context(), id); err != nil {
 		presenter.Error(c, err)
 		return
+	}
+	if h.runtime != nil && pluginName != "" {
+		h.runtime.Unload(c.Request.Context(), pluginName)
+	}
+	if h.installer != nil && pluginName != "" {
+		if err := h.installer.Uninstall(pluginName); err != nil {
+			// Log but don't fail the request — the DB record is already gone.
+			_ = err
+		}
 	}
 	presenter.NoContent(c)
 }

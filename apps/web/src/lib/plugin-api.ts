@@ -67,6 +67,45 @@ export async function listPlugins(): Promise<Plugin[]> {
 	return data.data.plugins;
 }
 
+export interface MarketplacePluginArtifacts {
+	backend_tar_gz_url: string;
+	frontend_tar_gz_url: string;
+	migrations_tar_gz_url: string;
+	manifest_tar_gz_url: string;
+}
+
+export interface MarketplacePlugin {
+	name: string;
+	display_name: string;
+	description: string;
+	version: string;
+	avatar_url?: string;
+	repository_url?: string;
+	artifacts: MarketplacePluginArtifacts;
+}
+
+export async function listMarketplacePlugins(): Promise<MarketplacePlugin[]> {
+	const { data } = await apiClient.instance.get<
+		SuccessEnvelope<{ plugins: MarketplacePlugin[] }>
+	>("/admin/plugins/marketplace");
+	return data.data.plugins;
+}
+
+export async function installMarketplacePlugin(payload: {
+	name: string;
+	enabled?: boolean;
+}): Promise<Plugin> {
+	const { data } = await apiClient.instance.post<SuccessEnvelope<Plugin>>(
+		"/admin/plugins/marketplace/install",
+		payload,
+	);
+	return data.data;
+}
+
+export async function uninstallPlugin(pluginId: string): Promise<void> {
+	await apiClient.instance.delete(`/admin/plugins/${pluginId}`);
+}
+
 export async function updatePluginExtensionSetting(payload: {
 	plugin_id: string;
 	extension_point: string;
@@ -84,6 +123,13 @@ export const pluginsQueryOptions = queryOptions({
 	queryKey: ["plugins"],
 	queryFn: listPlugins,
 	staleTime: 5 * 60 * 1000, // 5 min — plugins don't change often
+});
+
+export const marketplacePluginsQueryOptions = queryOptions({
+	queryKey: ["plugins", "marketplace"],
+	queryFn: listMarketplacePlugins,
+	staleTime: 60 * 1000,
+	retry: false,
 });
 
 // ── Registry helpers ──────────────────────────────────────────────────────────

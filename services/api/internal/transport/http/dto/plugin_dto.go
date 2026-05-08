@@ -4,6 +4,7 @@ import (
 	"time"
 
 	plugindom "github.com/Paca-AI/api/internal/domain/plugin"
+	pluginrt "github.com/Paca-AI/api/internal/platform/plugin"
 	"github.com/google/uuid"
 )
 
@@ -107,4 +108,60 @@ type UpdatePluginExtensionSettingRequest struct {
 	PluginID       uuid.UUID                      `json:"plugin_id" binding:"required"`
 	ExtensionPoint string                         `json:"extension_point" binding:"required"`
 	Settings       plugindom.ExtensionSettingData `json:"settings"`
+}
+
+// -------------------------------------------------------------------------
+// Marketplace
+// -------------------------------------------------------------------------
+
+// MarketplacePluginResponse is one plugin listing item from the marketplace catalog.
+type MarketplacePluginResponse struct {
+	Name          string                            `json:"name"`
+	DisplayName   string                            `json:"display_name"`
+	Description   string                            `json:"description"`
+	Version       string                            `json:"version"`
+	AvatarURL     string                            `json:"avatar_url,omitempty"`
+	RepositoryURL string                            `json:"repository_url,omitempty"`
+	Artifacts     MarketplacePluginArtifactResponse `json:"artifacts"`
+}
+
+// MarketplacePluginArtifactResponse contains downloadable tar.gz URLs.
+type MarketplacePluginArtifactResponse struct {
+	BackendTarGzURL    string `json:"backend_tar_gz_url"`
+	FrontendTarGzURL   string `json:"frontend_tar_gz_url"`
+	MigrationsTarGzURL string `json:"migrations_tar_gz_url"`
+	ManifestTarGzURL   string `json:"manifest_tar_gz_url"`
+}
+
+// MarketplacePluginListResponse wraps marketplace plugin list payload.
+type MarketplacePluginListResponse struct {
+	Plugins []MarketplacePluginResponse `json:"plugins"`
+}
+
+// MarketplacePluginListResponseFromCatalog maps the marketplace catalog model to DTO.
+func MarketplacePluginListResponseFromCatalog(catalog *pluginrt.MarketplaceCatalog) MarketplacePluginListResponse {
+	items := make([]MarketplacePluginResponse, 0, len(catalog.Plugins))
+	for _, p := range catalog.Plugins {
+		items = append(items, MarketplacePluginResponse{
+			Name:          p.Name,
+			DisplayName:   p.DisplayName,
+			Description:   p.Description,
+			Version:       p.Version,
+			AvatarURL:     p.AvatarURL,
+			RepositoryURL: p.RepositoryURL,
+			Artifacts: MarketplacePluginArtifactResponse{
+				BackendTarGzURL:    p.Artifacts.BackendTarGzURL,
+				FrontendTarGzURL:   p.Artifacts.FrontendTarGzURL,
+				MigrationsTarGzURL: p.Artifacts.MigrationsTarGz,
+				ManifestTarGzURL:   p.Artifacts.ManifestTarGzURL,
+			},
+		})
+	}
+	return MarketplacePluginListResponse{Plugins: items}
+}
+
+// InstallMarketplacePluginRequest is the JSON body for marketplace installation.
+type InstallMarketplacePluginRequest struct {
+	Name    string `json:"name" binding:"required"`
+	Enabled *bool  `json:"enabled,omitempty"`
 }

@@ -1,0 +1,361 @@
+package plugin
+
+import (
+	"archive/tar"
+	"compress/gzip"
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"log/slog"
+	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
+
+	plugindom "github.com/Paca-AI/api/internal/domain/plugin"
+)
+
+// Installer downloads and installs marketplace plugin artifacts into local stores.
+type Installer struct {
+	backendDir  string
+	frontendDir string
+	httpClient  *http.Client
+	log         *slog.Logger
+}
+
+// NewInstaller creates a marketplace installer.
+func NewInstaller(backendDir, frontendDir string, httpClient *http.Client, log *slog.Logger) *Installer {
+	if httpClient == nil {
+		httpClient = &http.Client{}
+	}
+	return &Installer{
+		backendDir:  backendDir,
+		frontendDir: frontendDir,
+		httpClient:  httpClient,
+		log:         log,
+	}
+}
+
+// Install downloads, validates, and installs artifacts for one plugin.
+// It returns the parsed plugin manifest used for DB registration.
+func (i *Installer) Install(ctx context.Context, item MarketplacePlugin) (plugindom.PluginManifest, error) {
+	if strings.TrimSpace(i.backendDir) == "" {
+		return plugindom.PluginManifest{}, fmt.Errorf("plugin backend directory is not configured")
+	}
+	if strings.TrimSpace(i.frontendDir) == "" {
+		return plugindom.PluginManifest{}, fmt.Errorf("plugin frontend directory is not configured")
+	}
+
+	tmpRoot, err := os.MkdirTemp("", "paca-plugin-install-*")
+	if err != nil {
+		return plugindom.PluginManifest{}, fmt.Errorf("create temp dir: %w", err)
+	}
+	defer func() { _ = os.RemoveAll(tmpRoot) }()
+
+	backendExtract := filepath.Join(tmpRoot, "backend")
+	frontendExtract := filepath.Join(tmpRoot, "frontend")
+	migrationsExtract := filepath.Join(tmpRoot, "migrations")
+	manifestExtract := filepath.Join(tmpRoot, "manifest")
+
+	if err := i.downloadAndExtractTarGz(ctx, item.Artifacts.BackendTarGzURL, backendExtract); err != nil {
+		return plugindom.PluginManifest{}, fmt.Errorf("download backend: %w", err)
+	}
+	if err := i.downloadAndExtractTarGz(ctx, item.Artifacts.FrontendTarGzURL, frontendExtract); err != nil {
+		return plugindom.PluginManifest{}, fmt.Errorf("download frontend: %w", err)
+	}
+	if err := i.downloadAndExtractTarGz(ctx, item.Artifacts.MigrationsTarGz, migrationsExtract); err != nil {
+		return plugindom.PluginManifest{}, fmt.Errorf("download migrations: %w", err)
+	}
+	if err := i.downloadAndExtractTarGz(ctx, item.Artifacts.ManifestTarGzURL, manifestExtract); err != nil {
+		return plugindom.PluginManifest{}, fmt.Errorf("download manifest: %w", err)
+	}
+
+	backendWASM, err := findFirstFile(backendExtract, func(path string) bool {
+		return strings.HasSuffix(strings.ToLower(filepath.Base(path)), ".wasm")
+	})
+	if err != nil {
+		return plugindom.PluginManifest{}, fmt.Errorf("resolve .wasm file: %w", err)
+	}
+
+	manifestPath, err := findFirstFile(manifestExtract, func(path string) bool {
+		return filepath.Base(path) == "plugin.json"
+	})
+	if err != nil {
+		return plugindom.PluginManifest{}, fmt.Errorf("resolve plugin.json: %w", err)
+	}
+
+	manifestBytes, err := os.ReadFile(manifestPath)
+	if err != nil {
+		return plugindom.PluginManifest{}, fmt.Errorf("read plugin.json: %w", err)
+	}
+	var manifest plugindom.PluginManifest
+	if err := json.Unmarshal(manifestBytes, &manifest); err != nil {
+		return plugindom.PluginManifest{}, fmt.Errorf("parse plugin.json: %w", err)
+	}
+	if manifest.ID != item.Name {
+		return plugindom.PluginManifest{}, fmt.Errorf("manifest id %q does not match catalog name %q", manifest.ID, item.Name)
+	}
+
+	backendPluginDir := filepath.Join(i.backendDir, item.Name)
+	frontendPluginDir := filepath.Join(i.frontendDir, item.Name)
+
+	if err := os.MkdirAll(backendPluginDir, 0o755); err != nil {
+		return plugindom.PluginManifest{}, fmt.Errorf("mkdir backend plugin dir: %w", err)
+	}
+	if err := os.MkdirAll(i.frontendDir, 0o755); err != nil {
+		return plugindom.PluginManifest{}, fmt.Errorf("mkdir frontend root: %w", err)
+	}
+
+	if err := copyFile(backendWASM, filepath.Join(backendPluginDir, "backend.wasm")); err != nil {
+		return plugindom.PluginManifest{}, fmt.Errorf("write backend.wasm: %w", err) //nolint:govet
+	}
+	if err := copyFile(manifestPath, filepath.Join(backendPluginDir, "plugin.json")); err != nil {
+		return plugindom.PluginManifest{}, fmt.Errorf("write plugin.json: %w", err)
+	}
+
+	migrationsDst := filepath.Join(backendPluginDir, "migrations")
+	if err := os.RemoveAll(migrationsDst); err != nil {
+		return plugindom.PluginManifest{}, fmt.Errorf("clear migrations dir: %w", err)
+	}
+	if err := os.MkdirAll(migrationsDst, 0o755); err != nil {
+		return plugindom.PluginManifest{}, fmt.Errorf("mkdir migrations dir: %w", err)
+	}
+	migrationFiles, err := findAllFiles(migrationsExtract, func(path string) bool {
+		return strings.HasSuffix(strings.ToLower(path), ".sql")
+	})
+	if err != nil {
+		return plugindom.PluginManifest{}, fmt.Errorf("list migration files: %w", err)
+	}
+	for _, path := range migrationFiles {
+		if err := copyFile(path, filepath.Join(migrationsDst, filepath.Base(path))); err != nil {
+			return plugindom.PluginManifest{}, fmt.Errorf("copy migration %q: %w", filepath.Base(path), err)
+		}
+	}
+
+	frontendContentRoot, err := resolveSingleRootDir(frontendExtract)
+	if err != nil {
+		return plugindom.PluginManifest{}, fmt.Errorf("resolve frontend content root: %w", err)
+	}
+	if err := os.RemoveAll(frontendPluginDir); err != nil {
+		return plugindom.PluginManifest{}, fmt.Errorf("clear frontend dir: %w", err)
+	}
+	if err := copyDir(frontendContentRoot, frontendPluginDir); err != nil {
+		return plugindom.PluginManifest{}, fmt.Errorf("copy frontend bundle: %w", err)
+	}
+
+	if i.log != nil {
+		i.log.Info("plugin artifacts installed", "name", item.Name, "backend_dir", backendPluginDir, "frontend_dir", frontendPluginDir)
+	}
+
+	return manifest, nil
+}
+
+// Uninstall removes all installed files for a plugin from the backend and
+// frontend stores. It does NOT touch the database.
+func (i *Installer) Uninstall(name string) error {
+	backendPluginDir := filepath.Join(i.backendDir, name)
+	frontendPluginDir := filepath.Join(i.frontendDir, name)
+
+	var errs []error
+	if err := os.RemoveAll(backendPluginDir); err != nil {
+		errs = append(errs, fmt.Errorf("remove backend dir: %w", err))
+	}
+	if err := os.RemoveAll(frontendPluginDir); err != nil {
+		errs = append(errs, fmt.Errorf("remove frontend dir: %w", err))
+	}
+
+	if len(errs) > 0 {
+		return errors.Join(errs...)
+	}
+
+	if i.log != nil {
+		i.log.Info("plugin files removed", "name", name)
+	}
+	return nil
+}
+
+func (i *Installer) downloadAndExtractTarGz(ctx context.Context, url, dest string) error {
+	if strings.TrimSpace(url) == "" {
+		return fmt.Errorf("artifact URL is empty")
+	}
+	if err := os.MkdirAll(dest, 0o755); err != nil {
+		return fmt.Errorf("mkdir extract destination: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
+	if err != nil {
+		return fmt.Errorf("build request: %w", err)
+	}
+
+	resp, err := i.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("download artifact: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("unexpected status code %d", resp.StatusCode)
+	}
+
+	if err := untarGz(resp.Body, dest); err != nil {
+		return fmt.Errorf("extract artifact: %w", err)
+	}
+	return nil
+}
+
+func untarGz(r io.Reader, dest string) error {
+	gz, err := gzip.NewReader(r)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = gz.Close() }()
+
+	tr := tar.NewReader(gz)
+	destClean := filepath.Clean(dest)
+	for {
+		hdr, err := tr.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return err
+		}
+
+		name := filepath.Clean(hdr.Name)
+		if name == "." || strings.HasPrefix(name, "..") {
+			continue
+		}
+		target := filepath.Join(dest, name)
+		targetClean := filepath.Clean(target)
+		if !strings.HasPrefix(targetClean, destClean+string(os.PathSeparator)) && targetClean != destClean {
+			return fmt.Errorf("illegal archive path %q", hdr.Name)
+		}
+
+		switch hdr.Typeflag {
+		case tar.TypeDir:
+			if err := os.MkdirAll(targetClean, 0o755); err != nil {
+				return err
+			}
+		case tar.TypeReg:
+			if err := os.MkdirAll(filepath.Dir(targetClean), 0o755); err != nil {
+				return err
+			}
+			f, err := os.OpenFile(targetClean, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o644)
+			if err != nil {
+				return err
+			}
+			if _, err := io.Copy(f, tr); err != nil {
+				_ = f.Close()
+				return err
+			}
+			if err := f.Close(); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func findFirstFile(root string, predicate func(path string) bool) (string, error) {
+	var found string
+	err := filepath.WalkDir(root, func(path string, d os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if d.IsDir() {
+			return nil
+		}
+		if predicate(path) {
+			found = path
+			return io.EOF
+		}
+		return nil
+	})
+	if err != nil && !errors.Is(err, io.EOF) {
+		return "", err
+	}
+	if found == "" {
+		return "", fmt.Errorf("file not found in %s", root)
+	}
+	return found, nil
+}
+
+func findAllFiles(root string, predicate func(path string) bool) ([]string, error) {
+	items := make([]string, 0)
+	err := filepath.WalkDir(root, func(path string, d os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if d.IsDir() {
+			return nil
+		}
+		if predicate(path) {
+			items = append(items, path)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+func resolveSingleRootDir(root string) (string, error) {
+	entries, err := os.ReadDir(root)
+	if err != nil {
+		return "", err
+	}
+	if len(entries) != 1 || !entries[0].IsDir() {
+		return root, nil
+	}
+	return filepath.Join(root, entries[0].Name()), nil
+}
+
+func copyDir(src, dst string) error {
+	if err := os.MkdirAll(dst, 0o755); err != nil {
+		return err
+	}
+	return filepath.WalkDir(src, func(path string, d os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		rel, err := filepath.Rel(src, path)
+		if err != nil {
+			return err
+		}
+		if rel == "." {
+			return nil
+		}
+		target := filepath.Join(dst, rel)
+		if d.IsDir() {
+			return os.MkdirAll(target, 0o755)
+		}
+		return copyFile(path, target)
+	})
+}
+
+func copyFile(src, dst string) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = in.Close() }()
+
+	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
+		return err
+	}
+	out, err := os.OpenFile(dst, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o644)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = out.Close() }()
+
+	if _, err := io.Copy(out, in); err != nil {
+		return err
+	}
+
+	return out.Sync()
+}

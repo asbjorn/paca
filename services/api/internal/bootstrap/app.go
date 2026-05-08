@@ -209,6 +209,9 @@ func New(cfg *config.Config) (*App, error) {
 		Log:       log,
 		Publisher: publisher,
 	}, pluginrt.DefaultResourceLimits(), log)
+	marketplaceClient := pluginrt.NewMarketplaceClient(cfg.Plugins.MarketplaceCatalogURL, cfg.Plugins.MarketplaceTimeout)
+	installerHTTPClient := &http.Client{Timeout: cfg.Plugins.MarketplaceTimeout}
+	pluginInstaller := pluginrt.NewInstaller(cfg.Plugins.WASMDir, cfg.Plugins.FrontendDir, installerHTTPClient, log)
 
 	pluginRepo := pgRepo.NewPluginRepository(db)
 	pluginService := pluginsvc.New(pluginRepo)
@@ -231,7 +234,8 @@ func New(cfg *config.Config) (*App, error) {
 		log.Error("plugin: some plugins failed to load", "error", err)
 	}
 
-	pluginHandler := handler.NewPluginHandler(pluginService, pluginRuntime, projectRepo)
+	pluginHandler := handler.NewPluginHandler(pluginService, pluginRuntime, projectRepo).
+		WithMarketplace(marketplaceClient, pluginInstaller, pluginMigrationRunner)
 
 	// --- Handlers -----------------------------------------------------------
 	cookieCfg := handler.CookieConfig{

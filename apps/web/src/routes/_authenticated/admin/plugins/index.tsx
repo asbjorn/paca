@@ -1,7 +1,10 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { Puzzle } from "lucide-react";
+import { useState } from "react";
 
 import { PluginPreferencesPanel } from "@/components/plugins/PluginPreferencesPanel";
+import { PluginMarketplacePanel } from "@/components/plugins/PluginMarketplacePanel";
+import { Button } from "@/components/ui/button";
 import {
 	Card,
 	CardContent,
@@ -27,8 +30,10 @@ export const Route = createFileRoute("/_authenticated/admin/plugins/")({
 });
 
 function PluginSettingsPage() {
+	const [tab, setTab] = useState<"marketplace" | "layout">("marketplace");
+
 	return (
-		<div className="flex flex-col gap-6 p-6 max-w-3xl">
+		<div className="flex flex-col gap-6 p-6 max-w-3xl w-full mx-auto">
 			{/* Page header */}
 			<div>
 				<div className="flex items-center gap-2">
@@ -42,18 +47,53 @@ function PluginSettingsPage() {
 
 			<Separator />
 
-			<Card>
-				<CardHeader>
-					<CardTitle className="text-base">Extension Point Layout</CardTitle>
-					<CardDescription>
-						Drag to reorder plugin panels within each extension point. Toggle
-						visibility to show or hide panels for all users.
-					</CardDescription>
-				</CardHeader>
-				<CardContent>
-					<PluginPreferencesPanel />
-				</CardContent>
-			</Card>
+			<div className="flex items-center gap-2 rounded-lg border border-border/60 bg-muted/30 p-1 w-fit">
+				<Button
+					type="button"
+					size="sm"
+					variant={tab === "marketplace" ? "secondary" : "ghost"}
+					onClick={() => setTab("marketplace")}
+				>
+					Marketplace
+				</Button>
+				<Button
+					type="button"
+					size="sm"
+					variant={tab === "layout" ? "secondary" : "ghost"}
+					onClick={() => setTab("layout")}
+				>
+					Extension Point Layout
+				</Button>
+			</div>
+
+			{tab === "marketplace" ? (
+				<Card>
+					<CardHeader>
+						<CardTitle className="text-base">Marketplace</CardTitle>
+						<CardDescription>
+							Install or uninstall plugins from the public paca-plugins catalog.
+						</CardDescription>
+					</CardHeader>
+					<CardContent>
+						<PluginMarketplacePanel />
+					</CardContent>
+				</Card>
+			) : null}
+
+			{tab === "layout" ? (
+				<Card>
+					<CardHeader>
+						<CardTitle className="text-base">Extension Point Layout</CardTitle>
+						<CardDescription>
+							Drag to reorder plugin panels within each extension point. Toggle
+							visibility to show or hide panels for all users.
+						</CardDescription>
+					</CardHeader>
+					<CardContent>
+						<PluginPreferencesPanel />
+					</CardContent>
+				</Card>
+			) : null}
 		</div>
 	);
 }

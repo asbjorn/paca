@@ -748,6 +748,8 @@ func New(deps Deps) *gin.Engine {
 			adminPlugins.Use(httpmw.RequireFreshPassword())
 			adminPlugins.Use(httpmw.RequirePermissions(deps.Authorizer, httpmw.GlobalScope(), authz.PermissionUsersWrite))
 			{
+				adminPlugins.GET("/marketplace", deps.Plugin.ListMarketplacePlugins)
+				adminPlugins.POST("/marketplace/install", deps.Plugin.InstallMarketplacePlugin)
 				adminPlugins.POST("", deps.Plugin.InstallPlugin)
 				adminPlugins.PATCH("/:pluginId", deps.Plugin.UpdatePlugin)
 				adminPlugins.DELETE("/:pluginId", deps.Plugin.DeletePlugin)

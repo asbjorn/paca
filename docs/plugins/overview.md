@@ -11,9 +11,18 @@ Paca's plugin system lets developers extend the product without forking the core
 
 ## Non-Goals
 
-- A plugin marketplace UI is out of scope for the initial implementation.
 - Hot-reload of backend plugins at runtime without a process restart is deferred.
 - Cross-plugin communication (plugins calling each other) is out of scope for v1.
+
+## Marketplace
+
+Paca includes an admin marketplace UI backed by a public GitHub catalog.
+
+- Catalog source: `Paca-AI/paca-plugins` (`catalog/plugins.json`)
+- Publish model: plugin developers contribute via pull requests
+- Install flow: API downloads artifact tarballs, installs assets, runs migrations, and loads the plugin runtime module
+
+See [marketplace.md](marketplace.md) for schema and operational details.
 
 ## Key Concepts
 

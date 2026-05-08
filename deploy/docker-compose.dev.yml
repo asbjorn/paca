@@ -81,12 +81,15 @@ services:
       PUBLIC_URL: http://localhost
       # Plugin subsystem — load WASM binaries + migrations from the local plugin store.
       PLUGINS_WASM_DIR: /plugins
+      PLUGINS_FRONTEND_DIR: /plugins-frontend
     volumes:
       - ../services/api:/workspace
-      # Backend plugin store — WASM binaries and SQL migrations only.
-      # Never mounted to the gateway, so the WASM files are not publicly reachable.
-      # Layout: /plugins/<plugin-id>/backend.wasm  +  /plugins/<plugin-id>/migrations/
-      - ../plugins/local/backend:/plugins:ro
+      # Backend plugin store — WASM binaries and SQL migrations.
+      # Writable so the marketplace installer can download and extract artifacts.
+      # Layout: /plugins/<plugin-id>/backend.wasm + /plugins/<plugin-id>/migrations/
+      - ../plugins/local/backend:/plugins
+      # Frontend plugin store — writable for API installs and read by gateway.
+      - ../plugins/local/frontend:/plugins-frontend
       # go modules are pre-downloaded into the image layer; no volume needed.
       # Persist the Go build cache so the first build after a container restart
       # reuses previously compiled packages instead of starting cold.
