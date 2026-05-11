@@ -36,10 +36,10 @@ type MarketplacePlugin struct {
 
 // MarketplacePluginArtifact contains downloadable plugin package URLs.
 type MarketplacePluginArtifact struct {
-	BackendTarGzURL  string `json:"backend_tar_gz_url"`
-	FrontendTarGzURL string `json:"frontend_tar_gz_url"`
-	MigrationsTarGz  string `json:"migrations_tar_gz_url"`
-	ManifestTarGzURL string `json:"manifest_tar_gz_url"`
+	BackendTarGzURL    string `json:"backend_tar_gz_url"`
+	FrontendTarGzURL   string `json:"frontend_tar_gz_url"`
+	MigrationsTarGzURL string `json:"migrations_tar_gz_url"`
+	ManifestTarGzURL   string `json:"manifest_tar_gz_url"`
 }
 
 // MarketplaceClient fetches the plugin catalog from a public URL.
