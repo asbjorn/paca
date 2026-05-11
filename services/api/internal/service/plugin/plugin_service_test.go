@@ -119,6 +119,30 @@ func (r *fakePluginRepo) ListSettings(_ context.Context, pluginID uuid.UUID) ([]
 	return out, nil
 }
 
+func (r *fakePluginRepo) ListSettingsForPlugins(_ context.Context, pluginIDs []uuid.UUID) ([]*plugindom.PluginExtensionSetting, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	if len(pluginIDs) == 0 {
+		return []*plugindom.PluginExtensionSetting{}, nil
+	}
+
+	idSet := make(map[uuid.UUID]struct{}, len(pluginIDs))
+	for _, id := range pluginIDs {
+		idSet[id] = struct{}{}
+	}
+
+	out := make([]*plugindom.PluginExtensionSetting, 0)
+	for _, s := range r.settings {
+		if _, ok := idSet[s.PluginID]; ok {
+			cp := *s
+			out = append(out, &cp)
+		}
+	}
+
+	return out, nil
+}
+
 func (r *fakePluginRepo) UpsertSetting(_ context.Context, setting *plugindom.PluginExtensionSetting) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -413,5 +437,80 @@ func TestListExtensionSettings_ScopedToPlugin(t *testing.T) {
 	s2, _ := svc.ListExtensionSettings(context.Background(), p2.ID)
 	if len(s2) != 1 {
 		t.Errorf("expected 1 setting for plugin2, got %d", len(s2))
+	}
+}
+
+// ---------------------------------------------------------------------------
+// ListExtensionSettingsForPlugins
+// ---------------------------------------------------------------------------
+
+func TestListExtensionSettingsForPlugins_EmptyInput(t *testing.T) {
+	svc, _ := newSvc(t)
+	grouped, err := svc.ListExtensionSettingsForPlugins(context.Background(), []uuid.UUID{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(grouped) != 0 {
+		t.Errorf("expected empty map for empty input, got %d entries", len(grouped))
+	}
+}
+
+func TestListExtensionSettingsForPlugins_MultiplePlugins(t *testing.T) {
+	svc, _ := newSvc(t)
+	p1 := seedPlugin(t, svc, "com.paca.multi1", true)
+	p2 := seedPlugin(t, svc, "com.paca.multi2", true)
+	p3 := seedPlugin(t, svc, "com.paca.multi3", true)
+
+	// Add settings for p1 and p2, but not p3
+	_, _ = svc.UpdateExtensionSetting(context.Background(), plugindom.UpdateExtensionSettingInput{
+		PluginID: p1.ID, ExtensionPoint: "ep1",
+		Settings: plugindom.ExtensionSettingData{Order: 1},
+	})
+	_, _ = svc.UpdateExtensionSetting(context.Background(), plugindom.UpdateExtensionSettingInput{
+		PluginID: p1.ID, ExtensionPoint: "ep2",
+		Settings: plugindom.ExtensionSettingData{Order: 2},
+	})
+	_, _ = svc.UpdateExtensionSetting(context.Background(), plugindom.UpdateExtensionSettingInput{
+		PluginID: p2.ID, ExtensionPoint: "ep1",
+		Settings: plugindom.ExtensionSettingData{Order: 3},
+	})
+
+	grouped, err := svc.ListExtensionSettingsForPlugins(context.Background(), []uuid.UUID{p1.ID, p2.ID, p3.ID})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// p1 should have 2 settings
+	if len(grouped[p1.ID]) != 2 {
+		t.Errorf("expected 2 settings for p1, got %d", len(grouped[p1.ID]))
+	}
+
+	// p2 should have 1 setting
+	if len(grouped[p2.ID]) != 1 {
+		t.Errorf("expected 1 setting for p2, got %d", len(grouped[p2.ID]))
+	}
+
+	// p3 should have no settings (key may not exist or be empty slice)
+	if len(grouped[p3.ID]) != 0 {
+		t.Errorf("expected 0 settings for p3, got %d", len(grouped[p3.ID]))
+	}
+}
+
+func TestListExtensionSettingsForPlugins_PluginsWithNoSettings(t *testing.T) {
+	svc, _ := newSvc(t)
+	p1 := seedPlugin(t, svc, "com.paca.nosettings1", true)
+	p2 := seedPlugin(t, svc, "com.paca.nosettings2", true)
+
+	grouped, err := svc.ListExtensionSettingsForPlugins(context.Background(), []uuid.UUID{p1.ID, p2.ID})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Both plugins should have no settings
+	if len(grouped[p1.ID]) != 0 {
+		t.Errorf("expected 0 settings for p1, got %d", len(grouped[p1.ID]))
+	}
+	if len(grouped[p2.ID]) != 0 {
+		t.Errorf("expected 0 settings for p2, got %d", len(grouped[p2.ID]))
 	}
 }

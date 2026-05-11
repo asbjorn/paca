@@ -104,12 +104,25 @@ type PluginsConfig struct {
 
 	// WASMDir is the local filesystem directory that contains plugin WASM
 	// binaries.  Each plugin is expected at {WASMDir}/{pluginName}/backend.wasm.
-	// Only used when Store is "local".  Defaults to "./plugins".
+	// Only used when Store is "local".  Defaults to "./plugins/local/backend".
 	WASMDir string
+
+	// FrontendDir is the local filesystem directory that contains extracted
+	// frontend assets for installed plugins.
+	// Each plugin is expected at {FrontendDir}/{pluginName}/assets/remoteEntry.js.
+	FrontendDir string
 
 	// S3Prefix is the S3 key prefix used when Store is "s3".
 	// Plugin WASM binaries are fetched from {S3Prefix}/{pluginName}/backend.wasm.
 	S3Prefix string
+
+	// MarketplaceCatalogURL points to a public JSON catalog in a GitHub repository
+	// (for example, the raw URL of paca-plugins/catalog/plugins.json).
+	MarketplaceCatalogURL string
+
+	// MarketplaceTimeout is the HTTP timeout used when fetching marketplace
+	// metadata and artifacts.
+	MarketplaceTimeout time.Duration
 }
 
 // GitHubConfig holds settings for the GitHub integration feature.

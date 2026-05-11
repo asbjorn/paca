@@ -83,6 +83,11 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("config: CACHE_SPRINT_TTL: %w", err)
 	}
 
+	marketplaceTimeout, err := parseDuration(env("PLUGINS_MARKETPLACE_TIMEOUT", "20s"))
+	if err != nil {
+		return nil, fmt.Errorf("config: PLUGINS_MARKETPLACE_TIMEOUT: %w", err)
+	}
+
 	adminUser, err := requireEnv("ADMIN_USERNAME")
 	if err != nil {
 		errs = append(errs, err)
@@ -166,9 +171,12 @@ func Load() (*Config, error) {
 			// PLUGINS_STORE controls where WASM binaries are loaded from.
 			// "local" reads from the local filesystem; "s3" reads from the
 			// object-storage bucket configured via STORAGE_* variables.
-			Store:    env("PLUGINS_STORE", "local"),
-			WASMDir:  env("PLUGINS_WASM_DIR", "./plugins"),
-			S3Prefix: env("PLUGINS_S3_PREFIX", "plugins"),
+			Store:                 env("PLUGINS_STORE", "local"),
+			WASMDir:               env("PLUGINS_WASM_DIR", "./plugins/local/backend"),
+			FrontendDir:           env("PLUGINS_FRONTEND_DIR", "./plugins/local/frontend"),
+			S3Prefix:              env("PLUGINS_S3_PREFIX", "plugins"),
+			MarketplaceCatalogURL: env("PLUGINS_MARKETPLACE_CATALOG_URL", "https://raw.githubusercontent.com/Paca-AI/paca-plugins/master/catalog/plugins.json"),
+			MarketplaceTimeout:    marketplaceTimeout,
 		},
 	}, nil
 }
