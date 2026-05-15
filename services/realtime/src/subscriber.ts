@@ -89,6 +89,12 @@ export function createSubscriber(
 function routeEvent(io: Server, msg: RealtimeMessage, logger: Logger): void {
 	const { type, payload } = msg;
 
+	// Validate payload exists before processing
+	if (!payload || typeof payload !== "object") {
+		logger.debug({ type }, "event has no payload — skipped");
+		return;
+	}
+
 	// notification.* events are routed to a user-specific room.
 	if (type.startsWith("notification.")) {
 		const recipientUserId = payload.recipient_user_id;
