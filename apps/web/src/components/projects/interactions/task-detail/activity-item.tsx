@@ -1,3 +1,8 @@
+import {
+	CommentDisplay,
+	isBlocksContent,
+	textToBlocks,
+} from "@/components/shared/comment-blocknote";
 import { cn } from "@/lib/utils";
 import { timeAgo } from "./helpers";
 import type { ActivityEntry } from "./types";
@@ -140,6 +145,12 @@ export function ActivityItem({
 	const displayName = entry.actor_name || entry.actor_username || "System";
 	const initial = displayName.slice(0, 1).toUpperCase();
 
+	const commentBlocks = isComment
+		? isBlocksContent(entry.content)
+			? entry.content
+			: textToBlocks((entry.content as { text?: string })?.text ?? "")
+		: null;
+
 	return (
 		<div className="flex gap-3">
 			<div
@@ -163,9 +174,15 @@ export function ActivityItem({
 								{timeAgo(entry.created_at)}
 							</span>
 						</div>
-						<p className="text-[13px] text-foreground leading-relaxed">
-							{(entry.content as { text?: string }).text ?? ""}
-						</p>
+						{commentBlocks && commentBlocks.length > 0 ? (
+							<div className="[&_.bn-editor]:text-[13px] [&_.bn-editor]:leading-relaxed [&_.bn-editor]:p-0">
+								<CommentDisplay blocks={commentBlocks} />
+							</div>
+						) : (
+							<p className="text-[13px] text-foreground leading-relaxed">
+								{(entry.content as { text?: string })?.text ?? ""}
+							</p>
+						)}
 					</div>
 				) : (
 					<div className="flex flex-wrap items-baseline gap-1.5 py-0.5">

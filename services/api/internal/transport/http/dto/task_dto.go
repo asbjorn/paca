@@ -465,11 +465,11 @@ func ActivityFromEntity(a *taskdom.Activity) ActivityResponse {
 // AddCommentRequest is the body for
 // POST /projects/:projectId/tasks/:taskId/activities/comments.
 type AddCommentRequest struct {
-	Text string `json:"text" binding:"required"`
+	Content json.RawMessage `json:"content" binding:"required"`
 }
 
 // UpdateCommentRequest is the body for
 // PATCH /projects/:projectId/tasks/:taskId/activities/comments/:commentId.
 type UpdateCommentRequest struct {
-	Text string `json:"text" binding:"required"`
+	Content json.RawMessage `json:"content" binding:"required"`
 }

@@ -202,7 +202,7 @@ func statusAndCodeFor(err error) (int, apierr.Code) {
 		return http.StatusForbidden, apierr.CodeActivityForbidden
 	case errors.Is(err, taskdom.ErrActivityNotAComment):
 		return http.StatusBadRequest, apierr.CodeActivityNotAComment
-	case errors.Is(err, taskdom.ErrCommentTextInvalid):
+	case errors.Is(err, taskdom.ErrCommentContentInvalid):
 		return http.StatusBadRequest, apierr.CodeCommentTextInvalid
 	case errors.Is(err, docdom.ErrDocNotFound):
 		return http.StatusNotFound, apierr.CodeDocNotFound

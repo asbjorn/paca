@@ -3,6 +3,10 @@ import {
 	ActivityPane,
 } from "@/components/shared/activity-pane";
 import {
+	blocksToText,
+	textToBlocks,
+} from "@/components/shared/comment-blocknote";
+import {
 	addDocComment,
 	type DocActivity,
 	deleteDocComment,
@@ -77,15 +81,17 @@ export function DocActivityPane({
 			entityId={docId}
 			queryKey={queryKey}
 			queryFn={() => listActivities(projectId, docId)}
-			addComment={(text) => addDocComment(projectId, docId, text)}
-			updateComment={(commentId, text) =>
-				updateDocComment(projectId, docId, commentId, text)
+			addComment={(blocks) =>
+				addDocComment(projectId, docId, blocksToText(blocks))
+			}
+			updateComment={(commentId, blocks) =>
+				updateDocComment(projectId, docId, commentId, blocksToText(blocks))
 			}
 			deleteComment={(commentId) =>
 				deleteDocComment(projectId, docId, commentId)
 			}
 			describeActivity={describeDocActivity}
-			getCommentText={getCommentText}
+			getCommentBlocks={(content) => textToBlocks(getCommentText(content))}
 			currentUserId={currentUserId}
 			sortAscending
 		/>

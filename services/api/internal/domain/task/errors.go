@@ -26,5 +26,5 @@ var (
 	ErrActivityNotFound    = errors.New("activity: not found")
 	ErrActivityForbidden   = errors.New("activity: only the author can modify this comment")
 	ErrActivityNotAComment = errors.New("activity: this entry is not a comment and cannot be edited")
-	ErrCommentTextInvalid  = errors.New("activity: comment text must not be empty")
+	ErrCommentContentInvalid = errors.New("activity: comment content must not be empty")
 )

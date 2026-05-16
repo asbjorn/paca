@@ -5,20 +5,19 @@ import {
 	useQueryClient,
 } from "@tanstack/react-query";
 import {
-	Bold,
-	Hash,
-	Italic,
-	List,
 	MessageSquare,
 	MoreHorizontal,
-	Paperclip,
 	Pencil,
 	Send,
-	Smile,
 	Trash2,
 } from "lucide-react";
-import { useMemo, useState } from "react";
-
+import { useMemo, useRef, useState } from "react";
+import {
+	blocksToText,
+	CommentDisplay,
+	CommentEditor,
+	type CommentEditorHandle,
+} from "@/components/shared/comment-blocknote";
 import { Button } from "@/components/ui/button";
 import {
 	DropdownMenu,
@@ -35,7 +34,7 @@ export interface ActivityEntry {
 	actor_name: string;
 	actor_username: string;
 	activity_type: string;
-	content: Record<string, unknown> | string | null;
+	content: Record<string, unknown> | unknown[] | string | null;
 	created_at: string;
 	updated_at: string;
 }
@@ -45,11 +44,11 @@ export interface ActivityPaneConfig<T extends ActivityEntry> {
 	entityId: string;
 	queryKey: QueryKey;
 	queryFn: () => Promise<T[]>;
-	addComment?: (text: string) => Promise<unknown>;
-	updateComment?: (commentId: string, text: string) => Promise<unknown>;
+	addComment?: (blocks: unknown[]) => Promise<unknown>;
+	updateComment?: (commentId: string, blocks: unknown[]) => Promise<unknown>;
 	deleteComment?: (commentId: string) => Promise<void>;
 	describeActivity: (entry: T) => string;
-	getCommentText: (content: T["content"]) => string;
+	getCommentBlocks: (content: T["content"]) => unknown[] | null;
 	currentUserId?: string;
 	sortAscending?: boolean;
 	nameMaps?: Record<string, Record<string, string>>;
@@ -62,12 +61,12 @@ export function ActivityPane<T extends ActivityEntry>({
 	updateComment,
 	deleteComment,
 	describeActivity,
-	getCommentText,
+	getCommentBlocks,
 	currentUserId,
 	sortAscending = false,
 }: ActivityPaneConfig<T>) {
-	const [comment, setComment] = useState("");
-	const [commentFocused, setCommentFocused] = useState(false);
+	const editorRef = useRef<CommentEditorHandle>(null);
+	const [editorFocused, setEditorFocused] = useState(false);
 	const qc = useQueryClient();
 
 	const { data: activities = [] } = useQuery({
@@ -84,9 +83,9 @@ export function ActivityPane<T extends ActivityEntry>({
 	}, [activities, sortAscending]);
 
 	const addMutation = useMutation({
-		mutationFn: (text: string) => {
+		mutationFn: (blocks: unknown[]) => {
 			if (!addComment) return Promise.resolve();
-			return addComment(text);
+			return addComment(blocks);
 		},
 		onSuccess: () => {
 			qc.invalidateQueries({ queryKey });
@@ -94,11 +93,13 @@ export function ActivityPane<T extends ActivityEntry>({
 	});
 
 	const handleSend = () => {
-		const text = comment.trim();
+		const blocks = editorRef.current?.getBlocks();
+		if (!blocks || blocks.length === 0) return;
+		const text = blocksToText(blocks).trim();
 		if (!text) return;
-		addMutation.mutate(text);
-		setComment("");
-		setCommentFocused(false);
+		addMutation.mutate(blocks);
+		editorRef.current = null;
+		setEditorFocused(false);
 	};
 
 	return (
@@ -128,7 +129,7 @@ export function ActivityPane<T extends ActivityEntry>({
 							key={entry.id}
 							entry={entry}
 							describeActivity={describeActivity}
-							getCommentText={getCommentText}
+							getCommentBlocks={getCommentBlocks}
 							updateComment={updateComment}
 							deleteComment={deleteComment}
 							queryKey={queryKey}
@@ -139,75 +140,40 @@ export function ActivityPane<T extends ActivityEntry>({
 			</ScrollArea>
 
 			{addComment && (
-				<div className="shrink-0 border-t border-border/25 p-3 space-y-1.5 bg-background/50">
-					{commentFocused && (
-						<div className="flex items-center gap-0.5 rounded-lg border border-border/25 bg-muted/25 px-2 py-1">
-							{[
-								{ icon: Bold, title: "Bold" },
-								{ icon: Italic, title: "Italic" },
-								{ icon: List, title: "List" },
-							].map(({ icon: Icon, title }) => (
-								<button
-									key={title}
-									type="button"
-									title={title}
-									className="flex size-6 items-center justify-center rounded-md text-muted-foreground/60 hover:text-foreground hover:bg-muted/50 transition-all duration-150"
-								>
-									<Icon className="size-3" />
-								</button>
-							))}
-							<div className="mx-1 h-3.5 w-px bg-border/30" />
-							{[
-								{ icon: Smile, title: "Emoji" },
-								{ icon: Paperclip, title: "Attach" },
-								{ icon: Hash, title: "Mention" },
-							].map(({ icon: Icon, title }) => (
-								<button
-									key={title}
-									type="button"
-									title={title}
-									className="flex size-6 items-center justify-center rounded-md text-muted-foreground/60 hover:text-foreground hover:bg-muted/50 transition-all duration-150"
-								>
-									<Icon className="size-3" />
-								</button>
-							))}
-						</div>
-					)}
-
+				<div className="shrink-0 border-t border-border/25 p-3 space-y-1 bg-background/50">
+					{/* biome-ignore lint/a11y/noStaticElementInteractions: wrapper captures focus/blur from BlockNote rich-text editor */}
 					<div
 						className={cn(
-							"flex items-end gap-2 rounded-xl border border-border/30 bg-card/80 px-3 py-2.5 transition-all duration-200",
-							commentFocused && "border-primary/25 shadow-sm shadow-primary/5",
+							"rounded-xl border border-border/30 bg-card/80 transition-all duration-200 overflow-hidden",
+							editorFocused && "border-primary/25 shadow-sm shadow-primary/5",
+							"[&_.bn-editor]:min-h-6 [&_.bn-editor]:max-h-48 [&_.bn-editor]:overflow-y-auto [&_.bn-editor]:py-1.5 [&_.bn-editor]:px-3 [&_.bn-editor]:text-[13px] [&_.bn-editor]:leading-relaxed",
 						)}
+						onFocus={() => setEditorFocused(true)}
+						onBlur={(e) => {
+							if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+								const blocks = editorRef.current?.getBlocks() ?? [];
+								const text = blocksToText(blocks).trim();
+								if (!text) setEditorFocused(false);
+							}
+						}}
 					>
-						<textarea
-							value={comment}
-							onChange={(e) => setComment(e.target.value)}
-							onFocus={() => setCommentFocused(true)}
-							onBlur={() => !comment && setCommentFocused(false)}
-							placeholder="Write a comment…"
-							rows={commentFocused ? 3 : 1}
-							className="flex-1 resize-none bg-transparent text-[13px] outline-none placeholder:text-muted-foreground/50 leading-relaxed"
-							onKeyDown={(e) => {
-								if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
-									handleSend();
-								}
-							}}
-						/>
+						<CommentEditor ref={editorRef} onSubmit={handleSend} />
+					</div>
+					<div className="flex items-center justify-between">
+						{editorFocused && (
+							<p className="text-[10px] text-muted-foreground/40 pl-1">
+								⌘↵ to send
+							</p>
+						)}
 						<button
 							type="button"
 							onClick={handleSend}
-							disabled={!comment.trim() || addMutation.isPending}
-							className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground disabled:opacity-40 hover:bg-primary/90 transition-all duration-150 shadow-sm disabled:shadow-none"
+							disabled={addMutation.isPending}
+							className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground disabled:opacity-40 hover:bg-primary/90 transition-all duration-150 shadow-sm disabled:shadow-none ml-auto"
 						>
 							<Send className="size-3" />
 						</button>
 					</div>
-					{commentFocused && (
-						<p className="text-[10px] text-muted-foreground/40 text-right pr-1">
-							⌘↵ to send
-						</p>
-					)}
 				</div>
 			)}
 		</div>
@@ -227,8 +193,8 @@ function timeAgo(iso: string): string {
 interface ActivityItemInnerProps<T extends ActivityEntry> {
 	entry: T;
 	describeActivity: (entry: T) => string;
-	getCommentText: (content: T["content"]) => string;
-	updateComment?: (commentId: string, text: string) => Promise<unknown>;
+	getCommentBlocks: (content: T["content"]) => unknown[] | null;
+	updateComment?: (commentId: string, blocks: unknown[]) => Promise<unknown>;
 	deleteComment?: (commentId: string) => Promise<void>;
 	queryKey: QueryKey;
 	currentUserId?: string;
@@ -237,7 +203,7 @@ interface ActivityItemInnerProps<T extends ActivityEntry> {
 function ActivityItemInner<T extends ActivityEntry>({
 	entry,
 	describeActivity,
-	getCommentText,
+	getCommentBlocks,
 	updateComment,
 	deleteComment,
 	queryKey,
@@ -245,8 +211,8 @@ function ActivityItemInner<T extends ActivityEntry>({
 }: ActivityItemInnerProps<T>) {
 	const qc = useQueryClient();
 	const [editing, setEditing] = useState(false);
-	const commentText = getCommentText(entry.content);
-	const [editText, setEditText] = useState(commentText);
+	const editEditorRef = useRef<CommentEditorHandle>(null);
+	const commentBlocks = getCommentBlocks(entry.content);
 
 	const isComment = entry.activity_type === "comment";
 	const isOwn = entry.actor_id === currentUserId;
@@ -257,8 +223,10 @@ function ActivityItemInner<T extends ActivityEntry>({
 	const canDelete = isComment && isOwn && !!deleteComment;
 
 	const updateMutation = useMutation({
-		// biome-ignore lint/style/noNonNullAssertion: guarded by canEdit
-		mutationFn: (text: string) => updateComment!(entry.id, text),
+		mutationFn: (blocks: unknown[]) => {
+			// biome-ignore lint/style/noNonNullAssertion: guarded by canEdit
+			return updateComment!(entry.id, blocks);
+		},
 		onSuccess: () => {
 			qc.invalidateQueries({ queryKey });
 			setEditing(false);
@@ -266,12 +234,22 @@ function ActivityItemInner<T extends ActivityEntry>({
 	});
 
 	const deleteMutation = useMutation({
-		// biome-ignore lint/style/noNonNullAssertion: guarded by canDelete
-		mutationFn: () => deleteComment!(entry.id),
+		mutationFn: () => {
+			// biome-ignore lint/style/noNonNullAssertion: guarded by canDelete
+			return deleteComment!(entry.id);
+		},
 		onSuccess: () => {
 			qc.invalidateQueries({ queryKey });
 		},
 	});
+
+	const handleSaveEdit = () => {
+		const blocks = editEditorRef.current?.getBlocks();
+		if (!blocks) return;
+		const text = blocksToText(blocks).trim();
+		if (!text) return;
+		updateMutation.mutate(blocks);
+	};
 
 	return (
 		<div className="flex gap-3">
@@ -319,17 +297,19 @@ function ActivityItemInner<T extends ActivityEntry>({
 
 						{editing ? (
 							<div className="space-y-1.5 mt-1">
-								<textarea
-									value={editText}
-									onChange={(e) => setEditText(e.target.value)}
-									className="w-full rounded-lg border border-border/30 bg-muted/15 px-3 py-2 text-[13px] outline-none focus:border-primary/40 focus:ring-2 focus:ring-primary/15 resize-none min-h-16 placeholder:text-muted-foreground/50 leading-relaxed transition-all duration-150"
-								/>
+								<div className="rounded-lg border border-border/30 bg-muted/15 overflow-hidden [&_.bn-editor]:min-h-16 [&_.bn-editor]:text-[13px] [&_.bn-editor]:leading-relaxed">
+									<CommentEditor
+										ref={editEditorRef}
+										initialBlocks={commentBlocks ?? []}
+										onSubmit={handleSaveEdit}
+									/>
+								</div>
 								<div className="flex gap-1.5">
 									<Button
 										size="sm"
 										className="h-6 text-[11px] gap-1 rounded-md"
-										onClick={() => updateMutation.mutate(editText)}
-										disabled={!editText.trim()}
+										onClick={handleSaveEdit}
+										disabled={updateMutation.isPending}
 									>
 										Save
 									</Button>
@@ -337,18 +317,19 @@ function ActivityItemInner<T extends ActivityEntry>({
 										variant="ghost"
 										size="sm"
 										className="h-6 text-[11px] rounded-md"
-										onClick={() => {
-											setEditing(false);
-											setEditText(commentText);
-										}}
+										onClick={() => setEditing(false)}
 									>
 										Cancel
 									</Button>
 								</div>
 							</div>
+						) : commentBlocks && commentBlocks.length > 0 ? (
+							<div className="[&_.bn-editor]:text-[13px] [&_.bn-editor]:leading-relaxed [&_.bn-editor]:p-0">
+								<CommentDisplay blocks={commentBlocks} />
+							</div>
 						) : (
 							<p className="text-[13px] text-foreground leading-relaxed">
-								{commentText}
+								{blocksToText(commentBlocks ?? [])}
 							</p>
 						)}
 					</div>

@@ -623,7 +623,7 @@ export interface Activity {
 	actor_name: string;
 	actor_username: string;
 	activity_type: string;
-	content: Record<string, unknown>;
+	content: Record<string, unknown> | unknown[];
 	created_at: string;
 	updated_at: string;
 }
@@ -645,11 +645,11 @@ export async function listTaskActivities(
 export async function addComment(
 	projectId: string,
 	taskId: string,
-	text: string,
+	content: unknown[],
 ): Promise<Activity> {
 	const { data } = await apiClient.instance.post<SuccessEnvelope<Activity>>(
 		`/projects/${projectId}/tasks/${taskId}/activities/comments`,
-		{ text },
+		{ content },
 	);
 	return data.data;
 }
@@ -658,11 +658,11 @@ export async function updateComment(
 	projectId: string,
 	taskId: string,
 	commentId: string,
-	text: string,
+	content: unknown[],
 ): Promise<Activity> {
 	const { data } = await apiClient.instance.patch<SuccessEnvelope<Activity>>(
 		`/projects/${projectId}/tasks/${taskId}/activities/comments/${commentId}`,
-		{ text },
+		{ content },
 	);
 	return data.data;
 }

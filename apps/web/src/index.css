@@ -422,3 +422,50 @@ a {
 	/* Side-menu drag handle */
 	--bn-colors-side-menu: #888888;
 }
+
+/* Make BlockNote side menu buttons smaller - Applied to all instances */
+.bn-side-menu {
+	gap: 2px !important;
+	padding: 2px !important;
+	min-width: 20px !important;
+}
+
+.bn-side-menu > button {
+	width: 16px !important;
+	height: 16px !important;
+	padding: 3px !important;
+	min-width: 16px !important;
+	min-height: 16px !important;
+}
+
+.bn-side-menu > button svg {
+	width: 10px !important;
+	height: 10px !important;
+}
+
+/* Reduce left padding/margin for side menu area */
+.bn-editor {
+	padding-left: 24px !important;
+	padding-right: 24px !important;
+}
+
+/* Drag handle menu */
+.bn-drag-handle-menu {
+	min-width: 16px !important;
+}
+
+.bn-drag-handle-menu button {
+	min-width: 16px !important;
+	min-height: 16px !important;
+}
+
+.bn-drag-handle-menu svg {
+	width: 10px !important;
+	height: 10px !important;
+}
+
+.bn-side-menu button svg,
+.bn-side-menu .bn-side-menu-button svg {
+	width: 12px !important;
+	height: 12px !important;
+}

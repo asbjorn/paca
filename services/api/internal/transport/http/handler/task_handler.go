@@ -1138,7 +1138,7 @@ func (h *TaskHandler) AddComment(c *gin.Context) {
 		TaskID:    taskID,
 		ProjectID: projectID,
 		ActorID:   actorID,
-		Text:      req.Text,
+		Content:   req.Content,
 	})
 	if err != nil {
 		presenter.Error(c, err)
@@ -1172,7 +1172,7 @@ func (h *TaskHandler) UpdateComment(c *gin.Context) {
 		return
 	}
 
-	a, err := h.activitySvc.UpdateComment(c.Request.Context(), commentID, projectID, actorID, req.Text)
+	a, err := h.activitySvc.UpdateComment(c.Request.Context(), commentID, projectID, actorID, req.Content)
 	if err != nil {
 		presenter.Error(c, err)
 		return

@@ -254,18 +254,16 @@ func (f *fakeActivitySvc) ListActivities(_ context.Context, taskID uuid.UUID) ([
 }
 
 func (f *fakeActivitySvc) AddComment(_ context.Context, in taskdom.AddCommentInput) (*taskdom.Activity, error) {
-	if in.Text == "" {
-		return nil, taskdom.ErrCommentTextInvalid
+	if len(in.Content) == 0 || string(in.Content) == "[]" || string(in.Content) == "null" {
+		return nil, taskdom.ErrCommentContentInvalid
 	}
 	now := time.Now()
-	// In the handler test fake, use the ActorID directly as the member UUID
-	// (mimicking what fakeActivityMemberRepo does in integration tests).
 	a := &taskdom.Activity{
 		ID:           uuid.New(),
 		TaskID:       in.TaskID,
 		ActorID:      &in.ActorID,
 		ActivityType: taskdom.ActivityTypeComment,
-		Content:      []byte(`{"text":"` + in.Text + `"}`),
+		Content:      in.Content,
 		CreatedAt:    now,
 		UpdatedAt:    now,
 	}
@@ -275,9 +273,9 @@ func (f *fakeActivitySvc) AddComment(_ context.Context, in taskdom.AddCommentInp
 	return a, nil
 }
 
-func (f *fakeActivitySvc) UpdateComment(_ context.Context, id uuid.UUID, _ uuid.UUID, actorID uuid.UUID, text string) (*taskdom.Activity, error) {
-	if text == "" {
-		return nil, taskdom.ErrCommentTextInvalid
+func (f *fakeActivitySvc) UpdateComment(_ context.Context, id uuid.UUID, _ uuid.UUID, actorID uuid.UUID, content json.RawMessage) (*taskdom.Activity, error) {
+	if len(content) == 0 || string(content) == "[]" || string(content) == "null" {
+		return nil, taskdom.ErrCommentContentInvalid
 	}
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -291,7 +289,7 @@ func (f *fakeActivitySvc) UpdateComment(_ context.Context, id uuid.UUID, _ uuid.
 	if a.ActorID == nil || *a.ActorID != actorID {
 		return nil, taskdom.ErrActivityForbidden
 	}
-	a.Content = []byte(`{"text":"` + text + `"}`)
+	a.Content = content
 	a.UpdatedAt = time.Now()
 	cp := *a
 	return &cp, nil
@@ -858,7 +856,7 @@ func TestActivityHandler_AddComment(t *testing.T) {
 
 	w := doTaskRequestWithActor(r, http.MethodPost,
 		fmt.Sprintf("/projects/%s/tasks/%s/activities/comments", projectID, taskID),
-		map[string]any{"text": "hello world"},
+		map[string]any{"content": []map[string]any{{"type": "paragraph", "content": []map[string]any{{"type": "text", "text": "hello world"}}}}},
 		actorID,
 	)
 	if w.Code != http.StatusCreated {
@@ -874,7 +872,7 @@ func TestActivityHandler_AddComment_NoActor(t *testing.T) {
 
 	w := doTaskRequest(r, http.MethodPost,
 		fmt.Sprintf("/projects/%s/tasks/%s/activities/comments", projectID, taskID),
-		map[string]any{"text": "hello world"},
+		map[string]any{"content": []map[string]any{{"type": "paragraph", "content": []map[string]any{{"type": "text", "text": "hello world"}}}}},
 	)
 	if w.Code != http.StatusUnauthorized {
 		t.Fatalf("expected 401, got %d: %s", w.Code, w.Body.String())
@@ -891,10 +889,9 @@ func TestActivityHandler_AddComment_EmptyText(t *testing.T) {
 
 	w := doTaskRequestWithActor(r, http.MethodPost,
 		fmt.Sprintf("/projects/%s/tasks/%s/activities/comments", projectID, taskID),
-		map[string]any{"text": ""},
+		map[string]any{"content": []map[string]any{}},
 		actorID,
 	)
-	// Empty text fails binding (required) or service validation
 	if w.Code == http.StatusCreated {
 		t.Fatalf("expected error, got 201")
 	}
@@ -908,10 +905,9 @@ func TestActivityHandler_UpdateAndDeleteComment(t *testing.T) {
 	taskID := uuid.New()
 	actorID := uuid.New()
 
-	// Add a comment first
 	w := doTaskRequestWithActor(r, http.MethodPost,
 		fmt.Sprintf("/projects/%s/tasks/%s/activities/comments", projectID, taskID),
-		map[string]any{"text": "original"},
+		map[string]any{"content": []map[string]any{{"type": "paragraph", "content": []map[string]any{{"type": "text", "text": "original"}}}}},
 		actorID,
 	)
 	if w.Code != http.StatusCreated {
@@ -927,17 +923,15 @@ func TestActivityHandler_UpdateAndDeleteComment(t *testing.T) {
 	}
 	commentID := created.Data.ID
 
-	// Update the comment
 	w = doTaskRequestWithActor(r, http.MethodPatch,
 		fmt.Sprintf("/projects/%s/tasks/%s/activities/comments/%s", projectID, taskID, commentID),
-		map[string]any{"text": "updated"},
+		map[string]any{"content": []map[string]any{{"type": "paragraph", "content": []map[string]any{{"type": "text", "text": "updated"}}}}},
 		actorID,
 	)
 	if w.Code != http.StatusOK {
 		t.Fatalf("update comment: expected 200, got %d: %s", w.Code, w.Body.String())
 	}
 
-	// Delete the comment
 	w = doTaskRequestWithActor(r, http.MethodDelete,
 		fmt.Sprintf("/projects/%s/tasks/%s/activities/comments/%s", projectID, taskID, commentID),
 		nil,
@@ -957,10 +951,9 @@ func TestActivityHandler_UpdateComment_Forbidden(t *testing.T) {
 	actorID := uuid.New()
 	otherActor := uuid.New()
 
-	// Add comment as actorID
 	w := doTaskRequestWithActor(r, http.MethodPost,
 		fmt.Sprintf("/projects/%s/tasks/%s/activities/comments", projectID, taskID),
-		map[string]any{"text": "mine"},
+		map[string]any{"content": []map[string]any{{"type": "paragraph", "content": []map[string]any{{"type": "text", "text": "mine"}}}}},
 		actorID,
 	)
 	if w.Code != http.StatusCreated {
@@ -973,10 +966,9 @@ func TestActivityHandler_UpdateComment_Forbidden(t *testing.T) {
 	}
 	_ = json.Unmarshal(w.Body.Bytes(), &created)
 
-	// Try to update as different actor
 	w = doTaskRequestWithActor(r, http.MethodPatch,
 		fmt.Sprintf("/projects/%s/tasks/%s/activities/comments/%s", projectID, taskID, created.Data.ID),
-		map[string]any{"text": "hacked"},
+		map[string]any{"content": []map[string]any{{"type": "paragraph", "content": []map[string]any{{"type": "text", "text": "hacked"}}}}},
 		otherActor,
 	)
 	if w.Code != http.StatusForbidden {

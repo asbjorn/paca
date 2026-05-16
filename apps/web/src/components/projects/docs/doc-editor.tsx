@@ -1,7 +1,10 @@
 import "@blocknote/core/fonts/inter.css";
 import "@blocknote/shadcn/style.css";
 
-import { useCreateBlockNote } from "@blocknote/react";
+import {
+	SideMenuController,
+	useCreateBlockNote,
+} from "@blocknote/react";
 import { BlockNoteView } from "@blocknote/shadcn";
 import {
 	forwardRef,
@@ -14,6 +17,7 @@ import {
 import { useDebouncedCallback } from "@/hooks/use-debounced-callback";
 import { useThemeMode } from "@/hooks/use-theme-mode";
 import { getDocFileDownloadURL, uploadDocFile } from "@/lib/doc-api";
+import { CustomSideMenu } from "@/components/shared/blocknote-custom-side-menu";
 
 /** Custom URI scheme used to store doc file references in the block content. */
 const DOC_FILE_SCHEME = "docfile://";
@@ -157,7 +161,10 @@ export const DocEditor = forwardRef<DocEditorHandle, DocEditorProps>(
 					editable={editable}
 					theme={resolvedMode}
 					onChange={handleChange}
-				/>
+					sideMenu={false}
+				>
+					<SideMenuController sideMenu={CustomSideMenu} />
+				</BlockNoteView>
 			</div>
 		);
 	},

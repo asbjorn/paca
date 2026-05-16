@@ -82,9 +82,9 @@ type ActivityService interface {
 	ListActivities(ctx context.Context, taskID uuid.UUID) ([]*Activity, error)
 	// AddComment creates a new user comment on the task.
 	AddComment(ctx context.Context, in AddCommentInput) (*Activity, error)
-	// UpdateComment edits the text of an existing comment.
+	// UpdateComment edits the content of an existing comment.
 	// Returns ErrActivityForbidden when actorID != comment's author.
-	UpdateComment(ctx context.Context, id uuid.UUID, projectID uuid.UUID, actorID uuid.UUID, text string) (*Activity, error)
+	UpdateComment(ctx context.Context, id uuid.UUID, projectID uuid.UUID, actorID uuid.UUID, content json.RawMessage) (*Activity, error)
 	// DeleteComment soft-deletes a comment.
 	// Returns ErrActivityForbidden when actorID != comment's author.
 	DeleteComment(ctx context.Context, id uuid.UUID, projectID uuid.UUID, actorID uuid.UUID) error
@@ -102,7 +102,7 @@ type AddCommentInput struct {
 	TaskID    uuid.UUID
 	ProjectID uuid.UUID
 	ActorID   uuid.UUID // authenticated user UUID; resolved to member UUID by the service
-	Text      string
+	Content   json.RawMessage
 }
 
 // RecordActivityInput carries the data needed to persist a system event.
