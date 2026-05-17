@@ -86,44 +86,63 @@ func (s *Svc) NotifyAssigned(ctx context.Context, in notificationdom.NotifyAssig
 
 // NotifyMentioned parses @mentions from commentText and creates a notification
 // for each project member found, excluding the actor themselves.
+// When MentionedUserID is provided in input, it is used directly instead of parsing.
 func (s *Svc) NotifyMentioned(ctx context.Context, in notificationdom.NotifyMentionedInput) error {
-	mentioned := extractMentions(in.CommentText)
-	if len(mentioned) == 0 {
-		return nil
-	}
+	var mentionedUserIDs []uuid.UUID
 
-	members, err := s.memberRepo.ListMembers(ctx, in.ProjectID)
-	if err != nil {
-		return nil // best-effort
-	}
+	// If specific user ID is provided (from BlockNote mentions), use it directly
+	if in.MentionedUserID != nil {
+		mentionedUserIDs = []uuid.UUID{*in.MentionedUserID}
+	} else {
+		// Legacy behavior: parse @mentions from comment text
+		mentioned := extractMentions(in.CommentText)
+		if len(mentioned) == 0 {
+			return nil
+		}
 
-	// Build a username → member map for O(1) lookups.
-	byUsername := make(map[string]*projectdom.ProjectMember, len(members))
-	for _, m := range members {
-		byUsername[strings.ToLower(m.Username)] = m
+		members, err := s.memberRepo.ListMembers(ctx, in.ProjectID)
+		if err != nil {
+			return nil // best-effort
+		}
+
+		// Build a username → member map for O(1) lookups.
+		byUsername := make(map[string]*projectdom.ProjectMember, len(members))
+		for _, m := range members {
+			byUsername[strings.ToLower(m.Username)] = m
+		}
+
+		for username := range mentioned {
+			member, ok := byUsername[strings.ToLower(username)]
+			if !ok {
+				continue
+			}
+			mentionedUserIDs = append(mentionedUserIDs, member.UserID)
+		}
 	}
 
 	actorID := in.ActorMemberID
 	seen := make(map[uuid.UUID]bool) // avoid duplicate notifications
-	for username := range mentioned {
-		member, ok := byUsername[strings.ToLower(username)]
-		if !ok {
-			continue
-		}
+	for _, mentionedUserID := range mentionedUserIDs {
 		// Skip self-mention.
-		if member.UserID == in.ActorUserID {
+		if mentionedUserID == in.ActorUserID {
 			continue
 		}
 		// Skip duplicate (same user mentioned multiple times in one comment).
-		if seen[member.UserID] {
+		if seen[mentionedUserID] {
 			continue
 		}
-		seen[member.UserID] = true
+		seen[mentionedUserID] = true
+
+		// Resolve the mentioned user's member ID for the notification
+		_, err := s.memberRepo.FindMemberByUserProject(ctx, mentionedUserID, in.ProjectID)
+		if err != nil {
+			continue // user not in project, skip
+		}
 
 		taskID := in.TaskID
 		n := &notificationdom.Notification{
 			ID:              uuid.New(),
-			RecipientUserID: member.UserID,
+			RecipientUserID: mentionedUserID,
 			ActorMemberID:   &actorID,
 			Type:            notificationdom.NotificationTypeMentioned,
 			TaskID:          &taskID,
@@ -133,7 +152,7 @@ func (s *Svc) NotifyMentioned(ctx context.Context, in notificationdom.NotifyMent
 		if err := s.repo.Create(ctx, n); err != nil {
 			continue // best-effort; don't abort for one failure
 		}
-		s.publishCreated(ctx, n, member.UserID)
+		s.publishCreated(ctx, n, mentionedUserID)
 	}
 	return nil
 }

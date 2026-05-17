@@ -10,6 +10,7 @@ import (
 	projectdom "github.com/Paca-AI/api/internal/domain/project"
 	taskdom "github.com/Paca-AI/api/internal/domain/task"
 	"github.com/Paca-AI/api/internal/events"
+	mentionpkg "github.com/Paca-AI/api/internal/pkg/mention"
 	"github.com/Paca-AI/api/internal/platform/messaging"
 	"github.com/google/uuid"
 )
@@ -101,13 +102,23 @@ func (s *ActivitySvc) AddComment(ctx context.Context, in taskdom.AddCommentInput
 	s.publishRealtimeOnly(ctx, events.TopicTaskCommentAdded, activityPayload(a, in.ProjectID))
 
 	if s.notificationSvc != nil {
-		_ = s.notificationSvc.NotifyMentioned(ctx, notificationdom.NotifyMentionedInput{
-			TaskID:        in.TaskID,
-			ProjectID:     in.ProjectID,
-			CommentText:   extractTextFromBlocks(in.Content),
-			ActorMemberID: member.ID,
-			ActorUserID:   in.ActorID,
-		})
+		// Extract mentions from BlockNote JSON and notify mentioned users
+		teamMentions := mentionpkg.ExtractTeamMentionsFromBlocks(in.Content)
+		for _, m := range teamMentions {
+			mentionedUserID, err := uuid.Parse(m.ID)
+			if err != nil {
+				continue // invalid UUID, skip
+			}
+
+			_ = s.notificationSvc.NotifyMentioned(ctx, notificationdom.NotifyMentionedInput{
+				TaskID:       in.TaskID,
+				ProjectID:    in.ProjectID,
+				CommentText: extractTextFromBlocks(in.Content),
+				ActorMemberID: member.ID,
+				ActorUserID:    in.ActorID,
+				MentionedUserID: &mentionedUserID,
+			})
+		}
 	}
 
 	return a, nil

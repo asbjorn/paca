@@ -8,7 +8,9 @@ import (
 
 	docdom "github.com/Paca-AI/api/internal/domain/doc"
 	projectdom "github.com/Paca-AI/api/internal/domain/project"
+	notificationdom "github.com/Paca-AI/api/internal/domain/notification"
 	"github.com/Paca-AI/api/internal/events"
+	mentionpkg "github.com/Paca-AI/api/internal/pkg/mention"
 	"github.com/Paca-AI/api/internal/platform/messaging"
 	"github.com/google/uuid"
 )
@@ -22,9 +24,10 @@ type memberLookup interface {
 // ActivitySvc implements docdom.ActivityService (which includes
 // docdom.ActivityRecorder via embedding).
 type ActivitySvc struct {
-	repo       docdom.ActivityRepository
-	memberRepo memberLookup
-	publisher  *messaging.Publisher
+	repo            docdom.ActivityRepository
+	memberRepo      memberLookup
+	publisher       *messaging.Publisher
+	notificationSvc notificationdom.Service
 }
 
 // NewActivityService creates a new ActivitySvc backed by repo.
@@ -34,6 +37,13 @@ type ActivitySvc struct {
 // publisher may be nil; stream events are then skipped silently.
 func NewActivityService(repo docdom.ActivityRepository, memberRepo memberLookup, publisher *messaging.Publisher) *ActivitySvc {
 	return &ActivitySvc{repo: repo, memberRepo: memberRepo, publisher: publisher}
+}
+
+// WithNotificationService attaches a notification service used to dispatch
+// @mention notifications when comments are created.
+func (s *ActivitySvc) WithNotificationService(svc notificationdom.Service) *ActivitySvc {
+	s.notificationSvc = svc
+	return s
 }
 
 // --- ActivityRecorder -------------------------------------------------------
@@ -70,8 +80,7 @@ func (s *ActivitySvc) ListActivities(ctx context.Context, documentID uuid.UUID) 
 
 // AddComment creates a user comment on the document.
 func (s *ActivitySvc) AddComment(ctx context.Context, in docdom.AddCommentInput) (*docdom.Activity, error) {
-	text := strings.TrimSpace(in.Text)
-	if text == "" {
+	if len(in.Content) == 0 || string(in.Content) == "[]" || string(in.Content) == "null" {
 		return nil, docdom.ErrCommentTextInvalid
 	}
 	if s.memberRepo == nil {
@@ -81,14 +90,13 @@ func (s *ActivitySvc) AddComment(ctx context.Context, in docdom.AddCommentInput)
 	if err != nil {
 		return nil, err
 	}
-	content, _ := json.Marshal(map[string]string{"text": text})
 	now := time.Now()
 	a := &docdom.Activity{
 		ID:           uuid.New(),
 		DocumentID:   in.DocumentID,
 		ActorID:      &member.ID,
 		ActivityType: docdom.ActivityTypeComment,
-		Content:      content,
+		Content:      in.Content,
 		CreatedAt:    now,
 		UpdatedAt:    now,
 	}
@@ -96,11 +104,33 @@ func (s *ActivitySvc) AddComment(ctx context.Context, in docdom.AddCommentInput)
 		return nil, err
 	}
 	s.publishRealtimeOnly(ctx, events.TopicDocCommentAdded, activityPayload(a, in.ProjectID))
+
+	// Send mention notifications if notification service is available
+	if s.notificationSvc != nil {
+		// Extract mentions from BlockNote JSON and notify mentioned users
+		teamMentions := mentionpkg.ExtractTeamMentionsFromBlocks(in.Content)
+		for _, m := range teamMentions {
+			mentionedUserID, err := uuid.Parse(m.ID)
+			if err != nil {
+				continue // invalid UUID, skip
+			}
+
+			_ = s.notificationSvc.NotifyMentioned(ctx, notificationdom.NotifyMentionedInput{
+				TaskID:          uuid.Nil, // document comment, no task
+				ProjectID:       in.ProjectID,
+				CommentText:     extractTextFromBlocks(in.Content),
+				ActorMemberID:   member.ID,
+				ActorUserID:     in.ActorID,
+				MentionedUserID: &mentionedUserID,
+			})
+		}
+	}
+
 	return a, nil
 }
 
-// UpdateComment edits the text of an existing comment.
-func (s *ActivitySvc) UpdateComment(ctx context.Context, id uuid.UUID, projectID uuid.UUID, actorID uuid.UUID, text string) (*docdom.Activity, error) {
+// UpdateComment edits the content of an existing comment.
+func (s *ActivitySvc) UpdateComment(ctx context.Context, id uuid.UUID, projectID uuid.UUID, actorID uuid.UUID, content json.RawMessage) (*docdom.Activity, error) {
 	a, err := s.repo.FindActivityByID(ctx, id)
 	if err != nil {
 		return nil, err
@@ -120,11 +150,9 @@ func (s *ActivitySvc) UpdateComment(ctx context.Context, id uuid.UUID, projectID
 		return nil, docdom.ErrActivityForbidden
 	}
 
-	trimmed := strings.TrimSpace(text)
-	if trimmed == "" {
+	if len(content) == 0 || string(content) == "[]" || string(content) == "null" {
 		return nil, docdom.ErrCommentTextInvalid
 	}
-	content, _ := json.Marshal(map[string]string{"text": trimmed})
 	a.Content = content
 	a.UpdatedAt = time.Now()
 	if err := s.repo.UpdateActivity(ctx, a); err != nil {
@@ -214,4 +242,33 @@ func (s *ActivitySvc) publishRealtimeOnly(ctx context.Context, topic string, pay
 		"type":    topic,
 		"payload": payload,
 	})
+}
+
+// extractTextFromBlocks walks a BlockNote JSON blocks array and concatenates
+// all "text" values found in inline content.  Falls back to the legacy
+// {"text":"..."} object format for backward compatibility.
+func extractTextFromBlocks(raw json.RawMessage) string {
+	var blocks []struct {
+		Content []struct {
+			Text string `json:"text"`
+		} `json:"content"`
+	}
+	if json.Unmarshal(raw, &blocks) == nil && len(blocks) > 0 {
+		var parts []string
+		for _, b := range blocks {
+			for _, c := range b.Content {
+				if c.Text != "" {
+					parts = append(parts, c.Text)
+				}
+			}
+		}
+		return strings.Join(parts, " ")
+	}
+	var legacy struct {
+		Text string `json:"text"`
+	}
+	if json.Unmarshal(raw, &legacy) == nil {
+		return legacy.Text
+	}
+	return ""
 }

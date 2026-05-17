@@ -11,9 +11,12 @@ import {
 	useRef,
 } from "react";
 import { CustomSideMenu } from "@/components/shared/blocknote-custom-side-menu";
+import { customSchema } from "@/components/shared/blocknote-schema";
+import { MentionSuggestionMenus } from "@/components/shared/mention-suggestion-menus";
 import { useDebouncedCallback } from "@/hooks/use-debounced-callback";
 import { useThemeMode } from "@/hooks/use-theme-mode";
 import { getDocFileDownloadURL, uploadDocFile } from "@/lib/doc-api";
+import { useMentionData } from "@/lib/mention-api";
 
 /** Custom URI scheme used to store doc file references in the block content. */
 const DOC_FILE_SCHEME = "docfile://";
@@ -37,12 +40,13 @@ export interface DocEditorHandle {
 	save: () => void;
 }
 
-export const DocEditor = forwardRef<DocEditorHandle, DocEditorProps>(
-	function DocEditor(
-		{ content, editable = true, onDirtyChange, onSave, projectId, docId },
-		ref,
-	) {
-		const { resolvedMode } = useThemeMode();
+	export const DocEditor = forwardRef<DocEditorHandle, DocEditorProps>(
+		function DocEditor(
+			{ content, editable = true, onDirtyChange, onSave, projectId, docId },
+			ref,
+		) {
+			const { resolvedMode } = useThemeMode();
+			const { teamMembers, tasks, documents } = useMentionData(projectId);
 
 		const lastSavedRef = useRef<string | null>(null);
 		const initializedRef = useRef(false);
@@ -61,6 +65,7 @@ export const DocEditor = forwardRef<DocEditorHandle, DocEditorProps>(
 		}, [docId]);
 
 		const editor = useCreateBlockNote({
+			schema: customSchema,
 			uploadFile: async (file: File) => {
 				const pId = projectIdRef.current;
 				const dId = docIdRef.current;
@@ -160,6 +165,14 @@ export const DocEditor = forwardRef<DocEditorHandle, DocEditorProps>(
 					sideMenu={false}
 				>
 					<SideMenuController sideMenu={CustomSideMenu} />
+					{editable && (
+						<MentionSuggestionMenus
+							editor={editor}
+							teamMembers={teamMembers}
+							tasks={tasks}
+							documents={documents}
+						/>
+					)}
 				</BlockNoteView>
 			</div>
 		);

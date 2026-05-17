@@ -2,11 +2,17 @@ import "@blocknote/core/fonts/inter.css";
 import "@blocknote/shadcn/style.css";
 
 import type { PartialBlock } from "@blocknote/core";
-import { SideMenuController, useCreateBlockNote } from "@blocknote/react";
+import {
+	SideMenuController,
+	useCreateBlockNote,
+} from "@blocknote/react";
 import { BlockNoteView } from "@blocknote/shadcn";
 import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
 import { useThemeMode } from "@/hooks/use-theme-mode";
 import { CustomSideMenu } from "./blocknote-custom-side-menu";
+import { customSchema } from "./blocknote-schema";
+import { MentionSuggestionMenus } from "./mention-suggestion-menus";
+import { useMentionData } from "@/lib/mention-api";
 
 export interface CommentEditorHandle {
 	getBlocks: () => unknown[];
@@ -17,16 +23,19 @@ export interface CommentEditorHandle {
 interface CommentEditorProps {
 	initialBlocks?: unknown[];
 	onSubmit?: () => void;
+	projectId?: string | null;
 }
 
 export const CommentEditor = forwardRef<
 	CommentEditorHandle,
 	CommentEditorProps
->(function CommentEditor({ initialBlocks, onSubmit }, ref) {
+>(function CommentEditor({ initialBlocks, onSubmit, projectId }, ref) {
 	const { resolvedMode } = useThemeMode();
 	const initializedRef = useRef(false);
+	const { teamMembers, tasks, documents } = useMentionData(projectId);
 
 	const editor = useCreateBlockNote({
+		schema: customSchema,
 		initialContent: initialBlocks
 			? (initialBlocks as PartialBlock[])
 			: undefined,
@@ -69,6 +78,12 @@ export const CommentEditor = forwardRef<
 			sideMenu={false}
 		>
 			<SideMenuController sideMenu={CustomSideMenu} />
+			<MentionSuggestionMenus
+				editor={editor}
+				teamMembers={teamMembers}
+				tasks={tasks}
+				documents={documents}
+			/>
 		</BlockNoteView>
 	);
 });
@@ -80,7 +95,9 @@ interface CommentDisplayProps {
 export function CommentDisplay({ blocks }: CommentDisplayProps) {
 	const { resolvedMode } = useThemeMode();
 
-	const editor = useCreateBlockNote();
+	const editor = useCreateBlockNote({
+		schema: customSchema,
+	});
 
 	useEffect(() => {
 		if (blocks && blocks.length > 0) {

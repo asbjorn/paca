@@ -55,6 +55,7 @@ export interface ActivityPaneConfig<T extends ActivityEntry> {
 }
 
 export function ActivityPane<T extends ActivityEntry>({
+	projectId,
 	queryKey,
 	queryFn,
 	addComment,
@@ -147,6 +148,7 @@ export function ActivityPane<T extends ActivityEntry>({
 							deleteComment={deleteComment}
 							queryKey={queryKey}
 							currentUserId={currentUserId}
+							projectId={projectId}
 						/>
 					))}
 				</div>
@@ -170,7 +172,7 @@ export function ActivityPane<T extends ActivityEntry>({
 							}
 						}}
 					>
-						<CommentEditor ref={editorRef} onSubmit={handleSend} />
+						<CommentEditor ref={editorRef} onSubmit={handleSend} projectId={projectId} />
 					</div>
 					<div className="flex items-center justify-between">
 						{editorFocused && (
@@ -211,6 +213,7 @@ interface ActivityItemInnerProps<T extends ActivityEntry> {
 	deleteComment?: (commentId: string) => Promise<void>;
 	queryKey: QueryKey;
 	currentUserId?: string;
+	projectId: string;
 }
 
 function ActivityItemInner<T extends ActivityEntry>({
@@ -221,6 +224,7 @@ function ActivityItemInner<T extends ActivityEntry>({
 	deleteComment,
 	queryKey,
 	currentUserId,
+	projectId,
 }: ActivityItemInnerProps<T>) {
 	const qc = useQueryClient();
 	const [editing, setEditing] = useState(false);
@@ -315,6 +319,7 @@ function ActivityItemInner<T extends ActivityEntry>({
 										ref={editEditorRef}
 										initialBlocks={commentBlocks ?? []}
 										onSubmit={handleSaveEdit}
+										projectId={projectId}
 									/>
 								</div>
 								<div className="flex gap-1.5">

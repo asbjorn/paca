@@ -163,12 +163,12 @@ func DocSnapshotFromEntity(s *docdom.DocSnapshot) DocSnapshotResponse {
 
 // AddDocCommentRequest is the body for POST /projects/:projectId/docs/:docId/comments.
 type AddDocCommentRequest struct {
-	Text string `json:"text" binding:"required"`
+	Content json.RawMessage `json:"content" binding:"required"`
 }
 
 // UpdateDocCommentRequest is the body for PATCH /projects/:projectId/docs/:docId/comments/:commentId.
 type UpdateDocCommentRequest struct {
-	Text string `json:"text" binding:"required"`
+	Content json.RawMessage `json:"content" binding:"required"`
 }
 
 // DocActivityResponse is the public representation of a doc activity entry.
