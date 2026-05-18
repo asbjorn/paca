@@ -1152,8 +1152,7 @@ func isAllowedFetchDomain(ctx context.Context, rawURL string, allowed []string) 
 		return false
 	}
 
-	resolver := &net.Resolver{}
-	ips, err := resolver.LookupIPAddr(ctx, host)
+	ips, err := net.DefaultResolver.LookupIPAddr(ctx, host)
 	if err != nil {
 		return false
 	}
