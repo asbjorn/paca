@@ -1,12 +1,17 @@
-import { filterSuggestionItems } from "@blocknote/core/extensions";
 import type { BlockNoteEditor } from "@blocknote/core";
+import { filterSuggestionItems } from "@blocknote/core/extensions";
 import {
 	type DefaultReactSuggestionItem,
 	SuggestionMenuController,
 } from "@blocknote/react";
+import type { customSchema } from "./blocknote-schema";
 
 interface MentionSuggestionMenuProps {
-	editor: BlockNoteEditor<any, any, any>;
+	editor: BlockNoteEditor<
+		typeof customSchema.blockSchema,
+		typeof customSchema.inlineContentSchema,
+		typeof customSchema.styleSchema
+	>;
 	teamMembers: Array<{
 		id: string;
 		name: string;
@@ -34,7 +39,7 @@ export function MentionSuggestionMenus({
 						props: {
 							id: member.id,
 							name: member.name,
-							avatar: member.avatar,
+							avatar: member.avatar ?? "",
 						},
 					},
 					" ",
