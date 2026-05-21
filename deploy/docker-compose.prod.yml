@@ -125,6 +125,7 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+        required: false  # skipped when --scale postgres=0 (managed PostgreSQL mode)
       valkey:
         condition: service_healthy
       minio:
