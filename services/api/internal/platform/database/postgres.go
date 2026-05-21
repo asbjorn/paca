@@ -17,7 +17,7 @@ type Config struct {
 	DSN string
 }
 
-// Open establishes a GORM connection using the driver specified in cfg.
+// Open establishes a GORM PostgreSQL connection using the settings in cfg.
 func Open(cfg Config, log *slog.Logger) (*gorm.DB, error) {
 	return openPostgres(cfg.DSN, log)
 }
