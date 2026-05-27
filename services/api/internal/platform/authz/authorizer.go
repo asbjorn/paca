@@ -14,9 +14,15 @@ type PermissionStore interface {
 	ListProjectPermissions(ctx context.Context, userID, projectID uuid.UUID) ([]Permission, error)
 }
 
-// Authorizer checks required permissions for a user.
+// AgentRoleResolver resolves an agent's role in a project.
+type AgentRoleResolver interface {
+	GetAgentProjectRoleName(ctx context.Context, agentID, projectID uuid.UUID) (string, error)
+}
+
+// Authorizer checks required permissions for a user or agent.
 type Authorizer struct {
-	store PermissionStore
+	store            PermissionStore
+	agentRoleResolver AgentRoleResolver
 }
 
 // NewAuthorizer returns a permission-based authorizer.
@@ -24,11 +30,49 @@ func NewAuthorizer(store PermissionStore) *Authorizer {
 	return &Authorizer{store: store}
 }
 
+// WithAgentRoleResolver configures an optional agent role resolver.
+func (a *Authorizer) WithAgentRoleResolver(resolver AgentRoleResolver) *Authorizer {
+	a.agentRoleResolver = resolver
+	return a
+}
+
 // HasPermissions reports whether userID has all required permissions in the
 // given scope. projectID=nil means global scope only.
 func (a *Authorizer) HasPermissions(
 	ctx context.Context,
 	userID uuid.UUID,
+	projectID *uuid.UUID,
+	legacyRole string,
+	required ...Permission,
+) (bool, error) {
+	return a.hasPermissionsForActor(ctx, userID, nil, projectID, legacyRole, required...)
+}
+
+// HasPermissionsForAgent reports whether an agent has all required permissions in the
+// given project scope.
+func (a *Authorizer) HasPermissionsForAgent(
+	ctx context.Context,
+	agentID uuid.UUID,
+	projectID uuid.UUID,
+	required ...Permission,
+) (bool, error) {
+	if a.agentRoleResolver == nil {
+		return false, fmt.Errorf("authz: agent role resolver not configured")
+	}
+
+	roleName, err := a.agentRoleResolver.GetAgentProjectRoleName(ctx, agentID, projectID)
+	if err != nil {
+		return false, fmt.Errorf("authz: resolve agent role: %w", err)
+	}
+
+	return a.hasPermissionsForActor(ctx, uuid.Nil, &agentID, &projectID, roleName, required...)
+}
+
+// hasPermissionsForActor is the internal implementation that works for both users and agents.
+func (a *Authorizer) hasPermissionsForActor(
+	ctx context.Context,
+	userID uuid.UUID,
+	agentID *uuid.UUID,
 	projectID *uuid.UUID,
 	legacyRole string,
 	required ...Permission,
@@ -43,16 +87,32 @@ func (a *Authorizer) HasPermissions(
 	}
 
 	if a.store != nil {
-		globalPerms, err := a.store.ListGlobalPermissions(ctx, userID)
-		if err != nil {
-			return false, fmt.Errorf("authz: list global permissions: %w", err)
-		}
-		for _, p := range globalPerms {
-			granted[p] = struct{}{}
+		if userID != uuid.Nil {
+			globalPerms, err := a.store.ListGlobalPermissions(ctx, userID)
+			if err != nil {
+				return false, fmt.Errorf("authz: list global permissions: %w", err)
+			}
+			for _, p := range globalPerms {
+				granted[p] = struct{}{}
+			}
 		}
 
 		if projectID != nil {
-			projectPerms, err := a.store.ListProjectPermissions(ctx, userID, *projectID)
+			var projectPerms []Permission
+			var err error
+
+			if agentID != nil {
+				if agentStore, ok := a.store.(interface {
+					ListAgentProjectPermissions(ctx context.Context, agentID, projectID uuid.UUID) ([]Permission, error)
+				}); ok {
+					projectPerms, err = agentStore.ListAgentProjectPermissions(ctx, *agentID, *projectID)
+				} else {
+					return false, fmt.Errorf("authz: agent project permissions not supported by store")
+				}
+			} else {
+				projectPerms, err = a.store.ListProjectPermissions(ctx, userID, *projectID)
+			}
+
 			if err != nil {
 				return false, fmt.Errorf("authz: list project permissions: %w", err)
 			}

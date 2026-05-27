@@ -376,15 +376,42 @@ func (r *fakeProjectRepo) RemoveAgentMember(_ context.Context, _, _ uuid.UUID) e
 type projectPermStore struct {
 	globalPerms  []authz.Permission
 	projectPerms map[uuid.UUID][]authz.Permission
+	userPerms    map[uuid.UUID]map[uuid.UUID][]authz.Permission // user_id -> project_id -> permissions
+	agentPerms   map[uuid.UUID]map[uuid.UUID][]authz.Permission // project_id -> agent_id -> permissions
+	agentRoles   map[uuid.UUID]map[uuid.UUID]string            // project_id -> agent_id -> role_name
 }
 
 func (s *projectPermStore) ListGlobalPermissions(context.Context, uuid.UUID) ([]authz.Permission, error) {
 	return append([]authz.Permission(nil), s.globalPerms...), nil
 }
 
-func (s *projectPermStore) ListProjectPermissions(_ context.Context, _ uuid.UUID, projectID uuid.UUID) ([]authz.Permission, error) {
-	perms := s.projectPerms[projectID]
-	return append([]authz.Permission(nil), perms...), nil
+func (s *projectPermStore) ListProjectPermissions(_ context.Context, userID uuid.UUID, projectID uuid.UUID) ([]authz.Permission, error) {
+	if userMap, ok := s.userPerms[userID]; ok {
+		if perms, ok := userMap[projectID]; ok {
+			return append([]authz.Permission(nil), perms...), nil
+		}
+	}
+	if s.projectPerms != nil {
+		perms := s.projectPerms[projectID]
+		return append([]authz.Permission(nil), perms...), nil
+	}
+	return nil, nil
+}
+
+func (s *projectPermStore) GetAgentProjectRoleName(_ context.Context, agentID, projectID uuid.UUID) (string, error) {
+	if projMap, ok := s.agentRoles[projectID]; ok {
+		if role, ok := projMap[agentID]; ok {
+			return role, nil
+		}
+	}
+	return "", fmt.Errorf("agent not found in project")
+}
+
+func (s *projectPermStore) ListAgentProjectPermissions(_ context.Context, agentID, projectID uuid.UUID) ([]authz.Permission, error) {
+	if projMap, ok := s.agentPerms[projectID]; ok {
+		return append([]authz.Permission(nil), projMap[agentID]...), nil
+	}
+	return nil, fmt.Errorf("agent permissions not found")
 }
 
 func buildProjectTestRouter(repo *fakeProjectRepo, store *projectPermStore) *gin.Engine {
