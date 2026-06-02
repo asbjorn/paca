@@ -1,52 +1,17 @@
-"""Fetches agent configuration from the PostgreSQL database."""
+"""Database access layer for agent configuration."""
 from __future__ import annotations
 
 import json
 import logging
-from dataclasses import dataclass, field
-from typing import Any
 
-from .db import get_pool
+from ..core.db import get_pool
+from ..models.agent import AgentConfig, AgentMCPServerRow, AgentSkillRow
 
 logger = logging.getLogger(__name__)
 
 
-@dataclass
-class AgentMCPServerRow:
-    server_name: str
-    transport: str
-    url: str | None
-    command: str | None
-    args: list[str]
-    env: dict[str, str]
-    is_enabled: bool
-
-
-@dataclass
-class AgentSkillRow:
-    skill_name: str
-    skill_content: str | None
-    triggers: list[str]
-    is_enabled: bool
-
-
-@dataclass
-class AgentConfig:
-    agent_id: str
-    project_id: str
-    system_prompt: str | None
-    llm_provider: str
-    llm_model: str
-    llm_api_key_secret_ref: str
-    llm_base_url: str | None
-    max_iterations: int
-    can_clone_repos: bool
-    mcp_servers: list[AgentMCPServerRow] = field(default_factory=list)
-    skills: list[AgentSkillRow] = field(default_factory=list)
-
-
 async def load_agent_config(agent_id: str) -> AgentConfig | None:
-    """Load full agent configuration from the DB."""
+    """Load full agent configuration (agent, MCP servers, skills) from the database."""
     pool = await get_pool()
     row = await pool.fetchrow(
         """

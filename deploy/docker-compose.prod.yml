@@ -117,6 +117,9 @@ services:
       PLUGINS_WASM_DIR: /plugins
       PLUGINS_FRONTEND_DIR: /plugins-frontend
       PLUGINS_MCP_DIR: /plugins-mcp
+      # Pre-shared key for the AI agent service to authenticate with the API.
+      # Must match PACA_API_KEY in the ai-agent service.
+      AGENT_API_KEY: ${AGENT_API_KEY:-}
     depends_on:
       postgres:
         condition: service_healthy
@@ -190,6 +193,44 @@ services:
       - api
       - web
       - realtime
+
+  ai-agent:
+    image: ${PACA_AI_AGENT_IMAGE:-pacaai/paca-ai-agent:latest}
+    build:
+      # Build context is the paca/ root so the Dockerfile can build the MCP
+      # server (apps/mcp/) and the Python agent (services/ai-agent/) together.
+      context: ..
+      dockerfile: services/ai-agent/Dockerfile
+    restart: unless-stopped
+    environment:
+      VALKEY_URL: ${REDIS_URL:-redis://valkey:6379/0}
+      DATABASE_URL: ${DATABASE_URL:-postgres://${POSTGRES_USER:-paca}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-paca}?sslmode=disable}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:?set INTERNAL_API_KEY}
+      API_BASE_URL: http://api:8080
+      # Gateway base URL — the MCP server uses this to resolve plugin MCP bundle
+      # URLs (e.g. /plugins-mcp/<id>/mcp.js).  The gateway (nginx) serves these
+      # files, not the API service.
+      GATEWAY_BASE_URL: http://gateway
+      # Must match AGENT_API_KEY in the api service.
+      PACA_API_KEY: ${AGENT_API_KEY:-}
+      DOCKER_SOCKET: /var/run/docker.sock
+      AGENT_SERVER_IMAGE: ${AGENT_SERVER_IMAGE:-ghcr.io/openhands/agent-server:latest-python}
+      PORT_POOL_START: ${PORT_POOL_START:-10000}
+      PORT_POOL_SIZE: ${PORT_POOL_SIZE:-100}
+      WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-10}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    ports:
+      - "${AI_AGENT_PORT:-8082}:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+        required: false
+      valkey:
+        condition: service_healthy
+      api:
+        condition: service_healthy
 
   # MinIO — S3-compatible object store. Runs by default for self-hosted deployments.
   # When using AWS S3, suppress this container with --scale minio=0 and set

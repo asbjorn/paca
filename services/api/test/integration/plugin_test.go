@@ -78,6 +78,25 @@ func (r *fakeIntegPluginRepo) FindByName(_ context.Context, name string) (*plugi
 	return &cp, nil
 }
 
+func (r *fakeIntegPluginRepo) FindByCapability(_ context.Context, capability string) ([]*plugindom.Plugin, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	out := make([]*plugindom.Plugin, 0)
+	for _, p := range r.plugins {
+		if !p.Enabled {
+			continue
+		}
+		for _, cap := range p.Manifest.Capabilities {
+			if cap == capability {
+				cp := *p
+				out = append(out, &cp)
+				break
+			}
+		}
+	}
+	return out, nil
+}
+
 func (r *fakeIntegPluginRepo) Create(_ context.Context, p *plugindom.Plugin) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()

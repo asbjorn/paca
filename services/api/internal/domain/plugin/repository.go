@@ -25,6 +25,10 @@ type PluginRepository interface {
 	// Returns ErrNotFound when the plugin does not exist.
 	FindByName(ctx context.Context, name string) (*Plugin, error)
 
+	// FindByCapability returns all enabled plugins that have the given capability.
+	// Returns an empty slice when no plugins have the capability.
+	FindByCapability(ctx context.Context, capability string) ([]*Plugin, error)
+
 	// Create inserts a new plugin into the registry.
 	// Returns ErrNameTaken when a plugin with the same name already exists.
 	Create(ctx context.Context, plugin *Plugin) error

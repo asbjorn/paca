@@ -330,3 +330,31 @@ func ChatSessionFromEntity(s *agentdom.AgentChatSession) AgentChatSessionRespons
 		CreatedAt:     s.CreatedAt,
 	}
 }
+
+// =========================================================================
+// Skill Template DTOs
+// =========================================================================
+
+// SkillTemplateResponse is the public view of a built-in skill template.
+type SkillTemplateResponse struct {
+	Slug        string   `json:"slug"`
+	Name        string   `json:"name"`
+	Description string   `json:"description"`
+	Content     string   `json:"content"`
+	Triggers    []string `json:"triggers"`
+}
+
+// SkillTemplateFromEntity maps a SkillTemplate domain struct to its DTO.
+func SkillTemplateFromEntity(t *agentdom.SkillTemplate) SkillTemplateResponse {
+	triggers := t.Triggers
+	if triggers == nil {
+		triggers = []string{}
+	}
+	return SkillTemplateResponse{
+		Slug:        t.Slug,
+		Name:        t.Name,
+		Description: t.Description,
+		Content:     t.Content,
+		Triggers:    triggers,
+	}
+}

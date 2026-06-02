@@ -152,6 +152,11 @@ func (r *fakePluginRepo) UpsertSetting(_ context.Context, setting *plugindom.Plu
 	return nil
 }
 
+func (r *fakePluginRepo) FindByCapability(_ context.Context, _ string) ([]*plugindom.Plugin, error) {
+	// For test purposes, return empty slice; capabilities not implemented in fake repo
+	return []*plugindom.Plugin{}, nil
+}
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------

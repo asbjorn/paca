@@ -9,11 +9,11 @@ import uvicorn
 from fastapi import FastAPI
 
 from .config import settings
-from .db import close_pool
+from .core.db import close_pool
+from .core.streams import close_client
 from .routes.conversations import router as conversations_router
 from .routes.health import router as health_router
 from .routes.llm import router as llm_router
-from .streams import close_client
 from .worker import run_worker, stop_worker
 
 logging.basicConfig(level=settings.log_level.upper())

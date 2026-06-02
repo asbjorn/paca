@@ -8,7 +8,8 @@ from uuid import UUID
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from ..db import get_pool, update_conversation_status
+from ..core.db import get_pool
+from ..repositories.conversation_repository import update_conversation_status
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/conversations")

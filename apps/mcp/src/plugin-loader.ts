@@ -179,8 +179,11 @@ export async function loadPlugins(config: PacaConfig): Promise<PluginRegistry> {
 	for (const plugin of mcpPlugins) {
 		// biome-ignore lint/style/noNonNullAssertion: filtered above
 		const url = plugin.manifest.mcp!.remoteEntryUrl;
+		// Use gatewayURL when set — MCP bundles are served by the gateway (nginx),
+		// not the API service, so relative URLs must be resolved against the gateway.
+		const pluginBaseURL = config.gatewayURL ?? config.baseURL;
 		try {
-			const entry = await loadPluginEntry(plugin.name, url, config.baseURL);
+			const entry = await loadPluginEntry(plugin.name, url, pluginBaseURL);
 			loaded.push({ pluginId: plugin.name, entry });
 			console.error(
 				`[plugin-loader] Loaded "${plugin.name}" (${entry.tools.length} tool(s))`,
@@ -253,12 +256,13 @@ async function loadPluginEntry(
  *
  * - Relative / path-only URLs (e.g. `/plugins-mcp/<id>/mcp.js`) are resolved
  *   against `baseURL` so that Node's `import()` receives an absolute URL.
- * - Only `https://`, `file://`, and `http://` (localhost-only) URLs are
- *   accepted.  Any other scheme is rejected.
+ * - Only `https://`, `file://`, and `http://` (localhost-only or baseURL host)
+ *   URLs are accepted.  Any other scheme is rejected.
  * - For `https://` URLs the hostname is resolved via DNS and the function
  *   throws if any resolved address falls inside a private / internal IP range
  *   (SSRF protection, similar to the API marketplace URL validator).
- * - For `http://` URLs the hostname must be localhost or a loopback address.
+ * - For `http://` URLs the hostname must be localhost, a loopback address, or
+ *   the same hostname as `baseURL` (trusted operator-configured gateway).
  *   The source is fetched and re-exposed as a `data:` URL because Node.js
  *   cannot `import()` plain `http://` URLs.
  */
@@ -288,10 +292,20 @@ async function resolveImportUrl(url: string, baseURL: string): Promise<string> {
 	}
 
 	if (scheme === "http:") {
-		// http:// is allowed only for local development (localhost / loopback).
-		if (!isLocalhostHostname(resolved.hostname)) {
+		// http:// is allowed for localhost/loopback OR the operator-configured
+		// baseURL hostname (e.g. an internal Docker gateway service).
+		let baseURLHostname: string | undefined;
+		try {
+			baseURLHostname = new URL(baseURL).hostname;
+		} catch {
+			// ignore — baseURL may be invalid; fall through to localhost-only check
+		}
+		const isTrustedHost =
+			isLocalhostHostname(resolved.hostname) ||
+			(baseURLHostname !== undefined && resolved.hostname === baseURLHostname);
+		if (!isTrustedHost) {
 			throw new Error(
-				`http:// plugin URLs are only allowed for localhost. ` +
+				`http:// plugin URLs are only allowed for localhost or the configured gateway host. ` +
 					`Got "${resolved.hostname}" — use https:// for remote plugins.`,
 			);
 		}

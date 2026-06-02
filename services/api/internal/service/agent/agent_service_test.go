@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	agentdom "github.com/Paca-AI/api/internal/domain/agent"
+	plugindom "github.com/Paca-AI/api/internal/domain/plugin"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 )
@@ -265,6 +266,27 @@ func (m *mockProjectRepo) InvalidateMembersCache(_ context.Context, _ uuid.UUID)
 
 var _ projectMemberWriter = (*mockProjectRepo)(nil)
 
+type mockPluginRepo struct {
+	findByName    func(ctx context.Context, name string) (*plugindom.Plugin, error)
+	findByCapability func(ctx context.Context, capability string) ([]*plugindom.Plugin, error)
+}
+
+func (m *mockPluginRepo) FindByName(ctx context.Context, name string) (*plugindom.Plugin, error) {
+	if m.findByName != nil {
+		return m.findByName(ctx, name)
+	}
+	return nil, nil
+}
+
+func (m *mockPluginRepo) FindByCapability(ctx context.Context, capability string) ([]*plugindom.Plugin, error) {
+	if m.findByCapability != nil {
+		return m.findByCapability(ctx, capability)
+	}
+	return nil, nil
+}
+
+var _ pluginFinder = (*mockPluginRepo)(nil)
+
 func TestGetAgent_Success(t *testing.T) {
 	projectID := uuid.New()
 	agentID := uuid.New()
@@ -281,7 +303,8 @@ func TestGetAgent_Success(t *testing.T) {
 		},
 	}
 	projRepo := &mockProjectRepo{}
-	svc := New(repo, projRepo, nil)
+	pluginRepo := &mockPluginRepo{}
+	svc := New(repo, projRepo, nil, pluginRepo)
 
 	result, err := svc.GetAgent(context.Background(), projectID, agentID)
 
@@ -307,7 +330,8 @@ func TestGetAgent_WrongProject(t *testing.T) {
 		},
 	}
 	projRepo := &mockProjectRepo{}
-	svc := New(repo, projRepo, nil)
+	pluginRepo := &mockPluginRepo{}
+	svc := New(repo, projRepo, nil, pluginRepo)
 
 	_, err := svc.GetAgent(context.Background(), projectID, agentID)
 
@@ -339,7 +363,8 @@ func TestListAgents_Success(t *testing.T) {
 		},
 	}
 	projRepo := &mockProjectRepo{}
-	svc := New(repo, projRepo, nil)
+	pluginRepo := &mockPluginRepo{}
+	svc := New(repo, projRepo, nil, pluginRepo)
 
 	result, err := svc.ListAgents(context.Background(), projectID)
 
@@ -364,7 +389,8 @@ func TestCreateAgent_Success(t *testing.T) {
 		},
 	}
 	projRepo := &mockProjectRepo{}
-	svc := New(repo, projRepo, nil)
+	pluginRepo := &mockPluginRepo{}
+	svc := New(repo, projRepo, nil, pluginRepo)
 
 	result, err := svc.CreateAgent(context.Background(), projectID, agentdom.CreateAgentInput{
 		Name:          "New Agent",
@@ -390,7 +416,8 @@ func TestCreateAgent_EmptyHandle(t *testing.T) {
 
 	repo := &mockAgentRepo{}
 	projRepo := &mockProjectRepo{}
-	svc := New(repo, projRepo, nil)
+	pluginRepo := &mockPluginRepo{}
+	svc := New(repo, projRepo, nil, pluginRepo)
 
 	_, err := svc.CreateAgent(context.Background(), projectID, agentdom.CreateAgentInput{
 		Name:          "New Agent",
@@ -408,7 +435,8 @@ func TestCreateAgent_EmptyName(t *testing.T) {
 
 	repo := &mockAgentRepo{}
 	projRepo := &mockProjectRepo{}
-	svc := New(repo, projRepo, nil)
+	pluginRepo := &mockPluginRepo{}
+	svc := New(repo, projRepo, nil, pluginRepo)
 
 	_, err := svc.CreateAgent(context.Background(), projectID, agentdom.CreateAgentInput{
 		Name:          "",
@@ -435,7 +463,8 @@ func TestCreateAgent_HandleTaken(t *testing.T) {
 		},
 	}
 	projRepo := &mockProjectRepo{}
-	svc := New(repo, projRepo, nil)
+	pluginRepo := &mockPluginRepo{}
+	svc := New(repo, projRepo, nil, pluginRepo)
 
 	_, err := svc.CreateAgent(context.Background(), projectID, agentdom.CreateAgentInput{
 		Name:          "New Agent",
@@ -473,7 +502,8 @@ func TestUpdateAgent_Success(t *testing.T) {
 		},
 	}
 	projRepo := &mockProjectRepo{}
-	svc := New(repo, projRepo, nil)
+	pluginRepo := &mockPluginRepo{}
+	svc := New(repo, projRepo, nil, pluginRepo)
 
 	newName := "New Name"
 	newHandle := "new-handle"
@@ -516,7 +546,8 @@ func TestUpdateAgent_HandleTaken(t *testing.T) {
 		},
 	}
 	projRepo := &mockProjectRepo{}
-	svc := New(repo, projRepo, nil)
+	pluginRepo := &mockPluginRepo{}
+	svc := New(repo, projRepo, nil, pluginRepo)
 
 	newHandle := "new-handle"
 
@@ -549,7 +580,8 @@ func TestDeleteAgent_Success(t *testing.T) {
 		},
 	}
 	projRepo := &mockProjectRepo{}
-	svc := New(repo, projRepo, nil)
+	pluginRepo := &mockPluginRepo{}
+	svc := New(repo, projRepo, nil, pluginRepo)
 
 	err := svc.DeleteAgent(context.Background(), projectID, agentID)
 
@@ -573,7 +605,8 @@ func TestListMCPServers_Success(t *testing.T) {
 		},
 	}
 	projRepo := &mockProjectRepo{}
-	svc := New(repo, projRepo, nil)
+	pluginRepo := &mockPluginRepo{}
+	svc := New(repo, projRepo, nil, pluginRepo)
 
 	result, err := svc.ListMCPServers(context.Background(), agentID)
 
@@ -595,7 +628,8 @@ func TestAddMCPServer_Success(t *testing.T) {
 		},
 	}
 	projRepo := &mockProjectRepo{}
-	svc := New(repo, projRepo, nil)
+	pluginRepo := &mockPluginRepo{}
+	svc := New(repo, projRepo, nil, pluginRepo)
 
 	result, err := svc.AddMCPServer(context.Background(), agentID, agentdom.AddMCPServerInput{
 		ServerName: "Test Server",
@@ -626,7 +660,8 @@ func TestListSkills_Success(t *testing.T) {
 		},
 	}
 	projRepo := &mockProjectRepo{}
-	svc := New(repo, projRepo, nil)
+	pluginRepo := &mockPluginRepo{}
+	svc := New(repo, projRepo, nil, pluginRepo)
 
 	result, err := svc.ListSkills(context.Background(), agentID)
 
@@ -646,7 +681,8 @@ func TestAddSkill_Success(t *testing.T) {
 		},
 	}
 	projRepo := &mockProjectRepo{}
-	svc := New(repo, projRepo, nil)
+	pluginRepo := &mockPluginRepo{}
+	svc := New(repo, projRepo, nil, pluginRepo)
 
 	result, err := svc.AddSkill(context.Background(), agentID, agentdom.AddSkillInput{
 		SkillName:    "Test Skill",
@@ -673,7 +709,8 @@ func TestGetConversation_Success(t *testing.T) {
 		},
 	}
 	projRepo := &mockProjectRepo{}
-	svc := New(repo, projRepo, nil)
+	pluginRepo := &mockPluginRepo{}
+	svc := New(repo, projRepo, nil, pluginRepo)
 
 	result, err := svc.GetConversation(context.Background(), projectID, conversationID)
 
@@ -698,7 +735,8 @@ func TestGetConversation_WrongProject(t *testing.T) {
 		},
 	}
 	projRepo := &mockProjectRepo{}
-	svc := New(repo, projRepo, nil)
+	pluginRepo := &mockPluginRepo{}
+	svc := New(repo, projRepo, nil, pluginRepo)
 
 	_, err := svc.GetConversation(context.Background(), projectID, conversationID)
 
@@ -727,7 +765,8 @@ func TestPauseConversation_Success(t *testing.T) {
 		},
 	}
 	projRepo := &mockProjectRepo{}
-	svc := New(repo, projRepo, nil)
+	pluginRepo := &mockPluginRepo{}
+	svc := New(repo, projRepo, nil, pluginRepo)
 
 	err := svc.PauseConversation(context.Background(), projectID, conversationID)
 
@@ -749,7 +788,8 @@ func TestPauseConversation_NotRunning(t *testing.T) {
 		},
 	}
 	projRepo := &mockProjectRepo{}
-	svc := New(repo, projRepo, nil)
+	pluginRepo := &mockPluginRepo{}
+	svc := New(repo, projRepo, nil, pluginRepo)
 
 	err := svc.PauseConversation(context.Background(), projectID, conversationID)
 
@@ -772,7 +812,8 @@ func TestSendConversationMessage_Success(t *testing.T) {
 		},
 	}
 	projRepo := &mockProjectRepo{}
-	svc := New(repo, projRepo, nil)
+	pluginRepo := &mockPluginRepo{}
+	svc := New(repo, projRepo, nil, pluginRepo)
 
 	err := svc.SendConversationMessage(context.Background(), projectID, conversationID, "test message", uuid.New())
 
@@ -794,7 +835,8 @@ func TestSendConversationMessage_NotRunning(t *testing.T) {
 		},
 	}
 	projRepo := &mockProjectRepo{}
-	svc := New(repo, projRepo, nil)
+	pluginRepo := &mockPluginRepo{}
+	svc := New(repo, projRepo, nil, pluginRepo)
 
 	err := svc.SendConversationMessage(context.Background(), projectID, conversationID, "test message", uuid.New())
 
@@ -819,7 +861,8 @@ func TestListChatSessions_Success(t *testing.T) {
 		},
 	}
 	projRepo := &mockProjectRepo{}
-	svc := New(repo, projRepo, nil)
+	pluginRepo := &mockPluginRepo{}
+	svc := New(repo, projRepo, nil, pluginRepo)
 
 	result, err := svc.ListChatSessions(context.Background(), uuid.Nil, agentID, memberID)
 
@@ -847,7 +890,8 @@ func TestStartChatSession_Success(t *testing.T) {
 		},
 	}
 	projRepo := &mockProjectRepo{}
-	svc := New(repo, projRepo, nil)
+	pluginRepo := &mockPluginRepo{}
+	svc := New(repo, projRepo, nil, pluginRepo)
 
 	resultSession, resultConv, err := svc.StartChatSession(context.Background(), projectID, agentID, memberID, "Hello")
 
@@ -884,7 +928,8 @@ func TestSendChatMessage_Success(t *testing.T) {
 		},
 	}
 	projRepo := &mockProjectRepo{}
-	svc := New(repo, projRepo, nil)
+	pluginRepo := &mockPluginRepo{}
+	svc := New(repo, projRepo, nil, pluginRepo)
 
 	resultConv, err := svc.SendChatMessage(context.Background(), projectID, sessionID, memberID, "Hello")
 
@@ -911,7 +956,8 @@ func TestSendChatMessage_WrongProject(t *testing.T) {
 		},
 	}
 	projRepo := &mockProjectRepo{}
-	svc := New(repo, projRepo, nil)
+	pluginRepo := &mockPluginRepo{}
+	svc := New(repo, projRepo, nil, pluginRepo)
 
 	_, err := svc.SendChatMessage(context.Background(), projectID, sessionID, memberID, "Hello")
 
@@ -939,7 +985,8 @@ func TestDeleteMCPServer_Success(t *testing.T) {
 		},
 	}
 	projRepo := &mockProjectRepo{}
-	svc := New(repo, projRepo, nil)
+	pluginRepo := &mockPluginRepo{}
+	svc := New(repo, projRepo, nil, pluginRepo)
 
 	err := svc.DeleteMCPServer(context.Background(), agentID, serverID)
 
@@ -968,7 +1015,8 @@ func TestUpdateSkill_Success(t *testing.T) {
 		},
 	}
 	projRepo := &mockProjectRepo{}
-	svc := New(repo, projRepo, nil)
+	pluginRepo := &mockPluginRepo{}
+	svc := New(repo, projRepo, nil, pluginRepo)
 
 	newContent := "new content"
 
@@ -995,7 +1043,8 @@ func TestTriggerTaskAssigned_Success(t *testing.T) {
 		},
 	}
 	projRepo := &mockProjectRepo{}
-	svc := New(repo, projRepo, nil)
+	pluginRepo := &mockPluginRepo{}
+	svc := New(repo, projRepo, nil, pluginRepo)
 
 	result, err := svc.TriggerTaskAssigned(context.Background(), projectID, agentID, taskID, memberID)
 
@@ -1020,7 +1069,8 @@ func TestTriggerCommentMention_Success(t *testing.T) {
 		},
 	}
 	projRepo := &mockProjectRepo{}
-	svc := New(repo, projRepo, nil)
+	pluginRepo := &mockPluginRepo{}
+	svc := New(repo, projRepo, nil, pluginRepo)
 
 	result, err := svc.TriggerCommentMention(context.Background(), projectID, agentID, taskID, commentID, memberID)
 

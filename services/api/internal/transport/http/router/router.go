@@ -178,6 +178,7 @@ func New(deps Deps) *gin.Engine {
 			agentsGlobal.Use(httpmw.RequireFreshPassword())
 			{
 				agentsGlobal.GET("/llm-models", deps.Agent.GetLLMModels)
+				agentsGlobal.GET("/skill-templates", deps.Agent.ListSkillTemplates)
 			}
 		}
 

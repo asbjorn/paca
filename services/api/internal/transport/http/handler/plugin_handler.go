@@ -539,10 +539,17 @@ func (h *PluginHandler) ProxyRequest(c *gin.Context) {
 				}
 				member, err := h.memberRepo.FindMemberByUserProject(c.Request.Context(), userID, projectID)
 				if err != nil {
-					presenter.Error(c, err)
-					return
+					// API-key-authenticated callers (e.g. the agent bot user) may hold
+					// SUPER_ADMIN global permissions without being a project member.
+					// The requirePermissions check above already passed, so proceed with
+					// an empty callerID rather than returning PROJECT_MEMBER_NOT_FOUND.
+					if !middleware.IsAPIKeyAuth(c) {
+						presenter.Error(c, err)
+						return
+					}
+				} else {
+					callerID = member.ID.String()
 				}
-				callerID = member.ID.String()
 			}
 		}
 	}

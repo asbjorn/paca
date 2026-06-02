@@ -5,6 +5,8 @@ import { formatList } from "../utils/index.js";
 
 const ListViewsSchema = z.object({
 	projectId: z.string(),
+	context: z.string().optional(),
+	sprintId: z.string().optional(),
 });
 
 const CreateViewSchema = z.object({
@@ -101,13 +103,21 @@ export function getViewTools(): Tool[] {
 	return [
 		{
 			name: "list_views",
-			description: "List all views in a project",
+			description: "List all views in a project. Use context='backlog' or context='timeline' to list non-sprint views. Use context='sprint' with sprintId to list views for a specific sprint.",
 			inputSchema: {
 				type: "object",
 				properties: {
 					projectId: {
 						type: "string",
 						description: "The ID of the project",
+					},
+					context: {
+						type: "string",
+						description: "The view context: 'sprint', 'backlog', or 'timeline'. Defaults to 'backlog'. Use 'sprint' together with sprintId to list sprint views.",
+					},
+					sprintId: {
+						type: "string",
+						description: "The sprint ID (required when context is 'sprint').",
 					},
 				},
 				required: ["projectId"],
@@ -479,8 +489,10 @@ export async function handleViewTool(
 ): Promise<any> {
 	switch (toolName) {
 		case "list_views": {
-			const { projectId } = ListViewsSchema.parse(args);
-			const views = await client.listViews(projectId);
+			const { projectId, context, sprintId } = ListViewsSchema.parse(args);
+			// Default to 'backlog' when no context is provided to avoid requiring sprint_id
+			const resolvedContext = context ?? "backlog";
+			const views = await client.listViews(projectId, resolvedContext, sprintId);
 			const formatted = formatList(views, formatView);
 			return {
 				content: [

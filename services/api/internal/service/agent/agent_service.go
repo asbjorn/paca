@@ -8,6 +8,7 @@ import (
 	"time"
 
 	agentdom "github.com/Paca-AI/api/internal/domain/agent"
+	plugindom "github.com/Paca-AI/api/internal/domain/plugin"
 	"github.com/Paca-AI/api/internal/events"
 	"github.com/Paca-AI/api/internal/platform/messaging"
 	"github.com/google/uuid"
@@ -19,16 +20,22 @@ type projectMemberWriter interface {
 	InvalidateMembersCache(ctx context.Context, projectID uuid.UUID) error
 }
 
+// pluginFinder is the minimal interface to find VCS plugins.
+type pluginFinder interface {
+	FindByCapability(ctx context.Context, capability string) ([]*plugindom.Plugin, error)
+}
+
 // Service is the concrete AI Agent service.
 type Service struct {
-	repo      agentdom.Repository
-	projRepo  projectMemberWriter
-	publisher *messaging.Publisher
+	repo       agentdom.Repository
+	projRepo   projectMemberWriter
+	publisher  *messaging.Publisher
+	pluginRepo pluginFinder
 }
 
 // New returns a configured agent service.
-func New(repo agentdom.Repository, projRepo projectMemberWriter, publisher *messaging.Publisher) *Service {
-	return &Service{repo: repo, projRepo: projRepo, publisher: publisher}
+func New(repo agentdom.Repository, projRepo projectMemberWriter, publisher *messaging.Publisher, pluginRepo pluginFinder) *Service {
+	return &Service{repo: repo, projRepo: projRepo, publisher: publisher, pluginRepo: pluginRepo}
 }
 
 // -------------------------------------------------------------------------
@@ -457,7 +464,7 @@ func (s *Service) StartChatSession(ctx context.Context, projectID, agentID, memb
 		return nil, nil, err
 	}
 
-	if err := s.publishChatTrigger(ctx, agentID, conv.ID, session.ID, projectID, memberID, message); err != nil {
+	if err := s.publishChatTrigger(ctx, agentID, conv.ID, session.ID, projectID, memberID, message, s.gatherRepoPluginIDs(ctx)); err != nil {
 		return nil, nil, err
 	}
 
@@ -482,7 +489,7 @@ func (s *Service) SendChatMessage(ctx context.Context, projectID, sessionID, mem
 		return nil, err
 	}
 
-	if err := s.publishChatTrigger(ctx, session.AgentID, conv.ID, sessionID, projectID, memberID, message); err != nil {
+	if err := s.publishChatTrigger(ctx, session.AgentID, conv.ID, sessionID, projectID, memberID, message, s.gatherRepoPluginIDs(ctx)); err != nil {
 		return nil, err
 	}
 
@@ -538,12 +545,48 @@ func (s *Service) createConversation(ctx context.Context, projectID, agentID, me
 	return conv, nil
 }
 
+// gatherRepoPlugins returns all installed plugins with the "repository" capability.
+func (s *Service) gatherRepoPlugins(ctx context.Context) []*plugindom.Plugin {
+	if s.pluginRepo == nil {
+		return nil
+	}
+	plugins, err := s.pluginRepo.FindByCapability(ctx, "repository")
+	if err != nil {
+		return nil
+	}
+	return plugins
+}
+
+// gatherRepoPluginIDs returns the string Names (e.g. "com.paca.github") of all
+// installed plugins with the "repository" capability. These are the identifiers
+// used in plugin API paths and published to the agent trigger stream.
+func (s *Service) gatherRepoPluginIDs(ctx context.Context) []string {
+	names := []string{}
+	for _, p := range s.gatherRepoPlugins(ctx) {
+		names = append(names, p.Name)
+	}
+	return names
+}
+
 // TriggerTaskAssigned creates a conversation and publishes the trigger event
 // when a task is assigned to an agent member.
 func (s *Service) TriggerTaskAssigned(ctx context.Context, projectID, agentID, taskID, triggeredByMemberID uuid.UUID) (*agentdom.AgentConversation, error) {
+	repoPlugins := s.gatherRepoPlugins(ctx)
+	repoPluginIDs := make([]string, 0, len(repoPlugins))
+	for _, p := range repoPlugins {
+		repoPluginIDs = append(repoPluginIDs, p.Name)
+	}
+
+	var repoPluginID *uuid.UUID
+	if len(repoPlugins) > 0 {
+		id := repoPlugins[0].ID
+		repoPluginID = &id
+	}
+
 	conv, err := s.createConversation(ctx, projectID, agentID, triggeredByMemberID, agentdom.AgentConversation{
-		TriggerType: "task_assigned",
-		TaskID:      &taskID,
+		TriggerType:  "task_assigned",
+		TaskID:       &taskID,
+		RepoPluginID: repoPluginID,
 	})
 	if err != nil {
 		return nil, err
@@ -555,6 +598,7 @@ func (s *Service) TriggerTaskAssigned(ctx context.Context, projectID, agentID, t
 		"task_id":         taskID.String(),
 		"actor_member_id": triggeredByMemberID.String(),
 		"trigger_type":    "task_assigned",
+		"repo_plugin_ids": strings.Join(repoPluginIDs, ","),
 	}
 	_ = s.publishTrigger(ctx, events.TopicAgentTaskAssigned, payload)
 	return conv, nil
@@ -562,10 +606,23 @@ func (s *Service) TriggerTaskAssigned(ctx context.Context, projectID, agentID, t
 
 // TriggerCommentMention creates a conversation and publishes a comment-mention trigger.
 func (s *Service) TriggerCommentMention(ctx context.Context, projectID, agentID, taskID, commentID, triggeredByMemberID uuid.UUID) (*agentdom.AgentConversation, error) {
+	repoPlugins := s.gatherRepoPlugins(ctx)
+	repoPluginIDs := make([]string, 0, len(repoPlugins))
+	for _, p := range repoPlugins {
+		repoPluginIDs = append(repoPluginIDs, p.Name)
+	}
+
+	var repoPluginID *uuid.UUID
+	if len(repoPlugins) > 0 {
+		id := repoPlugins[0].ID
+		repoPluginID = &id
+	}
+
 	conv, err := s.createConversation(ctx, projectID, agentID, triggeredByMemberID, agentdom.AgentConversation{
-		TriggerType: "comment_mention",
-		TaskID:      &taskID,
-		CommentID:   &commentID,
+		TriggerType:  "comment_mention",
+		TaskID:       &taskID,
+		CommentID:    &commentID,
+		RepoPluginID: repoPluginID,
 	})
 	if err != nil {
 		return nil, err
@@ -578,6 +635,7 @@ func (s *Service) TriggerCommentMention(ctx context.Context, projectID, agentID,
 		"comment_id":      commentID.String(),
 		"actor_member_id": triggeredByMemberID.String(),
 		"trigger_type":    "comment_mention",
+		"repo_plugin_ids": strings.Join(repoPluginIDs, ","),
 	}
 	_ = s.publishTrigger(ctx, events.TopicAgentCommentMention, payload)
 	return conv, nil
@@ -594,7 +652,7 @@ func (s *Service) publishTrigger(ctx context.Context, topic string, payload map[
 	return s.publisher.AppendFlat(ctx, events.StreamAgentTriggers, payload)
 }
 
-func (s *Service) publishChatTrigger(ctx context.Context, agentID, convID, sessionID, projectID, memberID uuid.UUID, message string) error {
+func (s *Service) publishChatTrigger(ctx context.Context, agentID, convID, sessionID, projectID, memberID uuid.UUID, message string, repoPluginIDs []string) error {
 	payload := map[string]any{
 		"conversation_id": convID.String(),
 		"project_id":      projectID.String(),
@@ -603,6 +661,7 @@ func (s *Service) publishChatTrigger(ctx context.Context, agentID, convID, sessi
 		"actor_member_id": memberID.String(),
 		"trigger_type":    "chat_message",
 		"message":         message,
+		"repo_plugin_ids": strings.Join(repoPluginIDs, ","),
 	}
 	return s.publishTrigger(ctx, events.TopicAgentChatMessage, payload)
 }

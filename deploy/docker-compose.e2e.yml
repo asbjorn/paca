@@ -65,6 +65,9 @@ services:
       ENCRYPTION_KEY: "3b4a93a4f2ffa732a5f7cf44b9a37050e49f5f9c3f105c3995432b9dd49e28ac"
       # Public base URL used by plugins to generate callback/webhook URLs.
       PUBLIC_URL: http://localhost
+      # Pre-shared key for the AI agent service to authenticate with the API.
+      # Must match PACA_API_KEY in the ai-agent service.
+      AGENT_API_KEY: e2e-agent-api-key
       # Plugin subsystem — load WASM binaries + migrations from the local plugin store.
       PLUGINS_WASM_DIR: /plugins
       PLUGINS_FRONTEND_DIR: /plugins-frontend
@@ -172,6 +175,41 @@ services:
       interval: 5s
       timeout: 5s
       retries: 20
+
+  ai-agent:
+    image: paca-ai-agent:e2e
+    build:
+      context: ../services/ai-agent
+      dockerfile: Dockerfile.dev
+    restart: unless-stopped
+    environment:
+      VALKEY_URL: redis://valkey:6379/0
+      DATABASE_URL: postgres://paca:e2e-postgres-password@postgres:5432/paca
+      INTERNAL_API_KEY: e2e-internal-api-key
+      API_BASE_URL: http://api:8080
+      # Gateway base URL — the MCP server uses this to resolve plugin MCP bundle
+      # URLs (e.g. /plugins-mcp/<id>/mcp.js).  The gateway (nginx) serves these
+      # files, not the API service.
+      GATEWAY_BASE_URL: http://gateway
+      # Must match AGENT_API_KEY in the api service.
+      PACA_API_KEY: e2e-agent-api-key
+      DOCKER_SOCKET: /var/run/docker.sock
+      AGENT_SERVER_IMAGE: ghcr.io/openhands/agent-server:latest-python
+      PORT_POOL_START: "10000"
+      PORT_POOL_SIZE: "100"
+      WORKER_CONCURRENCY: "5"
+      LOG_LEVEL: INFO
+    volumes:
+      - ../services/ai-agent:/app
+      - ../apps/mcp:/mcp:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      postgres:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+      api:
+        condition: service_healthy
 
 volumes:
   postgres_data:

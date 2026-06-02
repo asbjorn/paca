@@ -1,6 +1,15 @@
 export interface PacaConfig {
 	apiKey: string;
 	baseURL: string;
+	/**
+	 * Base URL used to resolve plugin MCP entry URLs (e.g. relative paths like
+	 * `/plugins-mcp/<id>/mcp.js`).  Defaults to `baseURL` when not set.
+	 *
+	 * In Docker deployments the MCP bundles are served by the gateway (nginx),
+	 * not by the API service, so this should be set to the gateway's internal
+	 * URL (e.g. `http://gateway`).
+	 */
+	gatewayURL?: string;
 	/** Agent UUID forwarded as X-Agent-ID on every API request. */
 	agentId?: string;
 	/** Project UUID - required when agentId is provided for single-project agent mode. */

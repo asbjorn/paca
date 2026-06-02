@@ -5,9 +5,9 @@ import asyncio
 import logging
 
 from .config import settings
-from .executor import run_conversation
-from .repo_adapter import load_agent_config
-from .streams import ack_trigger, ensure_consumer_group, read_triggers
+from .agent.executor import run_conversation
+from .core.streams import ack_trigger, ensure_consumer_group, read_triggers
+from .repositories.agent_repository import load_agent_config
 
 logger = logging.getLogger(__name__)
 

@@ -33,6 +33,8 @@ type PluginManifest struct {
 	Description string `json:"description,omitempty"`
 	// Version is the semver version of the plugin.
 	Version string `json:"version"`
+	// Capabilities lists the plugin's capabilities (e.g., "repository" for VCS plugins).
+	Capabilities []string `json:"capabilities,omitempty"`
 	// Backend holds backend-specific manifest settings.
 	Backend *BackendManifest `json:"backend,omitempty"`
 	// Frontend holds frontend-specific manifest settings.

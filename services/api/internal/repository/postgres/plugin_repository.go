@@ -161,6 +161,30 @@ func (r *PluginRepository) FindByName(ctx context.Context, name string) (*plugin
 	return pluginFromModel(&m)
 }
 
+// FindByCapability returns all enabled plugins that have the given capability.
+func (r *PluginRepository) FindByCapability(ctx context.Context, capability string) ([]*plugindom.Plugin, error) {
+	var models []*pluginModel
+	// Build the JSON array in Go so we pass a pre-formed JSON string with an
+	// explicit ::jsonb cast.
+	capJSON, _ := json.Marshal([]string{capability})
+	err := r.db.WithContext(ctx).
+		Where("enabled = ? AND manifest->'capabilities' @> ?::jsonb", true, string(capJSON)).
+		Order("name").
+		Find(&models).Error
+	if err != nil {
+		return nil, err
+	}
+	plugins := make([]*plugindom.Plugin, 0, len(models))
+	for _, m := range models {
+		p, err := pluginFromModel(m)
+		if err != nil {
+			return nil, err
+		}
+		plugins = append(plugins, p)
+	}
+	return plugins, nil
+}
+
 // Create inserts a new plugin into the registry.
 func (r *PluginRepository) Create(ctx context.Context, p *plugindom.Plugin) error {
 	m, err := pluginToModel(p)

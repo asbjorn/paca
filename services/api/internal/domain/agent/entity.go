@@ -62,6 +62,18 @@ type AgentSkill struct {
 	UpdatedAt    time.Time
 }
 
+// SkillTemplate is a reusable, hardcoded skill definition that users can
+// browse and apply when configuring their agents.  Templates are defined
+// in code (not in the database) so they are always available without
+// migrations and cannot be accidentally deleted.
+type SkillTemplate struct {
+	Slug        string   `json:"slug"`
+	Name        string   `json:"name"`
+	Description string   `json:"description"`
+	Content     string   `json:"content"`
+	Triggers    []string `json:"triggers"`
+}
+
 // AgentConversation tracks each OpenHands conversation session.
 type AgentConversation struct {
 	ID                  uuid.UUID

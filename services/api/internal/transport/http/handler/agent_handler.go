@@ -8,6 +8,7 @@ import (
 
 	"github.com/Paca-AI/api/internal/apierr"
 	agentdom "github.com/Paca-AI/api/internal/domain/agent"
+	agentsvc "github.com/Paca-AI/api/internal/service/agent"
 	"github.com/Paca-AI/api/internal/transport/http/dto"
 	"github.com/Paca-AI/api/internal/transport/http/middleware"
 	"github.com/Paca-AI/api/internal/transport/http/presenter"
@@ -466,6 +467,19 @@ func parseOffsetLimit(c *gin.Context) (offset, limit int) {
 		limit = 50
 	}
 	return offset, limit
+}
+
+// --- Skill templates --------------------------------------------------------
+
+// ListSkillTemplates handles GET /agents/skill-templates.
+// Returns the hardcoded built-in skill template catalog.
+func (h *AgentHandler) ListSkillTemplates(c *gin.Context) {
+	templates := agentsvc.ListSkillTemplates()
+	resp := make([]dto.SkillTemplateResponse, 0, len(templates))
+	for _, t := range templates {
+		resp = append(resp, dto.SkillTemplateFromEntity(t))
+	}
+	presenter.OK(c, resp)
 }
 
 // --- LLM models proxy -------------------------------------------------------

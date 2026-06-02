@@ -67,7 +67,7 @@ services:
       STORAGE_ENDPOINT: minio:9000
       # Public URL used to rewrite presigned URLs so browsers can reach MinIO
       # through the nginx gateway instead of the internal Docker hostname.
-      STORAGE_PUBLIC_URL: http://localhost/storage
+      STORAGE_PUBLIC_URL: https://97d1-2001-ee0-4b7b-1210-c5f-19d3-601c-7dc0.ngrok-free.app/storage
       STORAGE_REGION: us-east-1
       STORAGE_BUCKET: paca
       STORAGE_ACCESS_KEY_ID: minioadmin
@@ -80,7 +80,7 @@ services:
       # ai-agent service.
       AGENT_API_KEY: dev-agent-api-key-change-in-production
       # Public base URL used by plugins to generate callback/webhook URLs.
-      PUBLIC_URL: http://localhost
+      PUBLIC_URL: https://97d1-2001-ee0-4b7b-1210-c5f-19d3-601c-7dc0.ngrok-free.app
       # Plugin subsystem — load WASM binaries + migrations from the local plugin store.
       PLUGINS_WASM_DIR: /plugins
       PLUGINS_FRONTEND_DIR: /plugins-frontend
@@ -136,7 +136,7 @@ services:
       # directly, bypassing nginx, so no prefix stripping is needed.
       API_URL: http://api:8080
       REDIS_URL: redis://valkey:6379/0
-      CORS_ORIGINS: http://localhost
+      CORS_ORIGINS: https://97d1-2001-ee0-4b7b-1210-c5f-19d3-601c-7dc0.ngrok-free.app
       LOG_LEVEL: debug
     volumes:
       - ../services/realtime:/app
@@ -193,12 +193,15 @@ services:
       DATABASE_URL: postgres://paca:paca@postgres:5432/paca
       INTERNAL_API_KEY: dev-internal-key-change-in-production
       API_BASE_URL: http://api:8080
+      # Gateway base URL — the MCP server uses this to resolve plugin MCP bundle
+      # URLs (e.g. /plugins-mcp/<id>/mcp.js).  The gateway (nginx) serves these
+      # files, not the API service.
+      GATEWAY_BASE_URL: http://gateway
       # API key for the built-in Paca MCP server.  Must match AGENT_API_KEY in
       # the api service so the AI agent can authenticate via the MCP.
       PACA_API_KEY: dev-agent-api-key-change-in-production
       DOCKER_SOCKET: /var/run/docker.sock
       AGENT_SERVER_IMAGE: ghcr.io/openhands/agent-server:latest-python
-      CONVERSATION_PERSISTENCE_ROOT: /data/conversations
       PORT_POOL_START: "10000"
       PORT_POOL_SIZE: "100"
       WORKER_CONCURRENCY: "5"
@@ -207,7 +210,6 @@ services:
       - ../services/ai-agent:/app
       - ../apps/mcp:/mcp:ro
       - /var/run/docker.sock:/var/run/docker.sock
-      - ai_agent_conversations:/data/conversations
     ports:
       - "8082:8080"
     depends_on:
@@ -226,4 +228,3 @@ volumes:
   bun_cache:
   minio_data:
   realtime_node_modules:
-  ai_agent_conversations:

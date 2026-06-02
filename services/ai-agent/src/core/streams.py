@@ -1,11 +1,13 @@
-import json
+"""Valkey / Redis stream client and message types."""
+from __future__ import annotations
+
 import logging
 from dataclasses import dataclass
 from typing import Any
 
 import redis.asyncio as aioredis
 
-from .config import settings
+from ..config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -60,10 +62,12 @@ class TriggerMessage:
     chat_session_id: str | None
     message: str
     actor_member_id: str
-    repo_plugin_id: str | None
+    repo_plugin_ids: list[str]
 
     @classmethod
     def from_stream_entry(cls, stream_id: str, fields: dict[str, str]) -> "TriggerMessage":
+        repo_plugin_ids_str = fields.get("repo_plugin_ids", "")
+        repo_plugin_ids = repo_plugin_ids_str.split(",") if repo_plugin_ids_str else []
         return cls(
             stream_id=stream_id,
             trigger_type=fields["trigger_type"],
@@ -75,7 +79,7 @@ class TriggerMessage:
             chat_session_id=fields.get("chat_session_id") or None,
             message=fields.get("message", ""),
             actor_member_id=fields["actor_member_id"],
-            repo_plugin_id=fields.get("repo_plugin_id") or None,
+            repo_plugin_ids=repo_plugin_ids,
         )
 
 

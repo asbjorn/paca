@@ -897,7 +897,6 @@ func TestUpdateMemberRole_Success(t *testing.T) {
 		},
 	})
 
-
 	w := do(t, r, http.MethodPatch, fmt.Sprintf("/projects/%s/members/%s", projID, memberID),
 		jsonBody(t, map[string]any{"project_role_id": roleID}))
 	if w.Code != http.StatusOK {

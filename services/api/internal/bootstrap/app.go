@@ -102,6 +102,7 @@ func New(cfg *config.Config) (*App, error) {
 	attachmentRepo := pgRepo.NewAttachmentRepository(db)
 	docRepo := pgRepo.NewDocumentRepository(db)
 	refreshStore := redisRepo.NewRefreshTokenStore(redisClient)
+	pluginRepo := pgRepo.NewPluginRepository(db)
 
 	// --- Schema migration (non-production only) -----------------------------
 	// In development the embedded SQL migrations are run on every startup so
@@ -138,7 +139,7 @@ func New(cfg *config.Config) (*App, error) {
 	viewService := sprintsvc.NewCachedViewService(sprintsvc.NewViewService(viewRepo), cacheStore, cfg.Cache.SprintTTL, log)
 	notificationService := notificationsvc.New(notificationRepo, projectRepo, publisher)
 	agentRepo := pgRepo.NewAgentRepository(db)
-	agentService := agentsvc.New(agentRepo, projectService, publisher)
+	agentService := agentsvc.New(agentRepo, projectService, publisher, pluginRepo)
 	notificationConsumer := worker.NewNotificationConsumer(redisClient, notificationService, log, projectRepo, agentService)
 	activityService := tasksvc.NewActivityService(activityRepo, projectRepo, publisher).
 		WithNotificationService(notificationService)
@@ -214,7 +215,6 @@ func New(cfg *config.Config) (*App, error) {
 	installerHTTPClient := &http.Client{Timeout: cfg.Plugins.MarketplaceTimeout}
 	pluginInstaller := pluginrt.NewInstaller(cfg.Plugins.WASMDir, cfg.Plugins.FrontendDir, cfg.Plugins.MCPDir, installerHTTPClient, log)
 
-	pluginRepo := pgRepo.NewPluginRepository(db)
 	pluginService := pluginsvc.New(pluginRepo)
 
 	// Load all enabled plugins from the DB into the WASM runtime.
