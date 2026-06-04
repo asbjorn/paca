@@ -63,7 +63,10 @@ export function useMentionData(projectId?: string | null) {
 	});
 
 	const teamMembers: TeamMember[] = members.map((member: ProjectMember) => ({
-		id: member.member_type === "agent" ? (member.agent_id ?? member.user_id) : member.user_id,
+		id:
+			member.member_type === "agent"
+				? (member.agent_id ?? member.user_id)
+				: member.user_id,
 		name: member.full_name,
 		username: member.username,
 		avatar: member.full_name.slice(0, 2).toUpperCase() || undefined,

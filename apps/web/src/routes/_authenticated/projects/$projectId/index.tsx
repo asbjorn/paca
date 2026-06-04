@@ -1,8 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
-	Bot,
 	BookOpen,
+	Bot,
 	FileText,
 	LayoutDashboard,
 	Settings,

@@ -54,8 +54,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { useProjectPermissions } from "@/hooks/use-project-permissions";
 import {
-	type Agent,
 	AGENT_PRESETS,
+	type Agent,
 	agentsQueryOptions,
 	createAgent,
 	deleteAgent,
@@ -133,7 +133,8 @@ function CreateAgentDialog({
 		if (preset) {
 			if (preset.defaultLLMProvider) setLlmProvider(preset.defaultLLMProvider);
 			if (preset.defaultLLMModel) setLlmModel(preset.defaultLLMModel);
-			if (preset.defaultSystemPrompt) setSystemPrompt(preset.defaultSystemPrompt);
+			if (preset.defaultSystemPrompt)
+				setSystemPrompt(preset.defaultSystemPrompt);
 		}
 	};
 
@@ -171,7 +172,11 @@ function CreateAgentDialog({
 	};
 
 	const step1Valid = !!(name.trim() && handle.trim() && roleId);
-	const canSubmit = !!(step1Valid && llmApiKey.trim() && !createMutation.isPending);
+	const canSubmit = !!(
+		step1Valid &&
+		llmApiKey.trim() &&
+		!createMutation.isPending
+	);
 
 	return (
 		<Dialog open={open} onOpenChange={handleClose}>
@@ -314,18 +319,15 @@ function CreateAgentDialog({
 							<Label>
 								Project Role <span className="text-destructive">*</span>
 							</Label>
-							<Select
-								value={roleId}
-								onValueChange={(v) => v && setRoleId(v)}
-							>
+							<Select value={roleId} onValueChange={(v) => v && setRoleId(v)}>
 								<SelectTrigger>
-								<SelectValue placeholder="Select a project role…">
-									{roles.find((r) => r.id === roleId)?.role_name}
-								</SelectValue>
-							</SelectTrigger>
-							<SelectContent>
-								{roles.map((r) => (
-									<SelectItem key={r.id} value={r.id}>
+									<SelectValue placeholder="Select a project role…">
+										{roles.find((r) => r.id === roleId)?.role_name}
+									</SelectValue>
+								</SelectTrigger>
+								<SelectContent>
+									{roles.map((r) => (
+										<SelectItem key={r.id} value={r.id}>
 											{r.role_name}
 										</SelectItem>
 									))}
@@ -482,7 +484,7 @@ function CreateAgentDialog({
 						)}
 					</div>
 				)}
-					{/* Footer */}
+				{/* Footer */}
 				<div className="border-t border-border/50 bg-muted/20 px-6 py-4 flex items-center justify-between">
 					{step === 1 ? (
 						<>
@@ -580,7 +582,9 @@ function AgentCard({
 							</AvatarFallback>
 						</Avatar>
 						<div className="min-w-0">
-							<p className="font-semibold text-sm leading-tight">{agent.name}</p>
+							<p className="font-semibold text-sm leading-tight">
+								{agent.name}
+							</p>
 							<p className="text-xs text-muted-foreground mt-0.5">
 								@{agent.handle}
 							</p>
@@ -589,12 +593,12 @@ function AgentCard({
 
 					<div className="flex items-center gap-1.5 shrink-0">
 						<Badge variant="secondary" className="text-[10px] font-medium">
-						{agent.llm_provider}
+							{agent.llm_provider}
 						</Badge>
 						{canWrite && (
 							<DropdownMenu>
-							<DropdownMenuTrigger className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity hover:bg-accent hover:text-foreground group-hover:opacity-100">
-								<MoreHorizontal className="size-4" />
+								<DropdownMenuTrigger className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity hover:bg-accent hover:text-foreground group-hover:opacity-100">
+									<MoreHorizontal className="size-4" />
 								</DropdownMenuTrigger>
 								<DropdownMenuContent align="end" className="w-40">
 									<DropdownMenuItem
@@ -653,8 +657,8 @@ function AgentCard({
 					<DialogHeader>
 						<DialogTitle>Delete {agent.name}?</DialogTitle>
 						<DialogDescription>
-							This permanently deletes the agent and removes it from the project.
-							Running conversations will be stopped.
+							This permanently deletes the agent and removes it from the
+							project. Running conversations will be stopped.
 						</DialogDescription>
 					</DialogHeader>
 					<DialogFooter>

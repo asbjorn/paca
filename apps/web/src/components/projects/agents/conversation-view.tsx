@@ -180,8 +180,7 @@ function eventToChatMessages(ev: AgentConversationEvent): ChatMessage[] {
 				text,
 				eventType: "agent.observation",
 				isToolCall: true,
-				toolName:
-					typeof p.tool_name === "string" ? p.tool_name : undefined,
+				toolName: typeof p.tool_name === "string" ? p.tool_name : undefined,
 				eventIndex: ev.event_index,
 				createdAt: ev.created_at,
 			},

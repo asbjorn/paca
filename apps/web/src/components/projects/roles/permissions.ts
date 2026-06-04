@@ -1,6 +1,6 @@
 import {
-	Bot,
 	BookOpen,
+	Bot,
 	Layers,
 	ListTodo,
 	type LucideIcon,
