@@ -144,6 +144,8 @@ def test_paca_server_injected_when_key_set(with_paca_key):
     cfg = build_mcp_config([], "agent-99", "proj-42")
     assert "paca" in cfg["mcpServers"]
     paca = cfg["mcpServers"]["paca"]
+    assert paca["command"] == "npx"
+    assert paca["args"] == ["-y", "@paca-ai/paca-mcp"]
     assert paca["env"]["PACA_AGENT_ID"] == "agent-99"
     assert paca["env"]["PACA_PROJECT_ID"] == "proj-42"
     assert paca["env"]["PACA_API_KEY"] == "test-api-key"

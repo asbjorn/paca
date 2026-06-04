@@ -187,7 +187,6 @@ jobs:
 
   # ─────────────────────────────────────────────────────────────────────────────
   # AI Agent service image
-  # Build context is the repo root — the Dockerfile copies apps/mcp/ in stage 1
   # ─────────────────────────────────────────────────────────────────────────────
   ai-agent-image:
     name: Build and push AI Agent image
@@ -229,7 +228,7 @@ jobs:
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
-          context: .
+          context: services/ai-agent
           file: services/ai-agent/Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true

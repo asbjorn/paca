@@ -101,8 +101,8 @@ def build_mcp_config(
 
     if settings.paca_api_key:
         servers["paca"] = {
-            "command": "node",
-            "args": ["/mcp/build/index.js"],
+            "command": "npx",
+            "args": ["-y", "@paca-ai/paca-mcp"],
             "env": {
                 "PACA_API_KEY": settings.paca_api_key,
                 "PACA_API_URL": settings.api_base_url,

@@ -4,7 +4,6 @@ on:
   pull_request:
     paths:
       - "services/ai-agent/**"
-      - "apps/mcp/**"
       - ".github/workflows/ai-agent-pr-ci.yml"
   workflow_dispatch:
 
@@ -93,8 +92,7 @@ jobs:
         run: uv run pytest --tb=short
 
   # ---------------------------------------------------------------------------
-  # 3. Docker build — verify the multi-stage image compiles from repo root
-  #    (Dockerfile copies from apps/mcp/ so context must be the repo root)
+  # 3. Docker build — verify the image builds cleanly
   # ---------------------------------------------------------------------------
   build:
     name: Docker build
@@ -114,7 +112,7 @@ jobs:
       - name: Build Docker image
         uses: docker/build-push-action@v6
         with:
-          context: .
+          context: services/ai-agent
           file: services/ai-agent/Dockerfile
           push: false
           tags: paca-ai-agent-ci:pr
