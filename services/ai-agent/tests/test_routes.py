@@ -9,7 +9,8 @@ import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
-from src.routes.conversations import active_conversations, router as conv_router
+from src.core.registry import active_conversations
+from src.routes.conversations import router as conv_router
 from src.routes.health import router as health_router
 from src.routes.llm import router as llm_router
 
@@ -200,35 +201,6 @@ async def test_stop_closes_active_conversation(client):
     assert resp.status_code == 200
     mock_conv.close.assert_called_once()
     assert str(conv_id) not in active_conversations
-
-
-# ─── POST /conversations/{id}/pause ───────────────────────────────────────────
-
-
-async def test_pause_no_active_conversation_returns_404(client):
-    conv_id = uuid.uuid4()
-    resp = await client.post(
-        f"/conversations/{conv_id}/pause",
-        headers={"X-Internal-Token": INTERNAL_TOKEN},
-    )
-    assert resp.status_code == 404
-
-
-async def test_pause_active_conversation_calls_pause(client):
-    conv_id = uuid.uuid4()
-    mock_conv = MagicMock()
-    active_conversations[str(conv_id)] = mock_conv
-
-    with patch(
-        "src.routes.conversations.update_conversation_status", new_callable=AsyncMock
-    ):
-        resp = await client.post(
-            f"/conversations/{conv_id}/pause",
-            headers={"X-Internal-Token": INTERNAL_TOKEN},
-        )
-
-    assert resp.status_code == 200
-    mock_conv.pause.assert_called_once()
 
 
 # ─── POST /conversations/{id}/message ─────────────────────────────────────────

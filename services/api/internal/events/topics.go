@@ -75,8 +75,6 @@ const (
 	TopicAgentTaskAssigned   = "agent.task_assigned"
 	TopicAgentCommentMention = "agent.comment_mention"
 	TopicAgentChatMessage    = "agent.chat_message"
-	TopicAgentPause          = "agent.pause"
-	TopicAgentResume         = "agent.resume"
 	TopicAgentStop           = "agent.stop"
 
 	// --- Agent event topics (emitted by ai-agent, consumed by realtime) ------

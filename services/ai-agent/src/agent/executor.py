@@ -6,15 +6,18 @@ import asyncio
 import json
 import logging
 import threading
+import time
 import uuid
 
 import httpx
 from openhands.sdk import Agent, AgentContext, Conversation
+from openhands.sdk.conversation.state import ConversationExecutionStatus
 from openhands.sdk.conversation.visualizer import ConversationVisualizerBase
 from openhands.tools import get_default_tools
 
 from ..config import settings
 from ..core import streams as stream_store
+from ..core.registry import active_conversations, stop_events
 from ..core.streams import TriggerMessage
 from ..models.agent import AgentConfig
 from ..repositories import conversation_repository
@@ -24,6 +27,48 @@ from .prompt import build_initial_prompt
 from .repo_tools import make_repository_tool_specs
 
 logger = logging.getLogger(__name__)
+
+_DONE_STATUSES = frozenset(
+    {
+        ConversationExecutionStatus.FINISHED,
+        ConversationExecutionStatus.ERROR,
+        ConversationExecutionStatus.STUCK,
+    }
+)
+
+
+def _wait_for_done_or_stop(
+    conversation,
+    stop_event: threading.Event,
+    poll_interval: float = 2.0,
+    timeout: float = 3600.0,
+) -> bool:
+    """Poll the remote conversation until it finishes or a stop is signaled.
+
+    Returns True if the loop exited because stop was requested (so the caller
+    knows not to update status to "finished").
+    """
+    start = time.monotonic()
+    while True:
+        # stop_event.wait() blocks for up to poll_interval seconds, returning
+        # True immediately if the event is already set.
+        if stop_event.wait(timeout=poll_interval):
+            try:
+                conversation.pause()
+            except Exception as exc:
+                logger.warning("Failed to pause conversation on stop request: %s", exc)
+            return True
+
+        if time.monotonic() - start > timeout:
+            logger.warning("Conversation polling timed out after %.0f seconds", timeout)
+            return False
+
+        try:
+            status = conversation.state.execution_status
+            if status in _DONE_STATUSES:
+                return False
+        except Exception as exc:
+            logger.debug("Failed to read conversation execution status: %s", exc)
 
 
 # ─── Custom visualizer ────────────────────────────────────────────────────────
@@ -270,8 +315,12 @@ async def run_conversation(trigger: TriggerMessage, agent_config: AgentConfig) -
     """Execute a single agent conversation end-to-end."""
     loop = asyncio.get_event_loop()
     counter = _AtomicCounter()
+    stop_event = threading.Event()
     logger.info("Starting conversation %s (agent=%s)", trigger.conversation_id, trigger.agent_id)
     await conversation_repository.update_conversation_status(trigger.conversation_id, "running")
+
+    # Register the stop event so the worker can signal us via stream control messages.
+    stop_events[trigger.conversation_id] = stop_event
 
     try:
         llm = build_llm(agent_config)
@@ -329,7 +378,8 @@ async def run_conversation(trigger: TriggerMessage, agent_config: AgentConfig) -
 
         agent_context = AgentContext(skills=skills, system_message_suffix=system_suffix)
 
-        def _run_sync() -> None:
+        def _run_sync() -> bool:
+            """Returns True if the run was stopped, False if it finished naturally."""
             with docker_sandbox(
                 trigger.conversation_id,
                 git_committer_name=agent_config.git_committer_name,
@@ -361,48 +411,61 @@ async def run_conversation(trigger: TriggerMessage, agent_config: AgentConfig) -
                     visualizer=_QuietVisualizer,
                 )
 
-                all_repos_info = None
-                if has_repos:
-                    try:
-                        repo_sources = _gather_repo_sources(trigger)
-                        all_repos: list[dict] = []
-                        for source in repo_sources:
-                            for repo in source.repositories:
-                                all_repos.append(
-                                    {
-                                        "plugin_id": source.plugin_id,
-                                        "repo_id": repo["id"],
-                                        "full_name": repo["full_name"],
-                                        "owner": repo["owner"],
-                                        "repo_name": repo["repo_name"],
-                                        "clone_url": repo["clone_url"],
-                                    }
-                                )
-                        if all_repos:
-                            all_repos_info = all_repos
-                    except Exception as exc:
-                        logger.warning("Failed to gather repository info: %s", exc)
+                # Register so the worker's stop handler can find this conversation.
+                active_conversations[trigger.conversation_id] = conversation
+                try:
+                    all_repos_info = None
+                    if has_repos:
+                        try:
+                            repo_sources = _gather_repo_sources(trigger)
+                            all_repos: list[dict] = []
+                            for source in repo_sources:
+                                for repo in source.repositories:
+                                    all_repos.append(
+                                        {
+                                            "plugin_id": source.plugin_id,
+                                            "repo_id": repo["id"],
+                                            "full_name": repo["full_name"],
+                                            "owner": repo["owner"],
+                                            "repo_name": repo["repo_name"],
+                                            "clone_url": repo["clone_url"],
+                                        }
+                                    )
+                            if all_repos:
+                                all_repos_info = all_repos
+                        except Exception as exc:
+                            logger.warning("Failed to gather repository info: %s", exc)
 
-                conversation.send_message(build_initial_prompt(trigger, all_repos_info))
-                conversation.run()
+                    conversation.send_message(build_initial_prompt(trigger, all_repos_info))
+                    # Use non-blocking run so our polling loop can be interrupted
+                    # by a stop signal without waiting for the SDK timeout.
+                    conversation.run(blocking=False)
+                    return _wait_for_done_or_stop(conversation, stop_event)
+                finally:
+                    active_conversations.pop(trigger.conversation_id, None)
 
-        await asyncio.get_event_loop().run_in_executor(None, _run_sync)
-        await conversation_repository.update_conversation_status(
-            trigger.conversation_id, "finished"
-        )
-        await stream_store.publish_realtime(
-            project_id=trigger.project_id,
-            conversation_id=trigger.conversation_id,
-            event_type="agent.conversation.finished",
-        )
+        interrupted = await asyncio.get_event_loop().run_in_executor(None, _run_sync)
+        if not interrupted:
+            await conversation_repository.update_conversation_status(
+                trigger.conversation_id, "finished"
+            )
+            await stream_store.publish_realtime(
+                project_id=trigger.project_id,
+                conversation_id=trigger.conversation_id,
+                event_type="agent.conversation.finished",
+            )
 
     except Exception as exc:
-        logger.exception("Conversation %s failed: %s", trigger.conversation_id, exc)
-        await conversation_repository.update_conversation_status(
-            trigger.conversation_id, "failed", error_message=str(exc)
-        )
-        await stream_store.publish_realtime(
-            project_id=trigger.project_id,
-            conversation_id=trigger.conversation_id,
-            event_type="agent.conversation.failed",
-        )
+        if not stop_event.is_set():
+            logger.exception("Conversation %s failed: %s", trigger.conversation_id, exc)
+            await conversation_repository.update_conversation_status(
+                trigger.conversation_id, "failed", error_message=str(exc)
+            )
+            await stream_store.publish_realtime(
+                project_id=trigger.project_id,
+                conversation_id=trigger.conversation_id,
+                event_type="agent.conversation.failed",
+            )
+
+    finally:
+        stop_events.pop(trigger.conversation_id, None)

@@ -424,42 +424,6 @@ func (s *Service) ListConversationEvents(ctx context.Context, conversationID uui
 	return s.repo.ListConversationEvents(ctx, conversationID, offset, limit)
 }
 
-// PauseConversation pauses a running conversation.
-func (s *Service) PauseConversation(ctx context.Context, projectID, conversationID uuid.UUID) error {
-	c, err := s.GetConversation(ctx, projectID, conversationID)
-	if err != nil {
-		return err
-	}
-	if c.Status != "running" {
-		return agentdom.ErrConversationNotRunning
-	}
-	if err := s.repo.UpdateConversationStatus(ctx, conversationID, "paused"); err != nil {
-		return err
-	}
-	return s.publishTrigger(ctx, events.TopicAgentPause, map[string]any{
-		"conversation_id": conversationID.String(),
-		"project_id":      projectID.String(),
-	})
-}
-
-// ResumeConversation resumes a paused conversation.
-func (s *Service) ResumeConversation(ctx context.Context, projectID, conversationID uuid.UUID) error {
-	c, err := s.GetConversation(ctx, projectID, conversationID)
-	if err != nil {
-		return err
-	}
-	if c.Status != "paused" {
-		return agentdom.ErrConversationNotRunning
-	}
-	if err := s.repo.UpdateConversationStatus(ctx, conversationID, "running"); err != nil {
-		return err
-	}
-	return s.publishTrigger(ctx, events.TopicAgentResume, map[string]any{
-		"conversation_id": conversationID.String(),
-		"project_id":      projectID.String(),
-	})
-}
-
 // StopConversation stops a conversation that is not already finished.
 func (s *Service) StopConversation(ctx context.Context, projectID, conversationID uuid.UUID) error {
 	c, err := s.GetConversation(ctx, projectID, conversationID)
@@ -484,7 +448,7 @@ func (s *Service) SendConversationMessage(ctx context.Context, projectID, conver
 	if err != nil {
 		return err
 	}
-	if c.Status != "running" && c.Status != "paused" {
+	if c.Status != "running" {
 		return agentdom.ErrConversationNotRunning
 	}
 	return s.publishTrigger(ctx, events.TopicAgentChatMessage, map[string]any{

@@ -102,7 +102,6 @@ export interface Agent {
 export type ConversationStatus =
 	| "queued"
 	| "running"
-	| "paused"
 	| "finished"
 	| "failed"
 	| "stopped";
@@ -372,26 +371,6 @@ export async function listConversationEvents(
 	return data.data.items;
 }
 
-export async function pauseConversation(
-	projectId: string,
-	conversationId: string,
-): Promise<AgentConversation> {
-	const { data } = await apiClient.instance.post<
-		SuccessEnvelope<AgentConversation>
-	>(`/projects/${projectId}/conversations/${conversationId}/pause`);
-	return data.data;
-}
-
-export async function resumeConversation(
-	projectId: string,
-	conversationId: string,
-): Promise<AgentConversation> {
-	const { data } = await apiClient.instance.post<
-		SuccessEnvelope<AgentConversation>
-	>(`/projects/${projectId}/conversations/${conversationId}/resume`);
-	return data.data;
-}
-
 export async function stopConversation(
 	projectId: string,
 	conversationId: string,
@@ -532,7 +511,6 @@ export const llmModelsQueryOptions = queryOptions({
 export const CONVERSATION_STATUS_LABELS: Record<ConversationStatus, string> = {
 	queued: "Queued",
 	running: "Running",
-	paused: "Paused",
 	finished: "Finished",
 	failed: "Failed",
 	stopped: "Stopped",
@@ -541,7 +519,6 @@ export const CONVERSATION_STATUS_LABELS: Record<ConversationStatus, string> = {
 export const CONVERSATION_STATUS_COLORS: Record<ConversationStatus, string> = {
 	queued: "text-muted-foreground",
 	running: "text-blue-500",
-	paused: "text-amber-500",
 	finished: "text-emerald-500",
 	failed: "text-destructive",
 	stopped: "text-muted-foreground",

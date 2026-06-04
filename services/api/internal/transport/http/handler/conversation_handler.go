@@ -95,44 +95,6 @@ func (h *ConversationHandler) ListConversationEvents(c *gin.Context) {
 	presenter.OK(c, gin.H{"items": resp, "total": total})
 }
 
-// PauseConversation handles POST /projects/:projectId/conversations/:conversationId/pause.
-func (h *ConversationHandler) PauseConversation(c *gin.Context) {
-	projectID, err := parseProjectID(c)
-	if err != nil {
-		presenter.Error(c, err)
-		return
-	}
-	convID, err := parseParamUUID(c, "conversationId")
-	if err != nil {
-		presenter.Error(c, err)
-		return
-	}
-	if err := h.svc.PauseConversation(c.Request.Context(), projectID, convID); err != nil {
-		presenter.Error(c, err)
-		return
-	}
-	presenter.OK(c, gin.H{"message": "conversation paused"})
-}
-
-// ResumeConversation handles POST /projects/:projectId/conversations/:conversationId/resume.
-func (h *ConversationHandler) ResumeConversation(c *gin.Context) {
-	projectID, err := parseProjectID(c)
-	if err != nil {
-		presenter.Error(c, err)
-		return
-	}
-	convID, err := parseParamUUID(c, "conversationId")
-	if err != nil {
-		presenter.Error(c, err)
-		return
-	}
-	if err := h.svc.ResumeConversation(c.Request.Context(), projectID, convID); err != nil {
-		presenter.Error(c, err)
-		return
-	}
-	presenter.OK(c, gin.H{"message": "conversation resumed"})
-}
-
 // StopConversation handles POST /projects/:projectId/conversations/:conversationId/stop.
 func (h *ConversationHandler) StopConversation(c *gin.Context) {
 	projectID, err := parseProjectID(c)

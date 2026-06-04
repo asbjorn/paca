@@ -86,7 +86,7 @@ type AgentConversation struct {
 	CommentID           *uuid.UUID
 	ChatSessionID       *uuid.UUID
 	TriggeredByMemberID uuid.UUID
-	Status              string // queued | running | paused | finished | failed | stopped
+	Status              string // queued | running | finished | failed | stopped
 	ContainerID         *string
 	HostPort            *int
 	IterationCount      int

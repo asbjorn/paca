@@ -81,6 +81,19 @@ async def publish_realtime(
     await client.publish(REALTIME_CHANNEL, message)
 
 
+# Trigger types that carry a conversation run request.
+_TRIGGER_TYPES = {
+    "agent.task_assigned",
+    "agent.comment_mention",
+    "agent.chat_message",
+}
+
+# Control message types that direct an *existing* conversation.
+_CONTROL_TYPES = {
+    "agent.stop",
+}
+
+
 @dataclass
 class TriggerMessage:
     stream_id: str
@@ -114,8 +127,33 @@ class TriggerMessage:
         )
 
 
-async def read_triggers(count: int = 10, block_ms: int = 2000) -> list[TriggerMessage]:
-    """Read new trigger messages from the consumer group."""
+@dataclass
+class ControlMessage:
+    """A stop directive for an already-running conversation."""
+
+    stream_id: str
+    control_type: str  # e.g. "agent.stop"
+    conversation_id: str
+    project_id: str
+
+    @classmethod
+    def from_stream_entry(cls, stream_id: str, fields: dict[str, str]) -> ControlMessage:
+        return cls(
+            stream_id=stream_id,
+            control_type=fields["type"],
+            conversation_id=fields["conversation_id"],
+            project_id=fields["project_id"],
+        )
+
+
+async def read_triggers(
+    count: int = 10, block_ms: int = 2000
+) -> list[TriggerMessage | ControlMessage]:
+    """Read new messages from the consumer group.
+
+    Returns a mixed list: run-requests are ``TriggerMessage`` instances;
+    stop directives are ``ControlMessage`` instances.
+    """
     client = get_client()
     try:
         results = await client.xreadgroup(
@@ -130,13 +168,28 @@ async def read_triggers(count: int = 10, block_ms: int = 2000) -> list[TriggerMe
         return []
     if not results:
         return []
-    messages = []
+    messages: list[TriggerMessage | ControlMessage] = []
     for _stream, entries in results:
         for stream_id, fields in entries:
-            try:
-                messages.append(TriggerMessage.from_stream_entry(stream_id, fields))
-            except KeyError as e:
-                logger.warning("Dropping malformed trigger message %s: missing %s", stream_id, e)
+            msg_type = fields.get("type", "")
+            if msg_type in _CONTROL_TYPES:
+                try:
+                    messages.append(ControlMessage.from_stream_entry(stream_id, fields))
+                except KeyError as e:
+                    logger.warning(
+                        "Dropping malformed control message %s: missing %s", stream_id, e
+                    )
+            elif msg_type in _TRIGGER_TYPES or "trigger_type" in fields:
+                try:
+                    messages.append(TriggerMessage.from_stream_entry(stream_id, fields))
+                except KeyError as e:
+                    logger.warning(
+                        "Dropping malformed trigger message %s: missing %s", stream_id, e
+                    )
+            else:
+                logger.warning(
+                    "Dropping unrecognised stream message %s (type=%r)", stream_id, msg_type
+                )
     return messages
 
 

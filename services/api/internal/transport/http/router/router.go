@@ -746,14 +746,6 @@ func New(deps Deps) *gin.Engine {
 					httpmw.RequirePermissions(deps.Authorizer, httpmw.ProjectScopeFromParam("projectId"), authz.PermissionAgentsRead),
 					deps.Conversation.ListConversationEvents,
 				)
-				conversations.POST("/:conversationId/pause",
-					httpmw.RequirePermissions(deps.Authorizer, httpmw.ProjectScopeFromParam("projectId"), authz.PermissionAgentsWrite),
-					deps.Conversation.PauseConversation,
-				)
-				conversations.POST("/:conversationId/resume",
-					httpmw.RequirePermissions(deps.Authorizer, httpmw.ProjectScopeFromParam("projectId"), authz.PermissionAgentsWrite),
-					deps.Conversation.ResumeConversation,
-				)
 				conversations.POST("/:conversationId/stop",
 					httpmw.RequirePermissions(deps.Authorizer, httpmw.ProjectScopeFromParam("projectId"), authz.PermissionAgentsWrite),
 					deps.Conversation.StopConversation,

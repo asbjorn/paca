@@ -45,8 +45,6 @@ type ConversationService interface {
 	ListConversations(ctx context.Context, in ListConversationsFilter) ([]*AgentConversation, int64, error)
 	GetConversation(ctx context.Context, projectID, conversationID uuid.UUID) (*AgentConversation, error)
 	ListConversationEvents(ctx context.Context, conversationID uuid.UUID, offset, limit int) ([]*AgentConversationEvent, int64, error)
-	PauseConversation(ctx context.Context, projectID, conversationID uuid.UUID) error
-	ResumeConversation(ctx context.Context, projectID, conversationID uuid.UUID) error
 	StopConversation(ctx context.Context, projectID, conversationID uuid.UUID) error
 	SendConversationMessage(ctx context.Context, projectID, conversationID uuid.UUID, message string, memberID uuid.UUID) error
 }

@@ -6,8 +6,6 @@ import {
 	GitBranch,
 	GitPullRequest,
 	Loader2,
-	Pause,
-	Play,
 	Square,
 	Terminal,
 	User,
@@ -25,8 +23,6 @@ import {
 	CONVERSATION_STATUS_LABELS,
 	conversationEventsQueryOptions,
 	conversationQueryOptions,
-	pauseConversation,
-	resumeConversation,
 	stopConversation,
 } from "@/lib/agent-api";
 import { cn } from "@/lib/utils";
@@ -265,7 +261,7 @@ function ToolCallMessage({ msg }: { msg: ChatMessage }) {
 					</span>
 				</button>
 				{expanded && (
-					<pre className="mt-1.5 rounded-lg border border-border/40 bg-muted/30 px-3 py-2 text-[11px] font-mono text-muted-foreground/80 overflow-x-auto whitespace-pre-wrap break-words">
+					<pre className="mt-1.5 rounded-lg border border-border/40 bg-muted/30 px-3 py-2 text-[11px] font-mono text-muted-foreground/80 overflow-x-auto whitespace-pre-wrap wrap-break-word">
 						{msg.text}
 					</pre>
 				)}
@@ -296,7 +292,7 @@ function ThinkingMessage({ msg }: { msg: ChatMessage }) {
 					Thinking…
 				</button>
 				{expanded && (
-					<p className="mt-1.5 text-[12px] text-muted-foreground/60 italic leading-relaxed pl-1 border-l-2 border-border/30 pl-3">
+					<p className="mt-1.5 text-[12px] text-muted-foreground/60 italic leading-relaxed border-l-2 border-border/30 pl-3">
 						{msg.text}
 					</p>
 				)}
@@ -313,7 +309,7 @@ function AgentBubble({ msg }: { msg: ChatMessage }) {
 			</div>
 			<div className="flex-1 min-w-0 max-w-[85%]">
 				<div className="rounded-2xl rounded-tl-md bg-card border border-border/40 px-4 py-3 shadow-sm">
-					<p className="text-[13px] leading-relaxed text-foreground whitespace-pre-wrap break-words">
+					<p className="text-[13px] leading-relaxed text-foreground whitespace-pre-wrap wrap-break-word">
 						{msg.text}
 					</p>
 				</div>
@@ -336,7 +332,7 @@ function UserBubble({ msg }: { msg: ChatMessage }) {
 			</div>
 			<div className="flex-1 min-w-0 max-w-[85%] flex flex-col items-end">
 				<div className="rounded-2xl rounded-tr-md bg-primary text-primary-foreground px-4 py-3 shadow-sm">
-					<p className="text-[13px] leading-relaxed whitespace-pre-wrap break-words">
+					<p className="text-[13px] leading-relaxed whitespace-pre-wrap wrap-break-word">
 						{msg.text}
 					</p>
 				</div>
@@ -406,59 +402,17 @@ function ConversationControls({
 		});
 	};
 
-	const pauseMut = useMutation({
-		mutationFn: () => pauseConversation(projectId, conversation.id),
-		onSuccess: invalidate,
-	});
-	const resumeMut = useMutation({
-		mutationFn: () => resumeConversation(projectId, conversation.id),
-		onSuccess: invalidate,
-	});
 	const stopMut = useMutation({
 		mutationFn: () => stopConversation(projectId, conversation.id),
 		onSuccess: invalidate,
 	});
 
 	const isRunning = conversation.status === "running";
-	const isPaused = conversation.status === "paused";
-	const isActive = isRunning || isPaused;
 
-	if (!isActive) return null;
+	if (!isRunning) return null;
 
 	return (
 		<div className="flex items-center gap-2">
-			{isRunning && (
-				<Button
-					size="sm"
-					variant="outline"
-					className="h-7 text-xs gap-1.5"
-					onClick={() => pauseMut.mutate()}
-					disabled={pauseMut.isPending}
-				>
-					{pauseMut.isPending ? (
-						<Loader2 className="size-3 animate-spin" />
-					) : (
-						<Pause className="size-3" />
-					)}
-					Pause
-				</Button>
-			)}
-			{isPaused && (
-				<Button
-					size="sm"
-					variant="outline"
-					className="h-7 text-xs gap-1.5"
-					onClick={() => resumeMut.mutate()}
-					disabled={resumeMut.isPending}
-				>
-					{resumeMut.isPending ? (
-						<Loader2 className="size-3 animate-spin" />
-					) : (
-						<Play className="size-3" />
-					)}
-					Resume
-				</Button>
-			)}
 			<Button
 				size="sm"
 				variant="outline"

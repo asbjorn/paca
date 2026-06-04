@@ -744,59 +744,6 @@ func TestGetConversation_WrongProject(t *testing.T) {
 	assert.ErrorIs(t, err, agentdom.ErrConversationNotFound)
 }
 
-func TestPauseConversation_Success(t *testing.T) {
-	projectID := uuid.New()
-	conversationID := uuid.New()
-	conversation := &agentdom.AgentConversation{
-		ID:        conversationID,
-		ProjectID: projectID,
-		Status:    "running",
-	}
-
-	repo := &mockAgentRepo{
-		findConversationByID: func(_ context.Context, _ uuid.UUID) (*agentdom.AgentConversation, error) {
-			return conversation, nil
-		},
-		updateConversationStatus: func(_ context.Context, id uuid.UUID, status string) error {
-			if id != conversationID || status != "paused" {
-				t.Fatalf("unexpected conversation ID or status")
-			}
-			return nil
-		},
-	}
-	projRepo := &mockProjectRepo{}
-	pluginRepo := &mockPluginRepo{}
-	svc := New(repo, projRepo, nil, pluginRepo)
-
-	err := svc.PauseConversation(context.Background(), projectID, conversationID)
-
-	assert.NoError(t, err)
-}
-
-func TestPauseConversation_NotRunning(t *testing.T) {
-	projectID := uuid.New()
-	conversationID := uuid.New()
-	conversation := &agentdom.AgentConversation{
-		ID:        conversationID,
-		ProjectID: projectID,
-		Status:    "paused",
-	}
-
-	repo := &mockAgentRepo{
-		findConversationByID: func(_ context.Context, _ uuid.UUID) (*agentdom.AgentConversation, error) {
-			return conversation, nil
-		},
-	}
-	projRepo := &mockProjectRepo{}
-	pluginRepo := &mockPluginRepo{}
-	svc := New(repo, projRepo, nil, pluginRepo)
-
-	err := svc.PauseConversation(context.Background(), projectID, conversationID)
-
-	assert.Error(t, err)
-	assert.ErrorIs(t, err, agentdom.ErrConversationNotRunning)
-}
-
 func TestSendConversationMessage_Success(t *testing.T) {
 	projectID := uuid.New()
 	conversationID := uuid.New()

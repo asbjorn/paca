@@ -1,8 +1,8 @@
-"""Tests for TriggerMessage parsing from Valkey stream entries."""
+"""Tests for TriggerMessage and ControlMessage parsing from Valkey stream entries."""
 
 import pytest
 
-from src.core.streams import TriggerMessage
+from src.core.streams import ControlMessage, TriggerMessage
 
 
 def _fields(**kwargs) -> dict[str, str]:
@@ -82,3 +82,29 @@ def test_comment_trigger_fields():
     assert msg.trigger_type == "comment_mention"
     assert msg.comment_id == "cmt-42"
     assert msg.task_id is None
+
+
+# ─── ControlMessage tests ─────────────────────────────────────────────────────
+
+
+def _control_fields(control_type: str = "agent.stop") -> dict[str, str]:
+    return {
+        "type": control_type,
+        "conversation_id": "conv-99",
+        "project_id": "proj-1",
+    }
+
+
+def test_control_stop_parsed():
+    msg = ControlMessage.from_stream_entry("10-0", _control_fields("agent.stop"))
+    assert msg.stream_id == "10-0"
+    assert msg.control_type == "agent.stop"
+    assert msg.conversation_id == "conv-99"
+    assert msg.project_id == "proj-1"
+
+
+def test_control_missing_conversation_id_raises():
+    fields = _control_fields()
+    del fields["conversation_id"]
+    with pytest.raises(KeyError):
+        ControlMessage.from_stream_entry("13-0", fields)

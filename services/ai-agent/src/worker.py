@@ -7,7 +7,14 @@ import logging
 
 from .agent.executor import run_conversation
 from .config import settings
-from .core.streams import ack_trigger, ensure_consumer_group, read_triggers
+from .core.registry import stop_events
+from .core.streams import (
+    ControlMessage,
+    TriggerMessage,
+    ack_trigger,
+    ensure_consumer_group,
+    read_triggers,
+)
 from .repositories.agent_repository import load_agent_config
 
 logger = logging.getLogger(__name__)
@@ -15,7 +22,28 @@ logger = logging.getLogger(__name__)
 _running = True
 
 
-async def _process_trigger(msg) -> None:
+async def _handle_control(msg: ControlMessage) -> None:
+    """Dispatch a stop control message to the running conversation."""
+    cid = msg.conversation_id
+
+    if msg.control_type == "agent.stop":
+        stop_event = stop_events.get(cid)
+        if stop_event is not None:
+            logger.info("Stopping conversation %s via stream control message", cid)
+            stop_event.set()
+        else:
+            logger.warning(
+                "Received stop for conversation %s but no active run found on this replica", cid
+            )
+    else:
+        logger.warning("Unknown control type %r for conversation %s", msg.control_type, cid)
+
+
+async def _process_trigger(msg: TriggerMessage | ControlMessage) -> None:
+    if isinstance(msg, ControlMessage):
+        await _handle_control(msg)
+        return
+
     agent_config = await load_agent_config(msg.agent_id)
     if agent_config is None:
         logger.warning("Agent %s not found; dropping trigger %s", msg.agent_id, msg.stream_id)

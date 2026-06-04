@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import secrets
 from uuid import UUID
@@ -12,6 +11,7 @@ from pydantic import BaseModel
 
 from ..config import settings
 from ..core.db import get_pool
+from ..core.registry import active_conversations
 from ..repositories.conversation_repository import update_conversation_status
 
 logger = logging.getLogger(__name__)
@@ -26,11 +26,6 @@ def _require_internal_key(x_internal_token: str = Header(default="")) -> None:
 
 
 router = APIRouter(prefix="/conversations", dependencies=[Depends(_require_internal_key)])
-
-# In-memory registry of active Conversation objects keyed by conversation_id str.
-# Multi-replica note: in a multi-replica deployment, pair this with a Valkey key
-# (paca:agent:active:{conversation_id}) to route control requests to the owning replica.
-active_conversations: dict[str, object] = {}
 
 
 class MessageRequest(BaseModel):
@@ -69,30 +64,6 @@ async def get_conversation_events(id: UUID, offset: int = 0, limit: int = 100):
         offset,
     )
     return {"events": [dict(r) for r in rows]}
-
-
-@router.post("/{id}/pause")
-async def pause_conversation(id: UUID):
-    conv = active_conversations.get(str(id))
-    if conv is None:
-        raise HTTPException(status_code=404, detail="No active conversation")
-    if hasattr(conv, "pause"):
-        conv.pause()  # type: ignore[union-attr]
-    await update_conversation_status(str(id), "paused")
-    return {"status": "paused"}
-
-
-@router.post("/{id}/resume")
-async def resume_conversation(id: UUID):
-    conv = active_conversations.get(str(id))
-    if conv is None:
-        raise HTTPException(
-            status_code=404, detail="No active or paused conversation on this replica"
-        )
-    if hasattr(conv, "run"):
-        asyncio.create_task(asyncio.to_thread(conv.run))  # type: ignore[union-attr]
-    await update_conversation_status(str(id), "running")
-    return {"status": "running"}
 
 
 @router.post("/{id}/stop")
