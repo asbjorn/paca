@@ -19,7 +19,7 @@
   ·
   <a href="CONTRIBUTING.md">Contributing</a>
   ·
-  <a href="https://github.com/orgs/Paca-AI/projects/2/views/1">Roadmap</a>
+  <a href="ROADMAP.md">Roadmap</a>
 </p>
 
 ---
