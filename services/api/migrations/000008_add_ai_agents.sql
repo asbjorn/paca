@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS agents (
     system_prompt         TEXT        NOT NULL DEFAULT '',
     can_clone_repos       BOOLEAN     NOT NULL DEFAULT TRUE,
     can_create_prs        BOOLEAN     NOT NULL DEFAULT TRUE,
-    max_iterations        INTEGER     NOT NULL DEFAULT 50,
+    max_iterations        INTEGER     NOT NULL DEFAULT 500,
     timeout_minutes       INTEGER     NOT NULL DEFAULT 30,
     git_committer_name    TEXT        NOT NULL DEFAULT 'paca-agent',
     git_committer_email   TEXT        NOT NULL DEFAULT '280579135+paca-agent@users.noreply.github.com',

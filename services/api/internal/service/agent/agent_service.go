@@ -117,11 +117,12 @@ func (s *Service) CreateAgent(ctx context.Context, projectID uuid.UUID, in agent
 		CreatedAt:         now,
 		UpdatedAt:         now,
 	}
-	const maxIterationsLimit = 200
+	const maxIterationsLimit = 500
+	const defaultMaxIterations = 500
 	const timeoutMinutesLimit = 480 // 8 hours
 
 	if a.MaxIterations <= 0 {
-		a.MaxIterations = 50
+		a.MaxIterations = defaultMaxIterations
 	} else if a.MaxIterations > maxIterationsLimit {
 		a.MaxIterations = maxIterationsLimit
 	}
@@ -194,13 +195,14 @@ func (s *Service) UpdateAgent(ctx context.Context, projectID, agentID uuid.UUID,
 	if in.CanCreatePRs != nil {
 		a.CanCreatePRs = *in.CanCreatePRs
 	}
-	const maxIterationsLimit = 200
+	const maxIterationsLimit = 500
+	const defaultMaxIterations = 500
 	const timeoutMinutesLimit = 480
 
 	if in.MaxIterations != nil {
 		v := *in.MaxIterations
 		if v <= 0 {
-			v = 50
+			v = defaultMaxIterations
 		} else if v > maxIterationsLimit {
 			v = maxIterationsLimit
 		}

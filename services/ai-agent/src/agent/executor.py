@@ -7,7 +7,6 @@ import json
 import logging
 import threading
 import time
-import uuid
 
 import httpx
 from openhands.sdk import Agent, AgentContext, Conversation
@@ -435,10 +434,15 @@ async def run_conversation(trigger: TriggerMessage, agent_config: AgentConfig) -
                 agent = Agent(**agent_kwargs)
                 # RemoteWorkspace → RemoteConversation; persistence_dir is not
                 # supported for remote conversations (state lives in the sandbox).
+                # Do not pass conversation_id: the sandbox server assigns its own
+                # UUID internally.  Passing our application ID causes the server
+                # to return 400 on subsequent GET /api/conversations/{id} calls
+                # (the sandbox only handles IDs it generated itself).  Event
+                # callbacks persist to our DB using trigger.conversation_id
+                # directly, so the mapping stays correct regardless.
                 conversation = Conversation(
                     agent=agent,
                     workspace=workspace,
-                    conversation_id=uuid.UUID(trigger.conversation_id),
                     callbacks=[_make_event_callback(trigger, loop, counter)],
                     token_callbacks=[_make_token_callback(trigger, loop, counter)],
                     max_iteration_per_run=agent_config.max_iterations,
@@ -477,6 +481,15 @@ async def run_conversation(trigger: TriggerMessage, agent_config: AgentConfig) -
                     return _wait_for_done_or_stop(conversation, stop_event)
                 finally:
                     active_conversations.pop(trigger.conversation_id, None)
+                    # Stop the SDK's WebSocket client thread so it does not
+                    # linger after the sandbox container is stopped.  Without
+                    # this, Docker may recycle the container IP before the
+                    # thread exits, causing the thread to send requests for the
+                    # old conversation ID to the new container and get 400s.
+                    try:
+                        conversation.close()
+                    except Exception as exc:
+                        logger.debug("Failed to close conversation: %s", exc)
 
         stopped, errored = await asyncio.get_event_loop().run_in_executor(None, _run_sync)
         if not stopped:
