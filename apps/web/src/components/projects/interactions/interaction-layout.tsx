@@ -1,4 +1,9 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+	useMutation,
+	useQueries,
+	useQuery,
+	useQueryClient,
+} from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 
 // Upper bound for manual-sort positions.  All computed positions stay strictly
@@ -38,6 +43,8 @@ import {
 	type FilterConfig,
 	type InteractionView,
 	layoutToViewType,
+	listAllTasks,
+	type ListTasksOptions,
 	reorderViewsByContext,
 	resolveFilterConfig,
 	resolveTaskTypeFilter,
@@ -72,6 +79,7 @@ import { RoadmapView } from "./roadmap-view";
 import { TaskDetailModal } from "./task-detail-modal";
 import { ViewSettingsPanel } from "./view-settings-panel";
 import {
+	getColumnGroupDefs,
 	sortTasksByConfig,
 	type TaskFieldUpdate,
 	type ViewContext,
@@ -201,6 +209,53 @@ interface InteractionLayoutProps {
 	context: ViewsContext;
 	/** Optional action buttons to show in the page header */
 	headerActions?: ReactNode;
+}
+
+/**
+ * Translates a column key + column_by field into API filter options.
+ * Returns null when the column cannot be filtered server-side.
+ */
+function buildColumnFilter(
+	colKey: string,
+	columnBy: string,
+	baseOpts: ListTasksOptions,
+): ListTasksOptions | null {
+	switch (columnBy) {
+		case "status": {
+			if (colKey === "__none") return null; // no-status not filterable server-side
+			return { ...baseOpts, statusIds: [colKey], statusId: undefined };
+		}
+		case "sprint": {
+			if (colKey === "__backlog") {
+				return { ...baseOpts, sprintId: null, sprintIds: undefined };
+			}
+			return { ...baseOpts, sprintId: colKey, sprintIds: undefined };
+		}
+		case "assignee": {
+			if (colKey === "__unassigned") {
+				return {
+					...baseOpts,
+					assigneeNull: true,
+					assigneeIds: undefined,
+					assigneeId: undefined,
+				};
+			}
+			return {
+				...baseOpts,
+				assigneeIds: [colKey],
+				assigneeNull: false,
+				assigneeId: undefined,
+			};
+		}
+		case "type": {
+			if (colKey === "__none") {
+				return { ...baseOpts, taskTypeNull: true, taskTypeIds: undefined };
+			}
+			return { ...baseOpts, taskTypeIds: [colKey], taskTypeNull: false };
+		}
+		default:
+			return null;
+	}
 }
 
 export function InteractionLayout({
@@ -515,20 +570,247 @@ export function InteractionLayout({
 			taskTypes,
 		],
 	);
-	const tasksQueryOpts = allTasksQueryOptions(projectId, {
+	const viewCtx: ViewContext = useMemo(
+		() => ({ statuses, taskTypes, members, customFields, sprints }),
+		[statuses, taskTypes, members, customFields, sprints],
+	);
+
+	// ── Per-column pagination ─────────────────────────────────────────────────
+	const columnBy = activeViewConfig?.column_by ?? "status";
+	const isColumnBySupported =
+		columnBy === "status" ||
+		columnBy === "sprint" ||
+		columnBy === "assignee" ||
+		columnBy === "type";
+
+	const fetchColumnDefs = useMemo(() => {
+		if (!isColumnBySupported) return [];
+		return getColumnGroupDefs(columnBy, viewCtx);
+	}, [isColumnBySupported, columnBy, viewCtx]);
+
+	const colQueriesEnabled = fetchColumnDefs.length > 0;
+
+	// Page size: board = 20, list/roadmap = 5 on first page
+	const isBoard = activeView?.layout === "Board";
+	const initialColPageSize = isBoard ? 20 : 5;
+
+	// Base options for column queries (shared filters, no status/sprint/assignee/type per-column filter yet)
+	const colBaseOpts: ListTasksOptions = {
+		sprintId:
+			context !== "timeline" && !hasExplicitFilterConfig ? sprintId : undefined,
+		sprintIds: apiFilters.sprint_ids,
+		taskTypeIds: apiFilters.task_type_ids,
+		pageSize: initialColPageSize,
+	};
+
+	const columnQueries = useQueries({
+		queries: colQueriesEnabled
+			? fetchColumnDefs.map((col) => {
+					const colOpts = buildColumnFilter(col.key, columnBy, colBaseOpts);
+					if (!colOpts) {
+						return {
+							queryKey: ["noop", col.key] as const,
+							queryFn: () =>
+								Promise.resolve({
+									items: [] as Task[],
+									total: 0,
+									page: 1,
+									page_size: 0,
+									next_cursor: null,
+								}),
+							enabled: false,
+						};
+					}
+					return {
+						queryKey: [
+							"projects",
+							projectId,
+							"tasks",
+							"col",
+							col.key,
+							colOpts,
+						] as const,
+						queryFn: () => listAllTasks(projectId, colOpts),
+						staleTime: 15_000,
+					};
+				})
+			: [],
+	});
+
+	// Fallback single query for non-supported column_by (importance, custom fields) or roadmap
+	const fallbackQueryOpts = allTasksQueryOptions(projectId, {
 		sprintId:
 			context !== "timeline" && !hasExplicitFilterConfig ? sprintId : undefined,
 		sprintIds: apiFilters.sprint_ids,
 		statusIds: apiFilters.status_ids,
 		assigneeIds: apiFilters.assignee_ids,
 		taskTypeIds: apiFilters.task_type_ids,
+		pageSize: activeView?.layout === "Roadmap" ? 5 : undefined,
 	});
-	const tasksQuery = useQuery(tasksQueryOpts);
+	const fallbackQuery = useQuery({
+		...fallbackQueryOpts,
+		enabled: !colQueriesEnabled,
+	});
+
+	// Per-column load-more state
+	const [colNextCursors, setColNextCursors] = useState<
+		Record<string, string | null>
+	>({});
+	const [colExtraTasks, setColExtraTasks] = useState<Record<string, Task[]>>(
+		{},
+	);
+	const [colLoadingMore, setColLoadingMore] = useState<
+		Record<string, boolean>
+	>({});
+
+	// Sync next cursors from initial column query results; reset extras on re-fetch
+	const colDataUpdatedKey = columnQueries.map((q) => q.dataUpdatedAt).join(",");
+	// biome-ignore lint/correctness/useExhaustiveDependencies: re-sync only when column query data changes
+	useEffect(() => {
+		if (!colQueriesEnabled) return;
+		const updated: Record<string, string | null> = {};
+		fetchColumnDefs.forEach((col, idx) => {
+			const data = columnQueries[idx]?.data;
+			if (data) updated[col.key] = data.next_cursor ?? null;
+		});
+		setColNextCursors(updated);
+		setColExtraTasks({});
+	}, [colDataUpdatedKey, colQueriesEnabled]);
+
+	const handleLoadMoreColumn = useCallback(
+		async (colKey: string) => {
+			const cursor = colNextCursors[colKey];
+			if (!cursor) return;
+			const colOpts = buildColumnFilter(colKey, columnBy, {
+				...colBaseOpts,
+				pageSize: 20,
+				cursor,
+			});
+			if (!colOpts) return;
+			setColLoadingMore((prev) => ({ ...prev, [colKey]: true }));
+			try {
+				const result = await listAllTasks(projectId, colOpts);
+				setColExtraTasks((prev) => ({
+					...prev,
+					[colKey]: [...(prev[colKey] ?? []), ...result.items],
+				}));
+				setColNextCursors((prev) => ({
+					...prev,
+					[colKey]: result.next_cursor ?? null,
+				}));
+			} finally {
+				setColLoadingMore((prev) => ({ ...prev, [colKey]: false }));
+			}
+		},
+		[colNextCursors, columnBy, colBaseOpts, projectId],
+	);
+
+	// Global load-more (roadmap / non-column views)
+	const [globalNextCursor, setGlobalNextCursor] = useState<string | null>(
+		null,
+	);
+	const [globalExtraTasks, setGlobalExtraTasks] = useState<Task[]>([]);
+	const [globalLoadingMore, setGlobalLoadingMore] = useState(false);
+
+	useEffect(() => {
+		if (colQueriesEnabled) return;
+		setGlobalNextCursor(fallbackQuery.data?.next_cursor ?? null);
+		setGlobalExtraTasks([]);
+	}, [colQueriesEnabled, fallbackQuery.data?.next_cursor]);
+
+	const handleLoadMoreGlobal = useCallback(async () => {
+		if (!globalNextCursor) return;
+		setGlobalLoadingMore(true);
+		try {
+			const result = await listAllTasks(projectId, {
+				sprintId:
+					context !== "timeline" && !hasExplicitFilterConfig
+						? sprintId
+						: undefined,
+				sprintIds: apiFilters.sprint_ids,
+				statusIds: apiFilters.status_ids,
+				assigneeIds: apiFilters.assignee_ids,
+				taskTypeIds: apiFilters.task_type_ids,
+				pageSize: 20,
+				cursor: globalNextCursor,
+			});
+			setGlobalExtraTasks((prev) => [...prev, ...result.items]);
+			setGlobalNextCursor(result.next_cursor ?? null);
+		} finally {
+			setGlobalLoadingMore(false);
+		}
+	}, [
+		globalNextCursor,
+		projectId,
+		context,
+		hasExplicitFilterConfig,
+		sprintId,
+		apiFilters,
+	]);
+
 	const taskPositionsQuery = useQuery({
 		...viewTaskPositionsQueryOptions(projectId, effectiveViewId ?? ""),
 		enabled: !!effectiveViewId,
 	});
-	const tasks = tasksQuery.data?.items ?? [];
+
+	// Merged tasks: column queries (initial + load-more extras) OR fallback
+	const tasks = useMemo(() => {
+		if (colQueriesEnabled) {
+			const base = columnQueries.flatMap((q) => q.data?.items ?? []);
+			const extra = Object.values(colExtraTasks).flat();
+			const seen = new Set<string>();
+			return [...base, ...extra].filter((t) => {
+				if (seen.has(t.id)) return false;
+				seen.add(t.id);
+				return true;
+			});
+		}
+		return [...(fallbackQuery.data?.items ?? []), ...globalExtraTasks];
+	}, [
+		colQueriesEnabled,
+		columnQueries,
+		colExtraTasks,
+		fallbackQuery.data,
+		globalExtraTasks,
+	]);
+
+	const tasksLoading = colQueriesEnabled
+		? columnQueries.some((q) => q.isLoading)
+		: fallbackQuery.isLoading;
+
+	// Per-column pagination props for views
+	const columnPagination = useMemo(() => {
+		if (!colQueriesEnabled)
+			return {} as Record<
+				string,
+				{ hasMore: boolean; isLoadingMore: boolean; onLoadMore: () => void }
+			>;
+		const result: Record<
+			string,
+			{ hasMore: boolean; isLoadingMore: boolean; onLoadMore: () => void }
+		> = {};
+		for (const col of fetchColumnDefs) {
+			result[col.key] = {
+				hasMore: Boolean(colNextCursors[col.key]),
+				isLoadingMore: Boolean(colLoadingMore[col.key]),
+				onLoadMore: () => handleLoadMoreColumn(col.key),
+			};
+		}
+		return result;
+	}, [
+		colQueriesEnabled,
+		fetchColumnDefs,
+		colNextCursors,
+		colLoadingMore,
+		handleLoadMoreColumn,
+	]);
+
+	const globalPagination = {
+		hasMore: Boolean(globalNextCursor),
+		isLoadingMore: globalLoadingMore,
+		onLoadMore: handleLoadMoreGlobal,
+	};
+
 	const tasksWithViewPositions = useMemo(() => {
 		if (!effectiveViewId || !taskPositionsQuery.data?.length) return tasks;
 		const positionByTaskId = new Map(
@@ -544,15 +826,9 @@ export function InteractionLayout({
 			};
 		});
 	}, [effectiveViewId, taskPositionsQuery.data, tasks]);
-	const tasksLoading = tasksQuery.isLoading;
 	const tasksListQueryKey = useMemo(
 		() => ["projects", projectId, "tasks"],
 		[projectId],
-	);
-
-	const viewCtx: ViewContext = useMemo(
-		() => ({ statuses, taskTypes, members, customFields, sprints }),
-		[statuses, taskTypes, members, customFields, sprints],
 	);
 
 	const sortedTasks = useMemo(() => {
@@ -1149,6 +1425,7 @@ export function InteractionLayout({
 						canEdit={canEdit}
 						searchQuery={searchQuery}
 						tasksQueryKey={tasksListQueryKey}
+						columnPagination={columnPagination}
 						onCreateTask={handleCreateTask}
 						onTaskClick={handleTaskClick}
 						onUpdateTask={canEdit ? handleMoveToColumn : undefined}
@@ -1177,6 +1454,7 @@ export function InteractionLayout({
 						taskTypes={creatableTaskTypes}
 						searchQuery={searchQuery}
 						canCreate={canCreate}
+						pagination={globalPagination}
 						onCreateTask={handleCreateTask}
 						onTaskClick={handleTaskClick}
 					/>
@@ -1192,6 +1470,7 @@ export function InteractionLayout({
 						viewConfig={activeViewConfig}
 						canCreate={canCreate}
 						searchQuery={searchQuery}
+						columnPagination={columnPagination}
 						onCreateTask={handleCreateTask}
 						onTaskClick={handleTaskClick}
 						manualSort={isManualSort}
