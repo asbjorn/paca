@@ -683,7 +683,8 @@ export function InteractionLayout({
 		[context, hasExplicitFilterConfig, sprintId, apiFilters],
 	);
 
-	const initialGlobalPageSize = activeView?.layout === "Roadmap" ? 5 : undefined;
+	const initialGlobalPageSize =
+		activeView?.layout === "Roadmap" ? 5 : undefined;
 	const fallbackQueryOpts = allTasksQueryOptions(projectId, {
 		...fallbackBaseOpts,
 		pageSize: globalExpandedPageSize ?? initialGlobalPageSize,
@@ -749,14 +750,20 @@ export function InteractionLayout({
 				// returns the same number of items currently visible.
 				setColExpandedPageSizes((prev) => ({
 					...prev,
-					[colKey]:
-						(prev[colKey] ?? initialColPageSize) + result.items.length,
+					[colKey]: (prev[colKey] ?? initialColPageSize) + result.items.length,
 				}));
 			} finally {
 				setColLoadingMore((prev) => ({ ...prev, [colKey]: false }));
 			}
 		},
-		[colNextCursors, columnBy, colBaseOpts, projectId, colLoadingMore, initialColPageSize],
+		[
+			colNextCursors,
+			columnBy,
+			colBaseOpts,
+			projectId,
+			colLoadingMore,
+			initialColPageSize,
+		],
 	);
 
 	// Global load-more (roadmap / non-column views)
