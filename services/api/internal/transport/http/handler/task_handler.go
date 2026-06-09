@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -338,12 +339,16 @@ func (h *TaskHandler) ListTasks(c *gin.Context) {
 		filter.StatusIDs = ids
 	}
 	if raw := c.Query("assignee_id"); raw != "" {
-		id, err := uuid.Parse(raw)
-		if err != nil {
-			presenter.Error(c, apierr.New(apierr.CodeBadRequest, "invalid assignee_id"))
-			return
+		if strings.EqualFold(strings.TrimSpace(raw), "null") {
+			filter.AssigneeNull = true
+		} else {
+			id, err := uuid.Parse(raw)
+			if err != nil {
+				presenter.Error(c, apierr.New(apierr.CodeBadRequest, "invalid assignee_id"))
+				return
+			}
+			filter.AssigneeID = &id
 		}
-		filter.AssigneeID = &id
 	}
 	if ids, err := parseQueryUUIDs(c.Query("assignee_ids")); err != nil {
 		presenter.Error(c, apierr.New(apierr.CodeBadRequest, "invalid assignee_ids"))
@@ -357,6 +362,11 @@ func (h *TaskHandler) ListTasks(c *gin.Context) {
 	} else if len(ids) > 0 {
 		filter.TaskTypeIDs = ids
 	}
+	if raw := c.Query("task_type_id"); raw != "" {
+		if strings.EqualFold(strings.TrimSpace(raw), "null") {
+			filter.TaskTypeNull = true
+		}
+	}
 	if raw := c.Query("parent_task_id"); raw != "" {
 		id, err := uuid.Parse(raw)
 		if err != nil {
@@ -364,6 +374,9 @@ func (h *TaskHandler) ListTasks(c *gin.Context) {
 			return
 		}
 		filter.ParentTaskID = &id
+	}
+	if cursorRaw := c.Query("cursor"); cursorRaw != "" {
+		filter.CursorAfter = &cursorRaw
 	}
 
 	var posMap map[uuid.UUID]*sprintdom.ViewTaskPosition
@@ -400,7 +413,20 @@ func (h *TaskHandler) ListTasks(c *gin.Context) {
 		}
 		resp = append(resp, r)
 	}
-	presenter.OK(c, gin.H{"items": resp, "total": total, "page": page, "page_size": pageSize})
+
+	var nextCursor *string
+	if filter.CursorAfter != nil && total == 1 && len(tasks) > 0 {
+		last := tasks[len(tasks)-1]
+		s := encodeTaskCursor(last.CreatedAt, last.ID.String())
+		nextCursor = &s
+	}
+	presenter.OK(c, gin.H{
+		"items":       resp,
+		"total":       total,
+		"page":        page,
+		"page_size":   pageSize,
+		"next_cursor": nextCursor,
+	})
 }
 
 // GetTask handles GET /projects/:projectId/tasks/:taskId.
@@ -786,6 +812,17 @@ func (h *TaskHandler) DeleteTask(c *gin.Context) {
 }
 
 // --- helpers ----------------------------------------------------------------
+
+// encodeTaskCursor builds an opaque base64 cursor from a task's creation time and ID.
+// The cursor is used by the ListTasks endpoint for keyset-based pagination.
+func encodeTaskCursor(createdAt time.Time, id string) string {
+	type cur struct {
+		CA time.Time `json:"ca"`
+		ID string    `json:"id"`
+	}
+	b, _ := json.Marshal(cur{CA: createdAt.UTC(), ID: id})
+	return base64.URLEncoding.EncodeToString(b)
+}
 
 func parseTaskTypeID(c *gin.Context) (uuid.UUID, error) {
 	id, err := uuid.Parse(c.Param("typeId"))
