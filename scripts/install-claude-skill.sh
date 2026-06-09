@@ -61,7 +61,7 @@ install_skill() {
     wget -qO "${dest}" "${BASE_URL}/${name}.md"
   fi
 
-  success "Installed: /claude commands/${name}.md"
+  success "Installed: ~/.claude/commands/${name}.md"
 }
 
 install_skill "paca"

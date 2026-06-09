@@ -239,7 +239,10 @@ The server is published as **`@paca-ai/paca-mcp`** on npm. You run it with `npx`
 }
 ```
 
-3. Restart Claude Desktop.
+3. Restart Claude Desktop. Claude now has access to all Paca tools and can answer requests like:
+   - *"List all active sprints in project X"*
+   - *"Create a task for implementing OAuth and assign it to sprint 3"*
+   - *"Add a comment to task #42 with my progress update"*
 
 ### Other MCP-Compatible Clients
 
@@ -266,7 +269,7 @@ Any client that speaks MCP works. Typical configuration:
 
 ### Available Tools
 
-The server exposes 81 tools across these categories:
+The server exposes tools across these categories:
 
 | Category | Tools |
 |:--|:--|

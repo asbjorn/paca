@@ -26,7 +26,10 @@ Ask which environment they want to configure:
 → Run: `claude mcp add paca --env PACA_API_KEY=<key> --env PACA_API_URL=<url> -- npx -y @paca-ai/paca-mcp`
 
 **C. Claude Desktop**
-→ Edit `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) or `%APPDATA%\Claude\claude_desktop_config.json` (Windows).
+→ Edit the config file for your OS:
+- **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
+- **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
+- **Linux**: `~/.config/Claude/claude_desktop_config.json`
 
 ### Step 3 — Generate the config snippet
 
@@ -49,7 +52,6 @@ Based on their choice, generate the exact config block. Example for option A (`.
 
 Substitute the actual values the user provides. Remind them:
 - **Never commit API keys to git.** Add `.claude/mcp.json` to `.gitignore` if it contains a key, or use environment variable substitution.
-- Optional: set `PACA_PROJECT_ID` to scope Claude to a single project.
 
 ### Step 4 — Apply the config
 
@@ -84,5 +86,3 @@ curl -fsSL https://raw.githubusercontent.com/Paca-AI/paca/master/scripts/install
 |---|---|---|
 | `PACA_API_KEY` | Yes | API key from Paca → Settings → API Keys |
 | `PACA_API_URL` | No (default: `http://localhost:8080`) | Your Paca instance URL |
-| `PACA_PROJECT_ID` | No | Scope Claude to one project |
-| `PACA_AGENT_ID` | No | Agent identity (for agent-mode API keys) |

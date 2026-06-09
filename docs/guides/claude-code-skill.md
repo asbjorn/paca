@@ -10,6 +10,8 @@ Run the installer (works on macOS and Linux):
 curl -fsSL https://raw.githubusercontent.com/Paca-AI/paca/master/scripts/install-claude-skill.sh | bash
 ```
 
+> **Security note:** Review the script before running it — `curl | bash` executes remote code directly. You can inspect it at the URL above, then run `bash scripts/install-claude-skill.sh` from a local clone instead.
+
 Or, from a local clone of this repo:
 
 ```bash
@@ -56,7 +58,10 @@ Create `.claude/mcp.json` in your project root:
 
 ### Claude Desktop
 
-Add to `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) or `%APPDATA%\Claude\claude_desktop_config.json` (Windows):
+Add to the config file for your OS:
+- **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
+- **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
+- **Linux**: `~/.config/Claude/claude_desktop_config.json`
 
 ```json
 {
@@ -124,8 +129,6 @@ Interactive setup wizard. Walks you through connecting Claude Code to your Paca 
 |---|---|---|---|
 | `PACA_API_KEY` | Yes | — | API key (Paca → Settings → API Keys) |
 | `PACA_API_URL` | No | `http://localhost:8080` | Your Paca instance URL |
-| `PACA_PROJECT_ID` | No | — | Scope Claude to a single project |
-| `PACA_AGENT_ID` | No | — | Agent identity for agent-mode API keys |
 
 ## Make Paca the default for your project
 
@@ -151,4 +154,4 @@ rm ~/.claude/commands/paca.md ~/.claude/commands/paca-setup.md
 
 ## Available tools
 
-The Paca MCP server provides **81 tools** across 16 categories. See [mcp-server-setup.md](mcp-server-setup.md) for the complete reference.
+See [mcp-server-setup.md](mcp-server-setup.md) for the complete tool reference.
