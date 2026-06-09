@@ -365,6 +365,13 @@ func (h *TaskHandler) ListTasks(c *gin.Context) {
 	if raw := c.Query("task_type_id"); raw != "" {
 		if strings.EqualFold(strings.TrimSpace(raw), "null") {
 			filter.TaskTypeNull = true
+		} else {
+			id, err := uuid.Parse(raw)
+			if err != nil {
+				presenter.Error(c, apierr.New(apierr.CodeBadRequest, "invalid task_type_id"))
+				return
+			}
+			filter.TaskTypeIDs = []uuid.UUID{id}
 		}
 	}
 	if raw := c.Query("parent_task_id"); raw != "" {
@@ -415,6 +422,8 @@ func (h *TaskHandler) ListTasks(c *gin.Context) {
 	}
 
 	var nextCursor *string
+	// In cursor pagination mode the repository returns total=1 to signal "has next page",
+	// total=0 for "no more pages". This is different from offset-mode where total is the full count.
 	if filter.CursorAfter != nil && total == 1 && len(tasks) > 0 {
 		last := tasks[len(tasks)-1]
 		s := encodeTaskCursor(last.CreatedAt, last.ID.String())
