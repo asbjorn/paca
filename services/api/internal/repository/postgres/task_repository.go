@@ -339,11 +339,11 @@ func (r *TaskRepository) FindDefaultTaskStatus(ctx context.Context, projectID uu
 
 // --- Tasks ------------------------------------------------------------------
 
-// ListTasks returns a page of tasks for a project with optional filters.
-// When filter.CursorAfter is set, cursor-based pagination is used (offset is ignored).
-// In cursor mode, the returned int64 is 1 if a next page exists, 0 if not.
-// In offset mode, the returned int64 is the total count.
-func (r *TaskRepository) ListTasks(ctx context.Context, projectID uuid.UUID, filter taskdom.TaskFilter, offset, limit int) ([]*taskdom.Task, int64, error) {
+// ListTasks returns a page of tasks with optional filter.
+// When filter.CursorAfter is nil, returns from the beginning.
+// When set, returns tasks strictly after the cursor position.
+// hasMore is true when a next page exists beyond the returned slice.
+func (r *TaskRepository) ListTasks(ctx context.Context, projectID uuid.UUID, filter taskdom.TaskFilter, limit int) ([]*taskdom.Task, bool, error) {
 	q := r.db.WithContext(ctx).Model(&taskRecord{}).
 		Where("project_id = ?", projectID.String())
 
@@ -378,60 +378,35 @@ func (r *TaskRepository) ListTasks(ctx context.Context, projectID uuid.UUID, fil
 		q = q.Where("task_type_id IN ?", uuidSliceToStrSlice(filter.TaskTypeIDs))
 	}
 
-	// Cursor pagination: bypass COUNT, use keyset WHERE clause
 	if filter.CursorAfter != nil {
 		cur, err := decodeTaskCursor(*filter.CursorAfter)
 		if err != nil {
-			return nil, 0, fmt.Errorf("task repo: invalid cursor: %w", err)
+			return nil, false, fmt.Errorf("task repo: invalid cursor: %w", err)
 		}
-		q = q.Where("(created_at, id) > (?, ?)", cur.CreatedAt, cur.ID)
-
-		var records []taskRecord
-		if err := q.Order("created_at ASC, id ASC").
-			Limit(limit + 1).
-			Find(&records).Error; err != nil {
-			return nil, 0, fmt.Errorf("task repo: list cursor: %w", err)
-		}
-
-		hasMore := int64(0)
-		if len(records) > limit {
-			records = records[:limit]
-			hasMore = 1
-		}
-
-		tasks := make([]*taskdom.Task, 0, len(records))
-		for i := range records {
-			t, err := toTaskEntity(&records[i])
-			if err != nil {
-				return nil, 0, err
-			}
-			tasks = append(tasks, t)
-		}
-		return tasks, hasMore, nil
-	}
-
-	// Offset pagination (backward-compatible)
-	var total int64
-	if err := q.Count(&total).Error; err != nil {
-		return nil, 0, fmt.Errorf("task repo: list count: %w", err)
+		q = q.Where("(created_at, id) > (?, ?)", cur.CreatedAt.UTC(), cur.ID)
 	}
 
 	var records []taskRecord
 	if err := q.Order("created_at ASC, id ASC").
-		Offset(offset).Limit(limit).
+		Limit(limit + 1).
 		Find(&records).Error; err != nil {
-		return nil, 0, fmt.Errorf("task repo: list: %w", err)
+		return nil, false, fmt.Errorf("task repo: list: %w", err)
+	}
+
+	hasMore := len(records) > limit
+	if hasMore {
+		records = records[:limit]
 	}
 
 	tasks := make([]*taskdom.Task, 0, len(records))
 	for i := range records {
 		t, err := toTaskEntity(&records[i])
 		if err != nil {
-			return nil, 0, err
+			return nil, false, err
 		}
 		tasks = append(tasks, t)
 	}
-	return tasks, total, nil
+	return tasks, hasMore, nil
 }
 
 // FindTaskByID returns the task with the given ID (non-deleted).

@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -301,7 +302,10 @@ func (h *TaskHandler) ListTasks(c *gin.Context) {
 		return
 	}
 
-	page, pageSize := pagingParams(c)
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+	if pageSize < 1 || pageSize > 200 {
+		pageSize = 20
+	}
 	filter := taskdom.TaskFilter{}
 
 	if raw := c.Query("sprint_id"); raw != "" {
@@ -405,7 +409,7 @@ func (h *TaskHandler) ListTasks(c *gin.Context) {
 		}
 	}
 
-	tasks, total, err := h.svc.ListTasks(c.Request.Context(), projectID, filter, page, pageSize)
+	tasks, hasMore, err := h.svc.ListTasks(c.Request.Context(), projectID, filter, pageSize)
 	if err != nil {
 		presenter.Error(c, err)
 		return
@@ -422,28 +426,13 @@ func (h *TaskHandler) ListTasks(c *gin.Context) {
 	}
 
 	var nextCursor *string
-	// In cursor pagination mode the repository returns total=1 to signal "has next page",
-	// total=0 for "no more pages". This is different from offset-mode where total is the full count.
-	if filter.CursorAfter != nil {
-		// Cursor mode: total=1 signals has next page
-		if total == 1 && len(tasks) > 0 {
-			last := tasks[len(tasks)-1]
-			s := encodeTaskCursor(last.CreatedAt, last.ID.String())
-			nextCursor = &s
-		}
-	} else {
-		// Offset mode: total is real count; check if there are more pages
-		offset := (page - 1) * pageSize
-		if int64(offset+len(tasks)) < total && len(tasks) > 0 {
-			last := tasks[len(tasks)-1]
-			s := encodeTaskCursor(last.CreatedAt, last.ID.String())
-			nextCursor = &s
-		}
+	if hasMore && len(tasks) > 0 {
+		last := tasks[len(tasks)-1]
+		s := encodeTaskCursor(last.CreatedAt, last.ID.String())
+		nextCursor = &s
 	}
 	presenter.OK(c, gin.H{
 		"items":       resp,
-		"total":       total,
-		"page":        page,
 		"page_size":   pageSize,
 		"next_cursor": nextCursor,
 	})
@@ -1038,7 +1027,10 @@ func (h *TaskHandler) ListBacklogTasks(c *gin.Context) {
 		return
 	}
 
-	page, pageSize := pagingParams(c)
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+	if pageSize < 1 || pageSize > 200 {
+		pageSize = 20
+	}
 	filter := taskdom.TaskFilter{BacklogOnly: true}
 	if raw := c.Query("status_id"); raw != "" {
 		if id, err := uuid.Parse(raw); err == nil {
@@ -1049,6 +1041,9 @@ func (h *TaskHandler) ListBacklogTasks(c *gin.Context) {
 		if id, err := uuid.Parse(raw); err == nil {
 			filter.AssigneeID = &id
 		}
+	}
+	if cursorRaw := c.Query("cursor"); cursorRaw != "" {
+		filter.CursorAfter = &cursorRaw
 	}
 
 	var posMap map[uuid.UUID]*sprintdom.ViewTaskPosition
@@ -1070,7 +1065,7 @@ func (h *TaskHandler) ListBacklogTasks(c *gin.Context) {
 		}
 	}
 
-	tasks, total, err := h.svc.ListTasks(c.Request.Context(), projectID, filter, page, pageSize)
+	tasks, hasMore, err := h.svc.ListTasks(c.Request.Context(), projectID, filter, pageSize)
 	if err != nil {
 		presenter.Error(c, err)
 		return
@@ -1085,7 +1080,14 @@ func (h *TaskHandler) ListBacklogTasks(c *gin.Context) {
 		}
 		resp = append(resp, r)
 	}
-	presenter.OK(c, gin.H{"items": resp, "total": total, "page": page, "page_size": pageSize})
+
+	var nextCursor *string
+	if hasMore && len(tasks) > 0 {
+		last := tasks[len(tasks)-1]
+		s := encodeTaskCursor(last.CreatedAt, last.ID.String())
+		nextCursor = &s
+	}
+	presenter.OK(c, gin.H{"items": resp, "page_size": pageSize, "next_cursor": nextCursor})
 }
 
 // ListTimelineTasks handles GET /projects/:projectId/timeline.
@@ -1098,7 +1100,10 @@ func (h *TaskHandler) ListTimelineTasks(c *gin.Context) {
 		return
 	}
 
-	page, pageSize := pagingParams(c)
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+	if pageSize < 1 || pageSize > 200 {
+		pageSize = 20
+	}
 	filter := taskdom.TaskFilter{}
 	if ids, err := parseQueryUUIDs(c.Query("task_type_ids")); err != nil {
 		presenter.Error(c, apierr.New(apierr.CodeBadRequest, "invalid task_type_ids"))
@@ -1116,6 +1121,9 @@ func (h *TaskHandler) ListTimelineTasks(c *gin.Context) {
 			filter.AssigneeID = &id
 		}
 	}
+	if cursorRaw := c.Query("cursor"); cursorRaw != "" {
+		filter.CursorAfter = &cursorRaw
+	}
 
 	var posMap map[uuid.UUID]*sprintdom.ViewTaskPosition
 	if raw := c.Query("view_id"); raw != "" {
@@ -1136,7 +1144,7 @@ func (h *TaskHandler) ListTimelineTasks(c *gin.Context) {
 		}
 	}
 
-	tasks, total, err := h.svc.ListTasks(c.Request.Context(), projectID, filter, page, pageSize)
+	tasks, hasMore, err := h.svc.ListTasks(c.Request.Context(), projectID, filter, pageSize)
 	if err != nil {
 		presenter.Error(c, err)
 		return
@@ -1151,7 +1159,14 @@ func (h *TaskHandler) ListTimelineTasks(c *gin.Context) {
 		}
 		resp = append(resp, r)
 	}
-	presenter.OK(c, gin.H{"items": resp, "total": total, "page": page, "page_size": pageSize})
+
+	var nextCursor *string
+	if hasMore && len(tasks) > 0 {
+		last := tasks[len(tasks)-1]
+		s := encodeTaskCursor(last.CreatedAt, last.ID.String())
+		nextCursor = &s
+	}
+	presenter.OK(c, gin.H{"items": resp, "page_size": pageSize, "next_cursor": nextCursor})
 }
 
 // --- Activities / Comments --------------------------------------------------

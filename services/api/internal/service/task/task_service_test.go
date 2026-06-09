@@ -220,7 +220,7 @@ func (r *fakeTaskRepo) FindDefaultTaskStatus(_ context.Context, projectID uuid.U
 
 // -- Task methods --
 
-func (r *fakeTaskRepo) ListTasks(_ context.Context, projectID uuid.UUID, filter taskdom.TaskFilter, offset, limit int) ([]*taskdom.Task, int64, error) {
+func (r *fakeTaskRepo) ListTasks(_ context.Context, projectID uuid.UUID, filter taskdom.TaskFilter, limit int) ([]*taskdom.Task, bool, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	all := make([]*taskdom.Task, 0)
@@ -240,15 +240,11 @@ func (r *fakeTaskRepo) ListTasks(_ context.Context, projectID uuid.UUID, filter 
 		cp := *t
 		all = append(all, &cp)
 	}
-	total := int64(len(all))
-	if offset >= len(all) {
-		return nil, total, nil
+	hasMore := len(all) > limit
+	if hasMore {
+		all = all[:limit]
 	}
-	end := offset + limit
-	if end > len(all) {
-		end = len(all)
-	}
-	return all[offset:end], total, nil
+	return all, hasMore, nil
 }
 
 func (r *fakeTaskRepo) FindTaskByID(_ context.Context, id uuid.UUID) (*taskdom.Task, error) {
@@ -792,15 +788,12 @@ func TestListTasks_FilterBySprint(t *testing.T) {
 		Title:     "No Sprint",
 	})
 
-	tasks, total, err := svc.ListTasks(ctx, projectID, taskdom.TaskFilter{SprintID: &sprintID}, 1, 20)
+	tasks, _, err := svc.ListTasks(ctx, projectID, taskdom.TaskFilter{SprintID: &sprintID}, 20)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if total != 1 {
-		t.Errorf("expected total=1, got %d", total)
-	}
 	if len(tasks) != 1 || tasks[0].Title != "In Sprint" {
-		t.Errorf("expected filtered task In Sprint, got %v", tasks)
+		t.Errorf("expected 1 filtered task In Sprint, got %v", tasks)
 	}
 }
 
@@ -817,12 +810,15 @@ func TestListTasks_Pagination(t *testing.T) {
 		})
 	}
 
-	_, total, err := svc.ListTasks(ctx, projectID, taskdom.TaskFilter{}, 1, 3)
+	tasks, hasMore, err := svc.ListTasks(ctx, projectID, taskdom.TaskFilter{}, 3)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if total != 5 {
-		t.Errorf("expected total=5, got %d", total)
+	if len(tasks) != 3 {
+		t.Errorf("expected 3 tasks in first page, got %d", len(tasks))
+	}
+	if !hasMore {
+		t.Errorf("expected hasMore=true for page of 3 from 5")
 	}
 }
 

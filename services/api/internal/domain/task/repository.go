@@ -42,7 +42,7 @@ type TaskStatusRepository interface {
 
 // TaskRepository defines persistence operations for tasks.
 type TaskRepository interface {
-	ListTasks(ctx context.Context, projectID uuid.UUID, filter TaskFilter, offset, limit int) ([]*Task, int64, error)
+	ListTasks(ctx context.Context, projectID uuid.UUID, filter TaskFilter, limit int) ([]*Task, bool, error)
 	FindTaskByID(ctx context.Context, id uuid.UUID) (*Task, error)
 	FindTaskByNumber(ctx context.Context, projectID uuid.UUID, taskNumber int64) (*Task, error)
 	CreateTask(ctx context.Context, t *Task) error
