@@ -19,7 +19,6 @@ import {
 	GanttChart,
 	Home,
 	KanbanSquare,
-	LayoutDashboard,
 	Monitor,
 	Moon,
 	MoreHorizontal,
@@ -842,7 +841,6 @@ function NavItem({
 
 // ── Project Nav ───────────────────────────────────────────────────────────────
 const PROJECT_NAV_ITEMS = [
-	{ segment: "", icon: LayoutDashboard, label: "Dashboard" },
 	{ segment: "agents", icon: Bot, label: "Agents" },
 	{ segment: "team", icon: Users, label: "Team" },
 	{ segment: "settings", icon: Settings, label: "Settings" },
