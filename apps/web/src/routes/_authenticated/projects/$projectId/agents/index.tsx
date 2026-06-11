@@ -2,6 +2,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
 	Bot,
+	BriefcaseBusiness,
+	CalendarRange,
 	ChevronLeft,
 	ChevronRight,
 	Code2,
@@ -82,6 +84,8 @@ const PRESET_ICON_MAP: Record<string, ComponentType<{ className?: string }>> = {
 	"software-engineer": Code2,
 	"code-reviewer": Search,
 	"qa-engineer": FlaskConical,
+	planner: CalendarRange,
+	"business-analyst": BriefcaseBusiness,
 	custom: Settings,
 };
 
