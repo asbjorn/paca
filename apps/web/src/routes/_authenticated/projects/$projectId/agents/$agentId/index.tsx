@@ -60,7 +60,6 @@ import {
 	deleteMCPServer,
 	deleteSkill,
 	llmModelsQueryOptions,
-	TRIGGER_PROMPTS,
 	updateAgent,
 	updateMCPServer,
 	updateSkill,
@@ -108,6 +107,17 @@ function OverviewTab({
 	const [llmApiKey, setLlmApiKey] = useState("");
 	const [llmBaseUrl, setLlmBaseUrl] = useState(agent.llm_base_url ?? "");
 	const [systemPrompt, setSystemPrompt] = useState(agent.system_prompt);
+	const [taskTriggerPrompt, setTaskTriggerPrompt] = useState(
+		agent.task_trigger_prompt,
+	);
+	const [docCommentTriggerPrompt, setDocCommentTriggerPrompt] = useState(
+		agent.doc_comment_trigger_prompt,
+	);
+	const [chatTriggerPrompt, setChatTriggerPrompt] = useState(
+		agent.chat_trigger_prompt,
+	);
+	const [descriptionWriteTriggerPrompt, setDescriptionWriteTriggerPrompt] =
+		useState(agent.description_write_trigger_prompt);
 	const [canClone, setCanClone] = useState(agent.can_clone_repos);
 	const [committerName, setCommitterName] = useState(agent.git_committer_name);
 	const [committerEmail, setCommitterEmail] = useState(
@@ -121,6 +131,10 @@ function OverviewTab({
 		llmApiKey !== "" ||
 		llmBaseUrl !== (agent.llm_base_url ?? "") ||
 		systemPrompt !== agent.system_prompt ||
+		taskTriggerPrompt !== agent.task_trigger_prompt ||
+		docCommentTriggerPrompt !== agent.doc_comment_trigger_prompt ||
+		chatTriggerPrompt !== agent.chat_trigger_prompt ||
+		descriptionWriteTriggerPrompt !== agent.description_write_trigger_prompt ||
 		canClone !== agent.can_clone_repos ||
 		committerName !== agent.git_committer_name ||
 		committerEmail !== agent.git_committer_email;
@@ -134,6 +148,10 @@ function OverviewTab({
 				...(llmApiKey ? { llm_api_key: llmApiKey } : {}),
 				llm_base_url: llmBaseUrl || null,
 				system_prompt: systemPrompt,
+				task_trigger_prompt: taskTriggerPrompt,
+				doc_comment_trigger_prompt: docCommentTriggerPrompt,
+				chat_trigger_prompt: chatTriggerPrompt,
+				description_write_trigger_prompt: descriptionWriteTriggerPrompt,
 				can_clone_repos: canClone,
 				git_committer_name: committerName.trim(),
 				git_committer_email: committerEmail.trim(),
@@ -257,17 +275,29 @@ function OverviewTab({
 					</Label>
 					<p className="mt-1 text-[10px] text-muted-foreground">
 						Automatically appended to the system prompt at runtime based on how
-						the agent is invoked. Not editable.
+						the agent is invoked.
 					</p>
 				</div>
 				{(
 					[
-						["Task assignment / task comment", TRIGGER_PROMPTS.task],
-						["Documentation comment @mention", TRIGGER_PROMPTS.docComment],
-						["Direct chat", TRIGGER_PROMPTS.chat],
-						["Write task description with AI", TRIGGER_PROMPTS.descriptionWrite],
-					] as [string, string][]
-				).map(([label, prompt]) => (
+						[
+							"Task assignment / task comment",
+							taskTriggerPrompt,
+							setTaskTriggerPrompt,
+						],
+						[
+							"Documentation comment @mention",
+							docCommentTriggerPrompt,
+							setDocCommentTriggerPrompt,
+						],
+						["Direct chat", chatTriggerPrompt, setChatTriggerPrompt],
+						[
+							"Write task description with AI",
+							descriptionWriteTriggerPrompt,
+							setDescriptionWriteTriggerPrompt,
+						],
+					] as [string, string, (v: string) => void][]
+				).map(([label, value, setValue]) => (
 					<details
 						key={label}
 						className="group rounded-md border border-border/60 bg-muted/20"
@@ -276,9 +306,13 @@ function OverviewTab({
 							{label}
 						</summary>
 						<div className="border-t border-border/60 px-3 py-2">
-							<pre className="whitespace-pre-wrap font-mono text-[10px] leading-relaxed text-muted-foreground">
-								{prompt}
-							</pre>
+							<Textarea
+								value={value}
+								onChange={(e) => setValue(e.target.value)}
+								rows={6}
+								disabled={!canWrite}
+								className="font-mono text-[10px] leading-relaxed"
+							/>
 						</div>
 					</details>
 				))}
