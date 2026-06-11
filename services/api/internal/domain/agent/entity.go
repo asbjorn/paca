@@ -18,10 +18,11 @@ type Agent struct {
 	LLMModel          string
 	LLMAPIKeySecret   string // reference to secrets store entry
 	LLMBaseURL        *string
-	SystemPrompt             string
-	TaskTriggerPrompt        string
-	DocCommentTriggerPrompt  string
-	ChatTriggerPrompt        string
+	SystemPrompt                  string
+	TaskTriggerPrompt             string
+	DocCommentTriggerPrompt       string
+	ChatTriggerPrompt             string
+	DescriptionWriteTriggerPrompt string
 	CanCloneRepos            bool
 	CanCreatePRs      bool
 	MaxIterations     int

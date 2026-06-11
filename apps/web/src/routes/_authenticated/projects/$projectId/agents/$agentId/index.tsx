@@ -265,6 +265,7 @@ function OverviewTab({
 						["Task assignment / task comment", TRIGGER_PROMPTS.task],
 						["Documentation comment @mention", TRIGGER_PROMPTS.docComment],
 						["Direct chat", TRIGGER_PROMPTS.chat],
+						["Write task description with AI", TRIGGER_PROMPTS.descriptionWrite],
 					] as [string, string][]
 				).map(([label, prompt]) => (
 					<details
@@ -882,7 +883,12 @@ function ConversationRow({
 			>
 				<div className="flex items-center gap-2">
 					<span className="text-sm font-medium truncate">
-						{conv.trigger_type === "chat_message" ? "Chat" : "Task"} ·{" "}
+						{conv.trigger_type === "chat_message"
+							? "Chat"
+							: conv.trigger_type === "description_write"
+								? "Write description"
+								: "Task"}{" "}
+						·{" "}
 						{conv.id.slice(0, 8)}
 					</span>
 					<Badge

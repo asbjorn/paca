@@ -32,6 +32,7 @@ class AgentConfig:
     task_trigger_prompt: str
     doc_comment_trigger_prompt: str
     chat_trigger_prompt: str
+    description_write_trigger_prompt: str
     llm_provider: str
     llm_model: str
     llm_api_key_secret_ref: str

@@ -426,6 +426,9 @@ async def run_conversation(trigger: TriggerMessage, agent_config: AgentConfig) -
         elif trigger.trigger_type == "agent.chat_message":
             if agent_config.chat_trigger_prompt:
                 system_suffix += "\n\n" + agent_config.chat_trigger_prompt
+        elif trigger.trigger_type == "agent.description_write":
+            if agent_config.description_write_trigger_prompt:
+                system_suffix += "\n\n" + agent_config.description_write_trigger_prompt
 
         agent_context = AgentContext(skills=skills, system_message_suffix=system_suffix)
 

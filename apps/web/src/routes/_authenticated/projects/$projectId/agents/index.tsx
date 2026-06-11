@@ -159,6 +159,7 @@ function CreateAgentDialog({
 				task_trigger_prompt: TRIGGER_PROMPTS.task,
 				doc_comment_trigger_prompt: TRIGGER_PROMPTS.docComment,
 				chat_trigger_prompt: TRIGGER_PROMPTS.chat,
+				description_write_trigger_prompt: TRIGGER_PROMPTS.descriptionWrite,
 				project_role_id: roleId,
 			}),
 		onSuccess: () => {

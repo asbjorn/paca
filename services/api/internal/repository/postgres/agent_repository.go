@@ -25,11 +25,12 @@ type agentRecord struct {
 	LLMModel          string  `gorm:"column:llm_model"`
 	LLMAPIKeySecret   string  `gorm:"column:llm_api_key_secret"`
 	LLMBaseURL        *string `gorm:"column:llm_base_url"`
-	SystemPrompt            string `gorm:"column:system_prompt"`
-	TaskTriggerPrompt       string `gorm:"column:task_trigger_prompt"`
-	DocCommentTriggerPrompt string `gorm:"column:doc_comment_trigger_prompt"`
-	ChatTriggerPrompt       string `gorm:"column:chat_trigger_prompt"`
-	CanCloneRepos           bool   `gorm:"column:can_clone_repos"`
+	SystemPrompt                  string `gorm:"column:system_prompt"`
+	TaskTriggerPrompt             string `gorm:"column:task_trigger_prompt"`
+	DocCommentTriggerPrompt       string `gorm:"column:doc_comment_trigger_prompt"`
+	ChatTriggerPrompt             string `gorm:"column:chat_trigger_prompt"`
+	DescriptionWriteTriggerPrompt string `gorm:"column:description_write_trigger_prompt"`
+	CanCloneRepos                 bool   `gorm:"column:can_clone_repos"`
 	CanCreatePRs      bool    `gorm:"column:can_create_prs"`
 	MaxIterations     int     `gorm:"column:max_iterations"`
 	TimeoutMinutes    int     `gorm:"column:timeout_minutes"`
@@ -54,12 +55,13 @@ type agentReadRow struct {
 	LLMModel          string
 	LLMAPIKeySecret   string
 	LLMBaseURL        *string
-	SystemPrompt            string
-	TaskTriggerPrompt       string
-	DocCommentTriggerPrompt string
-	ChatTriggerPrompt       string
-	CanCloneRepos           bool
-	CanCreatePRs            bool
+	SystemPrompt                  string
+	TaskTriggerPrompt             string
+	DocCommentTriggerPrompt       string
+	ChatTriggerPrompt             string
+	DescriptionWriteTriggerPrompt string
+	CanCloneRepos                 bool
+	CanCreatePRs                  bool
 	MaxIterations           int
 	TimeoutMinutes          int
 	GitCommitterName        string
@@ -267,11 +269,12 @@ func (r *AgentRepository) UpdateAgent(ctx context.Context, a *agentdom.Agent) er
 		"llm_provider":        a.LLMProvider,
 		"llm_model":           a.LLMModel,
 		"llm_base_url":        a.LLMBaseURL,
-		"system_prompt":              a.SystemPrompt,
-		"task_trigger_prompt":        a.TaskTriggerPrompt,
-		"doc_comment_trigger_prompt": a.DocCommentTriggerPrompt,
-		"chat_trigger_prompt":        a.ChatTriggerPrompt,
-		"can_clone_repos":            a.CanCloneRepos,
+		"system_prompt":                   a.SystemPrompt,
+		"task_trigger_prompt":             a.TaskTriggerPrompt,
+		"doc_comment_trigger_prompt":      a.DocCommentTriggerPrompt,
+		"chat_trigger_prompt":             a.ChatTriggerPrompt,
+		"description_write_trigger_prompt": a.DescriptionWriteTriggerPrompt,
+		"can_clone_repos":                 a.CanCloneRepos,
 		"can_create_prs":      a.CanCreatePRs,
 		"max_iterations":      a.MaxIterations,
 		"timeout_minutes":     a.TimeoutMinutes,
@@ -611,11 +614,12 @@ func agentFromReadRow(row agentReadRow) *agentdom.Agent {
 		LLMModel:          row.LLMModel,
 		LLMAPIKeySecret:   row.LLMAPIKeySecret,
 		LLMBaseURL:        row.LLMBaseURL,
-		SystemPrompt:            row.SystemPrompt,
-		TaskTriggerPrompt:       row.TaskTriggerPrompt,
-		DocCommentTriggerPrompt: row.DocCommentTriggerPrompt,
-		ChatTriggerPrompt:       row.ChatTriggerPrompt,
-		CanCloneRepos:           row.CanCloneRepos,
+		SystemPrompt:                  row.SystemPrompt,
+		TaskTriggerPrompt:             row.TaskTriggerPrompt,
+		DocCommentTriggerPrompt:       row.DocCommentTriggerPrompt,
+		ChatTriggerPrompt:             row.ChatTriggerPrompt,
+		DescriptionWriteTriggerPrompt: row.DescriptionWriteTriggerPrompt,
+		CanCloneRepos:                 row.CanCloneRepos,
 		CanCreatePRs:      row.CanCreatePRs,
 		MaxIterations:     row.MaxIterations,
 		TimeoutMinutes:    row.TimeoutMinutes,
@@ -650,11 +654,12 @@ func agentToRecord(a *agentdom.Agent) agentRecord {
 		LLMModel:          a.LLMModel,
 		LLMAPIKeySecret:   a.LLMAPIKeySecret,
 		LLMBaseURL:        a.LLMBaseURL,
-		SystemPrompt:            a.SystemPrompt,
-		TaskTriggerPrompt:       a.TaskTriggerPrompt,
-		DocCommentTriggerPrompt: a.DocCommentTriggerPrompt,
-		ChatTriggerPrompt:       a.ChatTriggerPrompt,
-		CanCloneRepos:           a.CanCloneRepos,
+		SystemPrompt:                  a.SystemPrompt,
+		TaskTriggerPrompt:             a.TaskTriggerPrompt,
+		DocCommentTriggerPrompt:       a.DocCommentTriggerPrompt,
+		ChatTriggerPrompt:             a.ChatTriggerPrompt,
+		DescriptionWriteTriggerPrompt: a.DescriptionWriteTriggerPrompt,
+		CanCloneRepos:                 a.CanCloneRepos,
 		CanCreatePRs:      a.CanCreatePRs,
 		MaxIterations:     a.MaxIterations,
 		TimeoutMinutes:    a.TimeoutMinutes,

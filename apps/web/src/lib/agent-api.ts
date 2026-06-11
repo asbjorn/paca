@@ -18,12 +18,15 @@ export interface AgentPreset {
 // system prompt at invocation time.
 
 export const TRIGGER_PROMPTS = {
-	task: "## Current invocation: task assignment or task comment\n\nYou were triggered by a task assignment or a task comment @mention. Wrap your work with these steps:\n\n1. **Read the task**: Use the Paca MCP tool to fetch the full task details including description, acceptance criteria, and current status.\n2. **Check readiness**: If anything is unclear, add a comment on the task asking for clarification and wait for a response before proceeding.\n3. **Update status**: Use the Paca MCP tool to update the task status to the appropriate in-progress status.\n4. **Do your work** as described in your role above.\n5. **Update status**: Use the Paca MCP tool to update the task status to the appropriate done/completed status.\n6. **Reply**: Add a comment on the task summarising what was done, key decisions made, and any follow-up items.",
+	task: "## Current invocation: task assignment or task comment\n\nYou were triggered by a task assignment or a task comment @mention. Wrap your work with these steps:\n\n1. **Read the task**: Use the Paca MCP tool to fetch the full task details including description, acceptance criteria, and current status.\n2. **Read the documentation**: Use the Paca MCP tool to list and read the project's documents. Focus on architecture guides, technical conventions, onboarding docs, or any document relevant to your task. This gives you the full project context before you begin.\n3. **Check readiness**: If anything is unclear after reading the task and docs, add a comment on the task asking for clarification and wait for a response before proceeding.\n4. **Update status**: Use the Paca MCP tool to update the task status to the appropriate in-progress status.\n5. **Do your work** as described in your role above.\n6. **Update status**: Use the Paca MCP tool to update the task status to the appropriate done/completed status.\n7. **Reply**: Add a comment on the task summarising what was done, key decisions made, and any follow-up items.",
 
 	docComment:
-		"## Current invocation: documentation comment\n\nYou were triggered by a documentation comment @mention. Wrap your work with these steps:\n\n1. **Check readiness**: If anything is unclear, add a comment asking for clarification and wait for a response before proceeding.\n2. **Do your work** as described in your role above.\n3. **Reply**: Add a comment with your response and any relevant follow-up items.",
+		"## Current invocation: documentation comment\n\nYou were triggered by a documentation comment @mention. Wrap your work with these steps:\n\n1. **Read the documentation**: Use the Paca MCP tool to list and read the project's documents. Prioritise the document that triggered this mention as well as any related architecture or convention docs to build full context.\n2. **Check readiness**: If anything is unclear, add a comment asking for clarification and wait for a response before proceeding.\n3. **Do your work** as described in your role above.\n4. **Reply**: Add a comment with your response and any relevant follow-up items.",
 
-	chat: "## Current invocation: direct chat\n\nYou were triggered by direct chat. The user cannot reply in the same session, so:\n\n1. **If anything is unclear and you must ask**, send your question as a message in the conversation and stop. The user will read it and may continue in a new conversation.\n2. **If you have enough information**, proceed with your work without asking.\n3. **Do your work** as described in your role above.\n4. **Reply**: Respond directly in the conversation.",
+	chat: "## Current invocation: direct chat\n\nYou were triggered by direct chat. The user cannot reply in the same session, so:\n\n1. **Read the documentation**: Use the Paca MCP tool to list and read the project's documents to understand the project context, architecture, and conventions before responding.\n2. **If anything is unclear and you must ask**, send your question as a message in the conversation and stop. The user will read it and may continue in a new conversation.\n3. **If you have enough information**, proceed with your work without asking.\n4. **Do your work** as described in your role above.\n5. **Reply**: Respond directly in the conversation.",
+
+	descriptionWrite:
+		"## Current invocation: write task description\n\nYou were triggered to write a description for a specific task. Follow these steps:\n\n1. **Read the task**: Use the Paca MCP tool to fetch the full task details including its title, type, and any existing description.\n2. **Read the documentation**: Use the Paca MCP tool to list and read the project's documents. Focus on architecture guides, domain context, or any docs that help you write an accurate and well-informed description.\n3. **Write the description**: Based on the task title, project context, and documentation, write a clear, concise, and actionable task description. Include:\n   - A brief summary of what needs to be done\n   - Acceptance criteria (what done looks like)\n   - Any relevant technical notes or constraints\n4. **Update the task**: Use the Paca MCP tool to update the task's description with the content you wrote.\n5. **Reply**: Add a comment on the task confirming the description has been written and noting any assumptions made.",
 } as const;
 
 export const AGENT_PRESETS: AgentPreset[] = [
@@ -125,6 +128,7 @@ export interface Agent {
 	task_trigger_prompt: string;
 	doc_comment_trigger_prompt: string;
 	chat_trigger_prompt: string;
+	description_write_trigger_prompt: string;
 	can_clone_repos: boolean;
 	git_committer_name: string;
 	git_committer_email: string;
@@ -146,7 +150,11 @@ export interface AgentConversation {
 	id: string;
 	agent_id: string;
 	project_id: string;
-	trigger_type: "task_assigned" | "comment_mention" | "chat_message";
+	trigger_type:
+		| "task_assigned"
+		| "comment_mention"
+		| "chat_message"
+		| "description_write";
 	task_id?: string | null;
 	comment_id?: string | null;
 	chat_session_id?: string | null;
@@ -215,6 +223,7 @@ export async function createAgent(
 		task_trigger_prompt?: string;
 		doc_comment_trigger_prompt?: string;
 		chat_trigger_prompt?: string;
+		description_write_trigger_prompt?: string;
 		can_clone_repos?: boolean;
 		git_committer_name?: string;
 		git_committer_email?: string;
@@ -242,6 +251,7 @@ export async function updateAgent(
 		task_trigger_prompt?: string;
 		doc_comment_trigger_prompt?: string;
 		chat_trigger_prompt?: string;
+		description_write_trigger_prompt?: string;
 		can_clone_repos?: boolean;
 		git_committer_name?: string;
 		git_committer_email?: string;
@@ -252,6 +262,19 @@ export async function updateAgent(
 		payload,
 	);
 	return data.data;
+}
+
+export async function writeTaskDescriptionWithAI(
+	projectId: string,
+	taskId: string,
+	agentId: string,
+): Promise<AgentConversation> {
+	const { data } = await apiClient.instance.post<
+		SuccessEnvelope<{ conversation: AgentConversation }>
+	>(`/projects/${projectId}/tasks/${taskId}/write-with-ai`, {
+		agent_id: agentId,
+	});
+	return data.data.conversation;
 }
 
 export async function deleteAgent(
