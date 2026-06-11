@@ -102,9 +102,11 @@ export function DocActivityPane({
 						if (typeof ch.old === "string") payload.title = ch.old;
 						break;
 					case "content":
-						payload.content = Array.isArray(ch.old)
-							? (ch.old as unknown[])
-							: null;
+						if (ch.old !== undefined) {
+							payload.content = Array.isArray(ch.old)
+								? (ch.old as unknown[])
+								: null;
+						}
 						break;
 				}
 			}
@@ -125,7 +127,11 @@ export function DocActivityPane({
 		if (!changes) return null;
 		const contentChange = changes.find((ch) => ch.field === "content");
 		if (!contentChange || contentChange.old === undefined) return null;
-		return { old: contentChange.old, new: contentChange.new };
+		return {
+			old: contentChange.old,
+			new: contentChange.new,
+			title: "Content change diff",
+		};
 	}, []);
 
 	const isRevertable = useCallback((entry: DocActivity) => {
@@ -133,7 +139,9 @@ export function DocActivityPane({
 		const c = entry.content as Record<string, unknown> | null;
 		const changes = c?.changes as DocActivityChange[] | undefined;
 		if (!changes?.length) return false;
-		return changes.some((ch) => ch.field === "title" || ch.field === "content");
+		return changes.some(
+			(ch) => (ch.field === "title" || ch.field === "content") && "old" in ch,
+		);
 	}, []);
 
 	return (

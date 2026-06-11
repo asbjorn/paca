@@ -215,7 +215,11 @@ function DocEditorPage() {
 				{/* Right panel: activity */}
 				{rightPanel === "activity" && doc && (
 					<div className="w-80 shrink-0 h-full overflow-hidden">
-						<DocActivityPane projectId={projectId} docId={docId} />
+						<DocActivityPane
+							projectId={projectId}
+							docId={docId}
+							canEdit={canWrite}
+						/>
 					</div>
 				)}
 			</div>

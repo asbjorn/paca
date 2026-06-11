@@ -192,9 +192,11 @@ export function TaskActivityPane({
 							typeof oldVal === "string" && oldVal ? oldVal : null;
 						break;
 					case "description":
-						payload.description = Array.isArray(oldVal)
-							? (oldVal as unknown[])
-							: null;
+						if (oldVal !== undefined) {
+							payload.description = Array.isArray(oldVal)
+								? (oldVal as unknown[])
+								: null;
+						}
 						break;
 					case "tags":
 						if (Array.isArray(oldVal)) {
@@ -224,16 +226,19 @@ export function TaskActivityPane({
 		if (!changes) return null;
 		const descChange = changes.find((ch) => ch.field === "description");
 		if (!descChange || descChange.old === undefined) return null;
-		return { old: descChange.old, new: descChange.new };
+		return {
+			old: descChange.old,
+			new: descChange.new,
+			title: "Description change diff",
+		};
 	}, []);
 
 	const isRevertable = useCallback((entry: Activity) => {
 		if (entry.activity_type !== "task.updated") return false;
 		const c = entry.content as Record<string, unknown> | null;
-		const changes = c?.changes as
-			| Array<{ field: string; old?: unknown }>
-			| undefined;
-		return !!(changes && changes.length > 0);
+		const changes = c?.changes as Array<Record<string, unknown>> | undefined;
+		if (!changes?.length) return false;
+		return changes.some((ch) => typeof ch.field === "string" && "old" in ch);
 	}, []);
 
 	return (

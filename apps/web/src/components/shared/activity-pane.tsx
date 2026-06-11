@@ -53,7 +53,9 @@ export interface ActivityPaneConfig<T extends ActivityEntry> {
 	updateComment?: (commentId: string, blocks: unknown[]) => Promise<unknown>;
 	deleteComment?: (commentId: string) => Promise<void>;
 	onRevert?: (entry: T) => Promise<void>;
-	getDiffContent?: (entry: T) => { old: unknown; new: unknown } | null;
+	getDiffContent?: (
+		entry: T,
+	) => { old: unknown; new: unknown; title?: string } | null;
 	isRevertable?: (entry: T) => boolean;
 	describeActivity: (entry: T) => ReactNode;
 	getCommentBlocks: (content: T["content"]) => unknown[] | null;
@@ -296,7 +298,9 @@ interface ActivityItemInnerProps<T extends ActivityEntry> {
 	updateComment?: (commentId: string, blocks: unknown[]) => Promise<unknown>;
 	deleteComment?: (commentId: string) => Promise<void>;
 	onRevert?: (entry: T) => Promise<void>;
-	getDiffContent?: (entry: T) => { old: unknown; new: unknown } | null;
+	getDiffContent?: (
+		entry: T,
+	) => { old: unknown; new: unknown; title?: string } | null;
 	isRevertable?: (entry: T) => boolean;
 	queryKey: QueryKey;
 	currentUserId?: string;
@@ -322,6 +326,7 @@ function ActivityItemInner<T extends ActivityEntry>({
 	const commentBlocks = getCommentBlocks(entry.content);
 	const [diffOpen, setDiffOpen] = useState(false);
 	const [revertPending, setRevertPending] = useState(false);
+	const [revertError, setRevertError] = useState<string | null>(null);
 
 	const isComment = entry.activity_type === "comment";
 	const displayName = entry.actor_name || entry.actor_username || "System";
@@ -355,9 +360,12 @@ function ActivityItemInner<T extends ActivityEntry>({
 	const handleRevert = async () => {
 		if (!onRevert) return;
 		setRevertPending(true);
+		setRevertError(null);
 		try {
 			await onRevert(entry);
 			qc.invalidateQueries({ queryKey });
+		} catch {
+			setRevertError("Revert failed. Please try again.");
 		} finally {
 			setRevertPending(false);
 		}
@@ -427,56 +435,63 @@ function ActivityItemInner<T extends ActivityEntry>({
 						)}
 					</div>
 				) : (
-					<div className="group flex items-start gap-1 py-0.5">
-						<div className="flex-1 min-w-0 flex flex-wrap items-center gap-1.5">
-							<span className="text-[12px] font-medium text-foreground/80">
-								{displayName}
-							</span>
-							<span className="text-[12px] text-muted-foreground/70">
-								{describeActivity(entry)}
-							</span>
-							<span className="text-[10px] text-muted-foreground/45">
-								{timeAgo(entry.created_at)}
-							</span>
+					<div className="flex flex-col min-w-0">
+						<div className="group flex items-start gap-1 py-0.5">
+							<div className="flex-1 min-w-0 flex flex-wrap items-center gap-1.5">
+								<span className="text-[12px] font-medium text-foreground/80">
+									{displayName}
+								</span>
+								<span className="text-[12px] text-muted-foreground/70">
+									{describeActivity(entry)}
+								</span>
+								<span className="text-[10px] text-muted-foreground/45">
+									{timeAgo(entry.created_at)}
+								</span>
+							</div>
+							{(diffContent || canRevert) && (
+								<>
+									<DropdownMenu>
+										<DropdownMenuTrigger className="shrink-0 inline-flex items-center justify-center size-5 rounded-md text-muted-foreground/50 hover:text-foreground hover:bg-muted/60 opacity-0 group-hover:opacity-100 transition-all duration-150">
+											<MoreVertical className="size-3" />
+										</DropdownMenuTrigger>
+										<DropdownMenuContent align="end" className="w-40">
+											{diffContent && (
+												<DropdownMenuItem onClick={() => setDiffOpen(true)}>
+													<GitBranch className="size-3.5 mr-2" />
+													View diff
+												</DropdownMenuItem>
+											)}
+											{canRevert && (
+												<DropdownMenuItem
+													onClick={handleRevert}
+													disabled={revertPending}
+												>
+													{revertPending ? (
+														<Loader2 className="size-3.5 mr-2 animate-spin" />
+													) : (
+														<RotateCcw className="size-3.5 mr-2" />
+													)}
+													Revert
+												</DropdownMenuItem>
+											)}
+										</DropdownMenuContent>
+									</DropdownMenu>
+									{diffContent && (
+										<ContentDiffDialog
+											open={diffOpen}
+											onOpenChange={setDiffOpen}
+											oldContent={diffContent.old}
+											newContent={diffContent.new}
+											title={diffContent.title ?? "Change diff"}
+										/>
+									)}
+								</>
+							)}
 						</div>
-						{(diffContent || canRevert) && (
-							<>
-								<DropdownMenu>
-									<DropdownMenuTrigger className="shrink-0 inline-flex items-center justify-center size-5 rounded-md text-muted-foreground/50 hover:text-foreground hover:bg-muted/60 opacity-0 group-hover:opacity-100 transition-all duration-150">
-										<MoreVertical className="size-3" />
-									</DropdownMenuTrigger>
-									<DropdownMenuContent align="end" className="w-40">
-										{diffContent && (
-											<DropdownMenuItem onClick={() => setDiffOpen(true)}>
-												<GitBranch className="size-3.5 mr-2" />
-												View diff
-											</DropdownMenuItem>
-										)}
-										{canRevert && (
-											<DropdownMenuItem
-												onClick={handleRevert}
-												disabled={revertPending}
-											>
-												{revertPending ? (
-													<Loader2 className="size-3.5 mr-2 animate-spin" />
-												) : (
-													<RotateCcw className="size-3.5 mr-2" />
-												)}
-												Revert
-											</DropdownMenuItem>
-										)}
-									</DropdownMenuContent>
-								</DropdownMenu>
-								{diffContent && (
-									<ContentDiffDialog
-										open={diffOpen}
-										onOpenChange={setDiffOpen}
-										oldContent={diffContent.old}
-										newContent={diffContent.new}
-										title="Description change diff"
-									/>
-								)}
-							</>
+						{revertError && (
+							<p className="text-[11px] text-destructive/70 pl-0.5">
+								{revertError}
+							</p>
 						)}
 					</div>
 				)}
