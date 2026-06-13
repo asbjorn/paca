@@ -42,7 +42,7 @@ rand_alnum()  { ( set +o pipefail; LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | h
 # ask VAR "Question" "default"
 # Reads from /dev/tty when stdin is a pipe (curl | bash).
 ask() {
-    local -n _ref="$1"
+    local _var="$1"
     local question="$2"
     local default="${3:-}"
     local prompt
@@ -53,13 +53,9 @@ ask() {
         prompt="${BOLD}→${RESET} ${question}: "
     fi
 
-    # Use a name unlikely to match the nameref target — if the caller passes a
-    # variable named "answer", bash would resolve _ref to this local instead of
-    # the caller's variable, leaving the caller's variable unset (triggering
-    # set -u on the next access).
     local _input=""
     if [[ "${PACA_YES:-0}" == "1" ]]; then
-        _ref="${default}"
+        printf -v "$_var" %s "${default}"
         return
     fi
     if [[ -t 0 ]]; then
@@ -67,21 +63,21 @@ ask() {
     elif [[ -e /dev/tty ]]; then
         read -r -p "$(echo -e "$prompt")" _input </dev/tty
     else
-        _ref="${default}"
+        printf -v "$_var" %s "${default}"
         return
     fi
-    _ref="${_input:-$default}"
+    printf -v "$_var" %s "${_input:-$default}"
 }
 
 # ask_secret VAR "Question"  (no echo, no default shown)
 ask_secret() {
-    local -n _sref="$1"
+    local _var="$1"
     local question="$2"
     local _input=""
     local prompt="${BOLD}→${RESET} ${question} ${DIM}(hidden)${RESET}: "
 
     if [[ "${PACA_YES:-0}" == "1" ]]; then
-        _sref=""
+        printf -v "$_var" %s ""
         return
     fi
     if [[ -t 0 ]]; then
@@ -89,13 +85,13 @@ ask_secret() {
     elif [[ -e /dev/tty ]]; then
         read -r -s -p "$(echo -e "$prompt")" _input </dev/tty; echo
     fi
-    _sref="$_input"
+    printf -v "$_var" %s "$_input"
 }
 
 # ask_choice VAR "Question" option1 option2 ...
 # Returns the chosen option string.
 ask_choice() {
-    local -n _cref="$1"
+    local _var="$1"
     local question="$2"
     shift 2
     local options=("$@")
@@ -113,19 +109,21 @@ ask_choice() {
         warn "Invalid choice, using default (1)"
         idx=0
     fi
-    _cref="${options[$idx]}"
+    printf -v "$_var" %s "${options[$idx]}"
 }
 
 # yes_no VAR "Question" "y|n"
 yes_no() {
-    local -n _yref="$1"
+    local _var="$1"
     local question="$2"
     local default="${3:-y}"
     local answer=""
     ask answer "$question" "$default"
-    case "${answer,,}" in
-        y|yes) _yref="yes" ;;
-        *)     _yref="no"  ;;
+    local answer_lower
+    answer_lower="$(printf '%s' "$answer" | tr '[:upper:]' '[:lower:]')"
+    case "$answer_lower" in
+        y|yes) printf -v "$_var" %s "yes" ;;
+        *)     printf -v "$_var" %s "no"  ;;
     esac
 }
 
