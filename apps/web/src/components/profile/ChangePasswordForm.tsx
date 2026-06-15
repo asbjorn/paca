@@ -7,6 +7,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ApiErrorCode, getApiErrorCode } from "@/lib/api-error";
 import { changeMyPassword } from "@/lib/auth-api";
+import {
+	validateConfirmPassword,
+	validateNewPassword,
+	validatePassword,
+} from "@/lib/auth-validation";
 import { cn } from "@/lib/utils";
 
 interface ChangePasswordFormProps {
@@ -31,36 +36,7 @@ function validateCurrentPassword(value: string) {
 	if (!value) {
 		return "Current password is required.";
 	}
-
-	return undefined;
-}
-
-function validateNewPassword(currentPassword: string, value: string) {
-	if (!value) {
-		return "New password is required.";
-	}
-
-	if (value.length < 8) {
-		return "New password must be at least 8 characters.";
-	}
-
-	if (value === currentPassword) {
-		return "New password must be different from current password.";
-	}
-
-	return undefined;
-}
-
-function validateConfirmPassword(newPassword: string, value: string) {
-	if (!value) {
-		return "Please confirm your new password.";
-	}
-
-	if (newPassword !== value) {
-		return "Passwords do not match.";
-	}
-
-	return undefined;
+	return validatePassword(value);
 }
 
 export function ChangePasswordForm({ onSuccess }: ChangePasswordFormProps) {
@@ -80,10 +56,10 @@ export function ChangePasswordForm({ onSuccess }: ChangePasswordFormProps) {
 
 	const currentPasswordError =
 		currentPasswordServerError ?? validateCurrentPassword(currentPassword);
-	const newPasswordError = validateNewPassword(currentPassword, newPassword);
+	const newPasswordError = validateNewPassword(newPassword, currentPassword);
 	const confirmPasswordError = validateConfirmPassword(
-		newPassword,
 		confirmPassword,
+		newPassword,
 	);
 	const hasValidationErrors = Boolean(
 		currentPasswordError || newPasswordError || confirmPasswordError,

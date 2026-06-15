@@ -29,6 +29,7 @@ import {
 	usersQueryOptions,
 } from "@/lib/admin-api";
 import { ApiErrorCode, getApiErrorCode } from "@/lib/api-error";
+import { validateUsername } from "@/lib/auth-validation";
 import { generatePassword } from "@/lib/generate-password";
 
 interface UserFormDialogProps {
@@ -93,9 +94,8 @@ export function UserFormDialog({
 				});
 			}
 
-			if (!username.trim()) throw new Error("Username is required.");
-			if (username.trim().length < 3)
-				throw new Error("Username must be at least 3 characters.");
+			const usernameError = validateUsername(username);
+			if (usernameError) throw new Error(usernameError);
 
 			const password = generatePassword();
 			await createUser({

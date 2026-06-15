@@ -7,9 +7,17 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/joho/godotenv"
+)
+
+// Minimum lenths enforced across the entire stack — install.sh, the Go
+// config loader, and the frontend auth-validation module all use these.
+const (
+	minUsernameLength = 3
+	minPasswordLength = 8
 )
 
 // Load reads .env (if present) then environment variables and returns a
@@ -77,11 +85,17 @@ func Load() (*Config, error) {
 	adminUser, err := requireEnv("ADMIN_USERNAME")
 	if err != nil {
 		errs = append(errs, err)
+	} else if len(strings.TrimSpace(adminUser)) < minUsernameLength {
+		errs = append(errs, fmt.Errorf(
+			"config: ADMIN_USERNAME must be at least %d characters", minUsernameLength))
 	}
 
 	adminPass, err := requireEnv("ADMIN_PASSWORD")
 	if err != nil {
 		errs = append(errs, err)
+	} else if len(adminPass) < minPasswordLength {
+		errs = append(errs, fmt.Errorf(
+			"config: ADMIN_PASSWORD must be at least %d characters", minPasswordLength))
 	}
 
 	storageAccessKey, err := requireEnv("STORAGE_ACCESS_KEY_ID")

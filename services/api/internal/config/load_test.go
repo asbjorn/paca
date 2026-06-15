@@ -123,6 +123,32 @@ func TestLoad_InvalidBoolOrDuration(t *testing.T) {
 	}
 }
 
+func TestLoad_AdminUsernameTooShort(t *testing.T) {
+	setLoadDefaults(t)
+	t.Setenv("ADMIN_USERNAME", "ab")
+
+	_, err := Load()
+	if err == nil {
+		t.Fatal("expected error for short admin username")
+	}
+	if !strings.Contains(err.Error(), "ADMIN_USERNAME") || !strings.Contains(err.Error(), "3") {
+		t.Fatalf("expected ADMIN_USERNAME length error, got %q", err.Error())
+	}
+}
+
+func TestLoad_AdminPasswordTooShort(t *testing.T) {
+	setLoadDefaults(t)
+	t.Setenv("ADMIN_PASSWORD", "short")
+
+	_, err := Load()
+	if err == nil {
+		t.Fatal("expected error for short admin password")
+	}
+	if !strings.Contains(err.Error(), "ADMIN_PASSWORD") || !strings.Contains(err.Error(), "8") {
+		t.Fatalf("expected ADMIN_PASSWORD length error, got %q", err.Error())
+	}
+}
+
 // setLoadDefaults is a helper that seeds the minimum valid env vars so that
 // individual driver tests only need to set the vars they are exercising.
 func setLoadDefaults(t *testing.T) {

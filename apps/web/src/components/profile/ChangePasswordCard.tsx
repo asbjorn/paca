@@ -15,6 +15,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { changeMyPassword } from "@/lib/auth-api";
+import {
+	validateConfirmPassword,
+	validateNewPassword,
+} from "@/lib/auth-validation";
 
 interface ChangePasswordCardProps {
 	mustChange: boolean;
@@ -30,10 +34,13 @@ export function ChangePasswordCard({ mustChange }: ChangePasswordCardProps) {
 
 	const mutation = useMutation({
 		mutationFn: async () => {
-			if (newPassword.length < 8)
-				throw new Error("New password must be at least 8 characters.");
-			if (newPassword !== confirmPassword)
-				throw new Error("Passwords do not match.");
+			const lengthError = validateNewPassword(newPassword, currentPassword);
+			if (lengthError) throw new Error(lengthError);
+			const confirmError = validateConfirmPassword(
+				confirmPassword,
+				newPassword,
+			);
+			if (confirmError) throw new Error(confirmError);
 			return changeMyPassword(currentPassword, newPassword);
 		},
 		onSuccess: () => {

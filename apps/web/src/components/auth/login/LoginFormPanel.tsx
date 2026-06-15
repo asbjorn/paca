@@ -6,29 +6,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useLoginForm } from "@/hooks/use-login-form";
+import { validatePassword, validateUsername } from "@/lib/auth-validation";
 import { cn } from "@/lib/utils";
 
 import { FieldError } from "./FieldError";
-
-function validateUsername(value: string) {
-	if (!value.trim()) {
-		return "Username is required";
-	}
-	if (value.trim().length < 3) {
-		return "Username must be at least 3 characters";
-	}
-	return undefined;
-}
-
-function validatePassword(value: string) {
-	if (!value.trim()) {
-		return "Password is required";
-	}
-	if (value.length < 8) {
-		return "Password must be at least 8 characters";
-	}
-	return undefined;
-}
 
 export function LoginFormPanel() {
 	const { form, serverError } = useLoginForm();

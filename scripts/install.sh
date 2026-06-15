@@ -194,16 +194,71 @@ info "Working directory: $(pwd)"
 heading "Admin account"
 
 ADMIN_USERNAME="${ADMIN_USERNAME:-admin}"
-ask ADMIN_USERNAME "Admin username" "$ADMIN_USERNAME"
+
+# validate_username VALUE
+# Mirrors the frontend validateUsername: non-empty and at least 3 characters.
+validate_username() {
+    local v="$1"
+    local stripped="${v// /}"
+    if [[ -z "$stripped" ]]; then
+        error "Username is required."
+        return 1
+    fi
+    if (( ${#stripped} < 3 )); then
+        error "Username must be at least 3 characters."
+        return 1
+    fi
+    return 0
+}
+
+while true; do
+    ask ADMIN_USERNAME "Admin username" "$ADMIN_USERNAME"
+    if validate_username "$ADMIN_USERNAME"; then
+        break
+    fi
+done
+
+# validate_password VALUE
+# Mirrors the frontend validatePassword: non-empty and at least 8 characters.
+validate_password() {
+    local v="$1"
+    if [[ -z "$v" ]]; then
+        error "Password is required."
+        return 1
+    fi
+    if (( ${#v} < 8 )); then
+        error "Password must be at least 8 characters."
+        return 1
+    fi
+    return 0
+}
 
 _GENERATED_PW="$(rand_alnum 16)"
 ADMIN_PASSWORD="${ADMIN_PASSWORD:-}"
-ask_secret ADMIN_PASSWORD "Admin password (leave blank to auto-generate)"
-if [[ -z "$ADMIN_PASSWORD" ]]; then
-    ADMIN_PASSWORD="$_GENERATED_PW"
-    ADMIN_PASSWORD_GENERATED=1
+ADMIN_PASSWORD_GENERATED=0
+
+# If a password was supplied via env var, validate it before proceeding.
+if [[ -n "$ADMIN_PASSWORD" ]]; then
+    if ! validate_password "$ADMIN_PASSWORD"; then
+        die "ADMIN_PASSWORD must be at least 8 characters. Fix the env var or unset it to auto-generate."
+    fi
 else
-    ADMIN_PASSWORD_GENERATED=0
+    # Interactive: prompt until a valid, non-empty password is entered (or blank → generate).
+    ask_secret ADMIN_PASSWORD "Admin password (leave blank to auto-generate)"
+    if [[ -z "$ADMIN_PASSWORD" ]]; then
+        ADMIN_PASSWORD="$_GENERATED_PW"
+        ADMIN_PASSWORD_GENERATED=1
+    else
+        while ! validate_password "$ADMIN_PASSWORD"; do
+            ADMIN_PASSWORD=""
+            ask_secret ADMIN_PASSWORD "Admin password (leave blank to auto-generate)"
+            if [[ -z "$ADMIN_PASSWORD" ]]; then
+                ADMIN_PASSWORD="$_GENERATED_PW"
+                ADMIN_PASSWORD_GENERATED=1
+                break
+            fi
+        done
+    fi
 fi
 
 # ── Encryption key ────────────────────────────────────────────────────────────
