@@ -522,7 +522,7 @@ func (r *Runtime) execQuery(ctx context.Context, schema, sqlStr, paramsJSON stri
 	// Allow SELECT and DML statements that use RETURNING.
 	trimmed := strings.TrimSpace(strings.ToUpper(sqlStr))
 	isDML := strings.HasPrefix(trimmed, "INSERT") || strings.HasPrefix(trimmed, "UPDATE") || strings.HasPrefix(trimmed, "DELETE")
-	if !strings.HasPrefix(trimmed, "SELECT") && !(isDML && strings.Contains(trimmed, "RETURNING")) {
+	if !strings.HasPrefix(trimmed, "SELECT") && (!isDML || !strings.Contains(trimmed, "RETURNING")) {
 		return nil, fmt.Errorf("paca.db_query: only SELECT and DML with RETURNING statements are allowed")
 	}
 
