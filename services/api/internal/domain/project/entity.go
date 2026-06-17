@@ -17,4 +17,5 @@ type Project struct {
 	Settings     map[string]any
 	CreatedBy    *uuid.UUID
 	CreatedAt    time.Time
+	DeletedAt    *time.Time // non-nil = soft-deleted
 }

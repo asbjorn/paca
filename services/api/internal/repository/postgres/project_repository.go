@@ -16,14 +16,15 @@ import (
 // --- sqlx models ------------------------------------------------------------
 
 type projectRecord struct {
-	ID           string    `db:"id"`
-	Name         string    `db:"name"`
-	Description  string    `db:"description"`
-	TaskIDPrefix string    `db:"task_id_prefix"`
-	IsPublic     bool      `db:"is_public"`
-	Settings     []byte    `db:"settings"`
-	CreatedBy    *string   `db:"created_by"`
-	CreatedAt    time.Time `db:"created_at"`
+	ID           string     `db:"id"`
+	Name         string     `db:"name"`
+	Description  string     `db:"description"`
+	TaskIDPrefix string     `db:"task_id_prefix"`
+	IsPublic     bool       `db:"is_public"`
+	Settings     []byte     `db:"settings"`
+	CreatedBy    *string    `db:"created_by"`
+	CreatedAt    time.Time  `db:"created_at"`
+	DeletedAt    *time.Time `db:"deleted_at"`
 }
 
 type projectRoleRecord struct {
@@ -75,20 +76,20 @@ func NewProjectRepository(db *sqlx.DB) *ProjectRepository {
 	return &ProjectRepository{db: db}
 }
 
-const projectSelectCols = `id, name, description, task_id_prefix, is_public, settings, created_by, created_at`
-const projectSelectColsQualified = `projects.id, projects.name, projects.description, projects.task_id_prefix, projects.is_public, projects.settings, projects.created_by, projects.created_at`
+const projectSelectCols = `id, name, description, task_id_prefix, is_public, settings, created_by, created_at, deleted_at`
+const projectSelectColsQualified = `projects.id, projects.name, projects.description, projects.task_id_prefix, projects.is_public, projects.settings, projects.created_by, projects.created_at, projects.deleted_at`
 
 // --- Projects ---------------------------------------------------------------
 
 // List returns a page of projects and the total count.
 func (r *ProjectRepository) List(ctx context.Context, offset, limit int) ([]*projectdom.Project, int64, error) {
 	var total int64
-	if err := r.db.GetContext(ctx, &total, `SELECT COUNT(*) FROM projects`); err != nil {
+	if err := r.db.GetContext(ctx, &total, `SELECT COUNT(*) FROM projects WHERE deleted_at IS NULL`); err != nil {
 		return nil, 0, fmt.Errorf("project repo: list count: %w", err)
 	}
 
 	var records []projectRecord
-	if err := r.db.SelectContext(ctx, &records, `SELECT `+projectSelectCols+` FROM projects ORDER BY created_at ASC OFFSET $1 LIMIT $2`, offset, limit); err != nil {
+	if err := r.db.SelectContext(ctx, &records, `SELECT `+projectSelectCols+` FROM projects WHERE deleted_at IS NULL ORDER BY created_at ASC OFFSET $1 LIMIT $2`, offset, limit); err != nil {
 		return nil, 0, fmt.Errorf("project repo: list: %w", err)
 	}
 
@@ -109,7 +110,7 @@ func (r *ProjectRepository) ListAccessible(ctx context.Context, userID uuid.UUID
 	if err := r.db.GetContext(ctx, &total, `
 		SELECT COUNT(*) FROM projects
 		JOIN project_members ON project_members.project_id = projects.id
-		WHERE project_members.user_id = $1 AND project_members.deleted_at IS NULL`, userID.String()); err != nil {
+		WHERE project_members.user_id = $1 AND project_members.deleted_at IS NULL AND projects.deleted_at IS NULL`, userID.String()); err != nil {
 		return nil, 0, fmt.Errorf("project repo: list accessible count: %w", err)
 	}
 
@@ -117,7 +118,7 @@ func (r *ProjectRepository) ListAccessible(ctx context.Context, userID uuid.UUID
 	if err := r.db.SelectContext(ctx, &records, `
 		SELECT `+projectSelectColsQualified+` FROM projects
 		JOIN project_members ON project_members.project_id = projects.id
-		WHERE project_members.user_id = $1 AND project_members.deleted_at IS NULL
+		WHERE project_members.user_id = $1 AND project_members.deleted_at IS NULL AND projects.deleted_at IS NULL
 		ORDER BY projects.created_at ASC OFFSET $2 LIMIT $3`, userID.String(), offset, limit); err != nil {
 		return nil, 0, fmt.Errorf("project repo: list accessible: %w", err)
 	}
@@ -136,7 +137,7 @@ func (r *ProjectRepository) ListAccessible(ctx context.Context, userID uuid.UUID
 // FindByID returns a project by its primary key.
 func (r *ProjectRepository) FindByID(ctx context.Context, id uuid.UUID) (*projectdom.Project, error) {
 	var record projectRecord
-	err := r.db.GetContext(ctx, &record, `SELECT `+projectSelectCols+` FROM projects WHERE id = $1`, id.String())
+	err := r.db.GetContext(ctx, &record, `SELECT `+projectSelectCols+` FROM projects WHERE id = $1 AND deleted_at IS NULL`, id.String())
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, projectdom.ErrNotFound
 	}
@@ -151,7 +152,7 @@ func (r *ProjectRepository) FindByID(ctx context.Context, id uuid.UUID) (*projec
 // no match exists.
 func (r *ProjectRepository) FindByTaskIDPrefix(ctx context.Context, prefix string) (*projectdom.Project, error) {
 	var record projectRecord
-	err := r.db.GetContext(ctx, &record, `SELECT `+projectSelectCols+` FROM projects WHERE upper(task_id_prefix) = upper($1)`, prefix)
+	err := r.db.GetContext(ctx, &record, `SELECT `+projectSelectCols+` FROM projects WHERE upper(task_id_prefix) = upper($1) AND deleted_at IS NULL`, prefix)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, projectdom.ErrNotFound
 	}
@@ -213,9 +214,9 @@ func (r *ProjectRepository) Update(ctx context.Context, p *projectdom.Project) e
 	return nil
 }
 
-// Delete removes a project by ID. The DB schema cascades deletes to child tables.
+// Delete soft-deletes a project by setting deleted_at.
 func (r *ProjectRepository) Delete(ctx context.Context, id uuid.UUID) error {
-	result, err := r.db.ExecContext(ctx, `DELETE FROM projects WHERE id = $1`, id.String())
+	result, err := r.db.ExecContext(ctx, `UPDATE projects SET deleted_at = $1 WHERE id = $2 AND deleted_at IS NULL`, time.Now(), id.String())
 	if err != nil {
 		return fmt.Errorf("project repo: delete: %w", err)
 	}
@@ -597,6 +598,7 @@ func toProjectEntity(rec *projectRecord) (*projectdom.Project, error) {
 		Settings:     settings,
 		CreatedBy:    createdBy,
 		CreatedAt:    rec.CreatedAt,
+		DeletedAt:    rec.DeletedAt,
 	}, nil
 }
 
