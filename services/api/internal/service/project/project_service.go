@@ -325,7 +325,7 @@ func (s *Service) IsProjectPublic(ctx context.Context, id uuid.UUID) (bool, erro
 	return p.IsPublic, nil
 }
 
-// Delete removes a project and all cascading records defined in the DB schema.
+// Delete soft-deletes a project by setting deleted_at.
 func (s *Service) Delete(ctx context.Context, id uuid.UUID) error {
 	_, err := s.repo.FindByID(ctx, id)
 	if err != nil {

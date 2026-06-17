@@ -2,6 +2,7 @@ package projectsvc
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"testing"
 	"time"
@@ -387,6 +388,61 @@ func TestUpdate_InvalidPrefixReturnsError(t *testing.T) {
 	_, err := svc.Update(ctx, p.ID, projectdom.UpdateProjectInput{TaskIDPrefix: "bad prefix"})
 	if err == nil {
 		t.Fatal("expected error for invalid prefix on update, got nil")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Delete tests
+// ---------------------------------------------------------------------------
+
+func TestDelete_ExistingProject_Succeeds(t *testing.T) {
+	ctx := context.Background()
+	repo := newFakeProjectRepo()
+	svc := New(repo, nil)
+
+	p, err := svc.Create(ctx, projectdom.CreateProjectInput{Name: "To Delete"})
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+
+	if err := svc.Delete(ctx, p.ID); err != nil {
+		t.Fatalf("Delete returned unexpected error: %v", err)
+	}
+
+	_, err = repo.FindByID(ctx, p.ID)
+	if !errors.Is(err, projectdom.ErrNotFound) {
+		t.Errorf("expected ErrNotFound after delete, got %v", err)
+	}
+}
+
+func TestDelete_NonExistentProject_ReturnsNotFound(t *testing.T) {
+	ctx := context.Background()
+	svc := New(newFakeProjectRepo(), nil)
+
+	err := svc.Delete(ctx, uuid.New())
+	if !errors.Is(err, projectdom.ErrNotFound) {
+		t.Errorf("expected ErrNotFound for missing project, got %v", err)
+	}
+}
+
+func TestDelete_AlreadyDeletedProject_ReturnsNotFound(t *testing.T) {
+	ctx := context.Background()
+	repo := newFakeProjectRepo()
+	svc := New(repo, nil)
+
+	p, err := svc.Create(ctx, projectdom.CreateProjectInput{Name: "Double Delete"})
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+
+	if err := svc.Delete(ctx, p.ID); err != nil {
+		t.Fatalf("first Delete: %v", err)
+	}
+
+	// Second delete must return ErrNotFound because FindByID filters deleted projects.
+	err = svc.Delete(ctx, p.ID)
+	if !errors.Is(err, projectdom.ErrNotFound) {
+		t.Errorf("expected ErrNotFound on re-delete, got %v", err)
 	}
 }
 
