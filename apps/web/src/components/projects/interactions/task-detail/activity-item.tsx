@@ -130,6 +130,12 @@ function activityDescription(
 			return `added attachment${content.file_name ? `: ${content.file_name}` : ""}`;
 		case "task.attachment.removed":
 			return `removed attachment${content.file_name ? `: ${content.file_name}` : ""}`;
+		case "task.link.added": {
+			const linkType = content.link_type === "blocks" ? "blocked by" : content.link_type === "relates_to" ? "related to" : "duplicated";
+			return `added task link (${linkType})`;
+		}
+		case "task.link.removed":
+			return "removed task link";
 		default:
 			return (content._description as string | undefined) ?? "made a change";
 	}

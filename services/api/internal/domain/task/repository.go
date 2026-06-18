@@ -11,7 +11,24 @@ type Repository interface {
 	TaskTypeRepository
 	TaskStatusRepository
 	TaskRepository
+	TaskLinkRepository
 	CustomFieldDefinitionRepository
+}
+
+// TaskLinkRepository defines persistence operations for task links.
+type TaskLinkRepository interface {
+	// ListTaskLinks returns all links where taskID is either source or target,
+	// with LinkedTask populated. Links are ordered by created_at ascending.
+	ListTaskLinks(ctx context.Context, taskID uuid.UUID) ([]*TaskLink, error)
+	// FindTaskLinkByID returns a single link by primary key.
+	FindTaskLinkByID(ctx context.Context, id uuid.UUID) (*TaskLink, error)
+	// LinkExists reports whether a link of linkType between source and target
+	// already exists (checked in both directions for relates_to).
+	LinkExists(ctx context.Context, sourceID, targetID uuid.UUID, linkType LinkType) (bool, error)
+	// CreateTaskLink persists a new link.
+	CreateTaskLink(ctx context.Context, l *TaskLink) error
+	// DeleteTaskLink removes the link identified by id.
+	DeleteTaskLink(ctx context.Context, id uuid.UUID) error
 }
 
 // TaskTypeRepository defines persistence operations for task types.
