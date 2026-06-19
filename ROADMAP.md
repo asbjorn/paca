@@ -74,10 +74,7 @@ _Goal: deliver the features that make Paca meaningfully different from standard 
 - 📋 OAuth token support for MCP Server (alongside API key)
 
 ### Planning & Task Management
-- 📋 Task linking — link related tasks (blocked by, blocks, related, duplicate, parent/child)
-- 📋 Task dependencies — visualize and manage dependency chains across sprints
-- 📋 Dependency-aware board UI — blocked tasks visually marked, hover details
-- 📋 Dependency cleanup helper — detect and resolve broken or circular dependencies
+- ✅ Task linking — link related tasks (blocked by, blocks, related, duplicate, parent/child)
 
 ### AI Agent Collaboration
 - ✅ In-app chat with agents — send messages directly to an agent on a task, get replies in the activity feed
