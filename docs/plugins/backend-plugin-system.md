@@ -249,6 +249,7 @@ Each WASM module instance is constrained by `wazero`'s resource controls:
 | CPU (via instruction counting) | Configurable; default prevents runaway loops |
 | Concurrent goroutines | N/A — WASM is single-threaded per instance |
 | DB connections | Plugins use the host's connection pool; max 5 concurrent queries per plugin |
+| Inbound HTTP request body | 10 MB per request to a plugin route; larger requests are rejected with `413` before reaching the plugin |
 
 Limits are configurable in the server config under `plugins.limits`.
 
@@ -277,4 +278,5 @@ plugins:
 - All DB host functions enforce **project-scope isolation** — a plugin enabled for project A cannot query project B data.
 - Plugin WASM binaries should be **signed** by the publisher. The host verifies the signature against a public key stored in the plugin manifest before loading. (v1: signature check is enforced for third-party plugins; first-party plugins bypass in dev mode.)
 - WASM execution errors are caught by wazero and converted to 500 responses; the host never panics due to a plugin crash.
+- Inbound request bodies are capped (see Resource Limits) before being handed to a plugin. Plugin SDK allocators are simple bump allocators with no bounds checking of their own, so an oversized payload would otherwise advance a plugin's allocator cursor past the end of its memory; the host always resets a plugin's allocator after each call, including on failure, so a single bad request cannot leave an instance unable to serve later ones.
 - Secrets (e.g., API keys the plugin needs) are stored encrypted in the host's secrets store and passed to the plugin through `paca.config_get` — never baked into the WASM binary.
