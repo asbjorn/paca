@@ -62,7 +62,7 @@ func buildEchoPluginFixture(t *testing.T) string {
 			return
 		}
 		out := filepath.Join(dir, "echo.wasm")
-		cmd := exec.Command("go", "build", "-buildmode=c-shared", "-o", out, "./testdata/echoplugin")
+		cmd := exec.CommandContext(t.Context(), "go", "build", "-buildmode=c-shared", "-o", out, "./testdata/echoplugin")
 		cmd.Dir = wd
 		cmd.Env = append(os.Environ(), "GOOS=wasip1", "GOARCH=wasm")
 		if output, buildErr := cmd.CombinedOutput(); buildErr != nil {

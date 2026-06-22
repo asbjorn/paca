@@ -43,7 +43,7 @@ func buildPoisonFixture(t *testing.T) string {
 			return
 		}
 		out := filepath.Join(dir, "poison.wasm")
-		cmd := exec.Command("go", "build", "-buildmode=c-shared", "-o", out, "./testdata/poisonplugin")
+		cmd := exec.CommandContext(t.Context(), "go", "build", "-buildmode=c-shared", "-o", out, "./testdata/poisonplugin")
 		cmd.Dir = wd
 		cmd.Env = append(os.Environ(), "GOOS=wasip1", "GOARCH=wasm")
 		if output, buildErr := cmd.CombinedOutput(); buildErr != nil {

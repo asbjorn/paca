@@ -256,8 +256,8 @@ func (r *Runtime) HandleRequest(ctx context.Context, pluginName string, reqPaylo
 		return nil, fmt.Errorf("plugin %q not loaded", pluginName)
 	}
 
-	if max := r.limits.MaxRequestBodyBytes; max > 0 && int64(len(reqPayload)) > max {
-		return nil, fmt.Errorf("plugin %q: request payload of %d bytes exceeds limit of %d bytes", pluginName, len(reqPayload), max)
+	if maxBytes := r.limits.MaxRequestBodyBytes; maxBytes > 0 && int64(len(reqPayload)) > maxBytes {
+		return nil, fmt.Errorf("plugin %q: request payload of %d bytes exceeds limit of %d bytes", pluginName, len(reqPayload), maxBytes)
 	}
 
 	fn := inst.mod.ExportedFunction("HandleRequest")
