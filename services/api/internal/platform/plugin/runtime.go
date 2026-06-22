@@ -30,13 +30,24 @@ type ResourceLimits struct {
 	// MaxMemoryPages is the maximum number of 64-KiB WASM linear-memory pages
 	// a plugin module may allocate.  0 means "use wazero default".
 	MaxMemoryPages uint32
+	// MaxRequestBodyBytes is the maximum size of a payload that the host will
+	// attempt to write into a plugin's linear memory: an inbound HTTP request
+	// body (as handed to HandleRequest, after JSON envelope encoding) or an
+	// event payload (as handed to dispatchEvent).  Plugin allocators are
+	// simple bump allocators with no bounds checking of their own; handing
+	// them a payload larger than the module's memory advances their internal
+	// cursor past the end of memory before the host's write fails, which
+	// would otherwise leave the plugin instance permanently unable to serve
+	// any further request.  0 means "no limit".
+	MaxRequestBodyBytes int64
 }
 
 // DefaultResourceLimits returns conservative defaults for plugin execution.
 func DefaultResourceLimits() ResourceLimits {
 	return ResourceLimits{
-		MaxCallDuration: 5 * time.Second,
-		MaxMemoryPages:  1024, // 64 MiB
+		MaxCallDuration:     5 * time.Second,
+		MaxMemoryPages:      1024,             // 64 MiB
+		MaxRequestBodyBytes: 10 * 1024 * 1024, // 10 MiB
 	}
 }
 
@@ -120,6 +131,13 @@ func NewRuntime(store *Store, services HostServices, limits ResourceLimits, log 
 		log:      log,
 		plugins:  make(map[string]*pluginInstance),
 	}
+}
+
+// MaxRequestBodyBytes returns the configured request-payload size limit so
+// HTTP transport code can reject oversized bodies before they ever reach a
+// plugin's WASM memory.  0 means "no limit".
+func (r *Runtime) MaxRequestBodyBytes() int64 {
+	return r.limits.MaxRequestBodyBytes
 }
 
 // LoadAll instantiates wazero modules for every enabled plugin in the list.
@@ -239,10 +257,39 @@ func (r *Runtime) HandleRequest(ctx context.Context, pluginName string, reqPaylo
 		return nil, fmt.Errorf("plugin %q not loaded", pluginName)
 	}
 
+	if maxBytes := r.limits.MaxRequestBodyBytes; maxBytes > 0 && int64(len(reqPayload)) > maxBytes {
+		return nil, fmt.Errorf("plugin %q: request payload of %d bytes exceeds limit of %d bytes", pluginName, len(reqPayload), maxBytes)
+	}
+
 	fn := inst.mod.ExportedFunction("HandleRequest")
 	if fn == nil {
 		return nil, fmt.Errorf("plugin %q: HandleRequest not exported", pluginName)
 	}
+
+	// Hold the per-instance lock for the entire interaction, including the
+	// initial write. wazero module calls are not safe to interleave: two
+	// concurrent malloc calls into the same instance can race on the
+	// plugin's bump-allocator cursor the same way an oversized payload does
+	// below.
+	inst.mu.Lock()
+	defer inst.mu.Unlock()
+
+	// Always give the plugin's allocator a chance to reset, even if a step
+	// below fails. A plugin's malloc export is a bump allocator with no
+	// bounds checking: it advances its internal cursor unconditionally, so a
+	// write that the host rejects as out-of-bounds still leaves that cursor
+	// corrupted. Without this reset, every later call computes addresses
+	// from the corrupted cursor and fails too, permanently "poisoning" the
+	// instance after a single oversized request.
+	defer func() {
+		resetFn := inst.mod.ExportedFunction("ResetAllocator")
+		if resetFn == nil {
+			return
+		}
+		resetCtx, cancel := context.WithTimeout(context.Background(), r.limits.MaxCallDuration)
+		_, _ = resetFn.Call(resetCtx) // Best-effort; ignore errors
+		cancel()
+	}()
 
 	// Write the request payload into the plugin's linear memory.
 	ptrLen, err := writeToMemory(inst.mod, reqPayload)
@@ -250,17 +297,14 @@ func (r *Runtime) HandleRequest(ctx context.Context, pluginName string, reqPaylo
 		return nil, fmt.Errorf("plugin %q: write request: %w", pluginName, err)
 	}
 
-	inst.mu.Lock()
 	callCtx, cancel := context.WithTimeout(ctx, r.limits.MaxCallDuration)
 	results, callErr := fn.Call(callCtx, ptrLen[0], ptrLen[1])
 	cancel()
 
 	if callErr != nil {
-		inst.mu.Unlock()
 		return nil, fmt.Errorf("plugin %q: HandleRequest: %w", pluginName, callErr)
 	}
 	if len(results) < 1 {
-		inst.mu.Unlock()
 		return nil, fmt.Errorf("plugin %q: HandleRequest returned wrong number of values", pluginName)
 	}
 
@@ -268,14 +312,6 @@ func (r *Runtime) HandleRequest(ctx context.Context, pluginName string, reqPaylo
 	outPtr := uint64(combined) >> 32
 	outLen := uint64(combined) & 0xFFFFFFFF
 	resp, readErr := readFromMemory(inst.mod, outPtr, outLen)
-
-	// Reset the allocator before releasing the mutex so the next caller cannot
-	// start writing into mallocBuffer while we are still reading the response.
-	if resetFn := inst.mod.ExportedFunction("ResetAllocator"); resetFn != nil {
-		_, _ = resetFn.Call(ctx) // Best-effort; ignore errors
-	}
-	inst.mu.Unlock()
-
 	if readErr != nil {
 		return nil, readErr
 	}
@@ -305,28 +341,54 @@ func (r *Runtime) EmitEvent(ctx context.Context, topic string, payload any) {
 	r.mu.RUnlock()
 
 	for _, inst := range instances {
-		fn := inst.mod.ExportedFunction("HandleEvent")
-		if fn == nil {
-			continue
-		}
-		ptrLen, err := writeToMemory(inst.mod, data)
-		if err != nil {
-			r.log.Error("plugin: write event payload", "name", inst.plugin.Name, "error", err)
-			continue
-		}
-		topicBytes := []byte(topic)
-		topicPtrLen, err := writeToMemory(inst.mod, topicBytes)
-		if err != nil {
-			r.log.Error("plugin: write topic", "name", inst.plugin.Name, "error", err)
-			continue
-		}
-
-		inst.mu.Lock()
-		callCtx, cancel := context.WithTimeout(ctx, r.limits.MaxCallDuration)
-		_, _ = fn.Call(callCtx, topicPtrLen[0], topicPtrLen[1], ptrLen[0], ptrLen[1])
-		cancel()
-		inst.mu.Unlock()
+		r.dispatchEvent(ctx, inst, topic, data)
 	}
+}
+
+// dispatchEvent invokes a single plugin instance's HandleEvent export. It
+// holds the instance lock for the full write+call+reset cycle, mirroring
+// HandleRequest: concurrent calls into the same module must not interleave
+// malloc invocations, and the allocator must be reset on every exit path so
+// a write the host rejects as out-of-bounds cannot leave the plugin's bump
+// allocator cursor permanently corrupted.
+func (r *Runtime) dispatchEvent(ctx context.Context, inst *pluginInstance, topic string, data []byte) {
+	fn := inst.mod.ExportedFunction("HandleEvent")
+	if fn == nil {
+		return
+	}
+
+	if maxBytes := r.limits.MaxRequestBodyBytes; maxBytes > 0 && int64(len(data)) > maxBytes {
+		r.log.Warn("plugin: event payload exceeds size limit, dropping",
+			"name", inst.plugin.Name, "topic", topic, "size", len(data), "limit", maxBytes)
+		return
+	}
+
+	inst.mu.Lock()
+	defer inst.mu.Unlock()
+	defer func() {
+		resetFn := inst.mod.ExportedFunction("ResetAllocator")
+		if resetFn == nil {
+			return
+		}
+		resetCtx, cancel := context.WithTimeout(context.Background(), r.limits.MaxCallDuration)
+		_, _ = resetFn.Call(resetCtx) // Best-effort; ignore errors
+		cancel()
+	}()
+
+	ptrLen, err := writeToMemory(inst.mod, data)
+	if err != nil {
+		r.log.Error("plugin: write event payload", "name", inst.plugin.Name, "error", err)
+		return
+	}
+	topicPtrLen, err := writeToMemory(inst.mod, []byte(topic))
+	if err != nil {
+		r.log.Error("plugin: write topic", "name", inst.plugin.Name, "error", err)
+		return
+	}
+
+	callCtx, cancel := context.WithTimeout(ctx, r.limits.MaxCallDuration)
+	_, _ = fn.Call(callCtx, topicPtrLen[0], topicPtrLen[1], ptrLen[0], ptrLen[1])
+	cancel()
 }
 
 // PluginRoutes returns the Gin-compatible route definitions for the named plugin.

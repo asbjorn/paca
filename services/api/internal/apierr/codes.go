@@ -241,6 +241,8 @@ const (
 	CodePluginAlreadyUpToDate Code = "PLUGIN_ALREADY_UP_TO_DATE"
 	// CodePluginDowngradeNotAllowed indicates the marketplace version is older than the installed version.
 	CodePluginDowngradeNotAllowed Code = "PLUGIN_DOWNGRADE_NOT_ALLOWED"
+	// CodePayloadTooLarge indicates the request body exceeds the server's size limit.
+	CodePayloadTooLarge Code = "PAYLOAD_TOO_LARGE"
 
 	// --- Agent errors -------------------------------------------------------
 
