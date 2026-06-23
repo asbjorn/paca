@@ -114,6 +114,10 @@ export interface ViewConfig {
 	slice_by?: string;
 	filters?: ViewFilters;
 	collapsed_columns?: string[];
+	/** Saved number of tasks to fetch when paginating further ("load more") within this view. Unset falls back to a fixed default. */
+	page_size?: number;
+	/** Saved number of tasks to fetch on the first load of this view, independent of page_size. Unset falls back to the layout's default. */
+	initial_page_size?: number;
 	/** Populated only for plugin views (view_type = "plugin") */
 	plugin_manifest_id?: string;
 	plugin_component?: string;

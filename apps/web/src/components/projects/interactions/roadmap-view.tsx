@@ -415,7 +415,7 @@ export function RoadmapView({
 								type="button"
 								onClick={pagination.onLoadMore}
 								disabled={pagination.isLoadingMore}
-								className="rounded-lg border border-border/40 px-4 py-1.5 text-sm font-medium text-muted-foreground hover:border-primary/50 hover:text-primary transition-all duration-150 disabled:opacity-50"
+								className="rounded-lg border border-border/40 px-4 py-1.5 text-xs font-medium text-muted-foreground hover:border-primary/50 hover:text-primary transition-all duration-150 disabled:opacity-50"
 							>
 								{pagination.isLoadingMore ? "Loading…" : "View more"}
 							</button>

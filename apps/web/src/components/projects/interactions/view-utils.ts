@@ -290,6 +290,17 @@ export const FIELD_SUM_COUNT: { key: string; label: string } = {
 	label: "Count",
 };
 
+/** Default "load more" page size applied when a view has no page_size saved yet. */
+export const DEFAULT_PAGE_SIZE = 20;
+
+export const PAGE_SIZE_OPTIONS: { key: string; label: string }[] = [
+	{ key: "5", label: "5" },
+	{ key: "10", label: "10" },
+	{ key: "20", label: "20" },
+	{ key: "50", label: "50" },
+	{ key: "100", label: "100" },
+];
+
 /** All built-in fields available for the Field Picker. Title is excluded — it is always visible. */
 export const BUILTIN_FIELDS: { key: string; label: string }[] = [
 	{ key: "assignee", label: "Assignee" },

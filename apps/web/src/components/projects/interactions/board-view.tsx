@@ -579,7 +579,7 @@ export function BoardView({
 							type="button"
 							onClick={pg.onLoadMore}
 							disabled={pg.isLoadingMore}
-							className="mt-1 w-full rounded-lg border border-dashed border-border/40 py-1.5 text-sm font-medium text-muted-foreground/70 hover:border-primary/40 hover:text-primary transition-all duration-150 disabled:opacity-50"
+							className="mt-1 w-full rounded-lg border border-dashed border-border/40 py-1.5 text-xs font-medium text-muted-foreground/70 hover:border-primary/40 hover:text-primary transition-all duration-150 disabled:opacity-50"
 						>
 							{pg.isLoadingMore ? "Loading…" : "View more"}
 						</button>
@@ -786,7 +786,7 @@ export function BoardView({
 	};
 
 	return (
-		<div className="flex flex-1 min-h-0 gap-4 overflow-x-auto px-6 py-5 pb-8">
+		<div className="flex flex-1 min-h-0 items-start gap-4 overflow-auto px-6 py-5 pb-8">
 			{effectiveColumnDefs.map((colDef) => {
 				const isCollapsed = collapsedColumns.has(colDef.key);
 				const displayCount = getDisplayCount(colDef.key);

@@ -606,9 +606,12 @@ export function InteractionLayout({
 		!viewsQuery.isLoading &&
 		activeView?.layout !== "Roadmap";
 
-	// Page size: board = 20, list/roadmap = 5 on first page
+	// Initial page size: configured view setting wins; otherwise board = 20, list/roadmap = 5 on first page.
+	// "Load more" batches use the separate configuredPageSize below, defaulting to 20 regardless of layout.
 	const isBoard = activeView?.layout === "Board";
-	const initialColPageSize = isBoard ? 20 : 5;
+	const configuredPageSize = activeViewConfig?.page_size;
+	const configuredInitialPageSize = activeViewConfig?.initial_page_size;
+	const initialColPageSize = configuredInitialPageSize ?? (isBoard ? 20 : 5);
 
 	// Base options for column queries (shared filters, excluding the dimension used for column grouping)
 	const colBaseOpts = useMemo(
@@ -717,7 +720,8 @@ export function InteractionLayout({
 	);
 
 	const initialGlobalPageSize =
-		activeView?.layout === "Roadmap" ? 5 : undefined;
+		configuredInitialPageSize ??
+		(activeView?.layout === "Roadmap" ? 5 : undefined);
 	const fallbackQueryOpts = allTasksQueryOptions(projectId, {
 		...fallbackBaseOpts,
 		pageSize: globalExpandedPageSize ?? initialGlobalPageSize,
@@ -767,7 +771,7 @@ export function InteractionLayout({
 			if (!cursor) return;
 			const colOpts = buildColumnFilter(colKey, columnBy, {
 				...colBaseOpts,
-				pageSize: 20,
+				pageSize: configuredPageSize ?? 20,
 				cursor,
 			});
 			if (!colOpts) return;
@@ -799,6 +803,7 @@ export function InteractionLayout({
 			projectId,
 			colLoadingMore,
 			initialColPageSize,
+			configuredPageSize,
 		],
 	);
 
@@ -825,7 +830,7 @@ export function InteractionLayout({
 		try {
 			const result = await listAllTasks(projectId, {
 				...fallbackBaseOpts,
-				pageSize: 20,
+				pageSize: configuredPageSize ?? 20,
 				cursor: globalNextCursor,
 			});
 			setGlobalExtraTasks((prev) => [...prev, ...result.items]);
@@ -844,6 +849,7 @@ export function InteractionLayout({
 		fallbackBaseOpts,
 		globalLoadingMore,
 		initialGlobalPageSize,
+		configuredPageSize,
 	]);
 
 	const tasks = useMemo(() => {
