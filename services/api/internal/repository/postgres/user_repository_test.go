@@ -33,7 +33,7 @@ func openUserRepoTestDB(t *testing.T) (*sqlx.DB, uuid.UUID) {
 		);
 		CREATE TABLE users (
 			id TEXT PRIMARY KEY,
-			username TEXT NOT NULL UNIQUE,
+			username TEXT NOT NULL,
 			password_hash TEXT NOT NULL,
 			full_name TEXT NOT NULL,
 			role_id TEXT NOT NULL,
@@ -41,7 +41,8 @@ func openUserRepoTestDB(t *testing.T) (*sqlx.DB, uuid.UUID) {
 			created_at DATETIME,
 			updated_at DATETIME,
 			deleted_at DATETIME
-		);`
+		);
+		CREATE UNIQUE INDEX uni_users_username_active ON users (username) WHERE deleted_at IS NULL;`
 	if _, err := db.ExecContext(context.Background(), schema); err != nil {
 		t.Fatalf("create schema: %v", err)
 	}
@@ -191,5 +192,32 @@ func TestUserRepository_FindByUsernameIncludingDeleted_FindsSoftDeleted(t *testi
 	}
 	if got.ID != u.ID {
 		t.Fatalf("expected id %s, got %s", u.ID, got.ID)
+	}
+}
+
+func TestUserRepository_Create_AllowsUsernameReuseAfterDelete(t *testing.T) {
+	db, roleID := openUserRepoTestDB(t)
+	repo := NewUserRepository(db)
+	ctx := context.Background()
+
+	original := testUser(uuid.New(), roleID)
+	if err := repo.Create(ctx, original); err != nil {
+		t.Fatalf("create original user: %v", err)
+	}
+	if err := repo.Delete(ctx, original.ID); err != nil {
+		t.Fatalf("delete original user: %v", err)
+	}
+
+	replacement := testUser(uuid.New(), roleID) // same "alice" username as original
+	if err := repo.Create(ctx, replacement); err != nil {
+		t.Fatalf("expected username reuse after delete to succeed, got: %v", err)
+	}
+
+	got, err := repo.FindByUsername(ctx, replacement.Username)
+	if err != nil {
+		t.Fatalf("find by username: %v", err)
+	}
+	if got.ID != replacement.ID {
+		t.Fatalf("expected active user to be the replacement %s, got %s", replacement.ID, got.ID)
 	}
 }

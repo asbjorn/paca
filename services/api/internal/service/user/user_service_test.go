@@ -253,7 +253,7 @@ func TestCreate_Success(t *testing.T) {
 func TestCreate_DuplicateUsername(t *testing.T) {
 	existing := &userdom.User{ID: uuid.New(), Username: "alice"}
 	svc := usersvc.New(&stubRepo{
-		findByUsernameIncludingDeleted: func(_ context.Context, _ string) (*userdom.User, error) { return existing, nil },
+		findByUsername: func(_ context.Context, _ string) (*userdom.User, error) { return existing, nil },
 	})
 
 	_, err := svc.Create(context.Background(), userdom.CreateInput{
@@ -263,6 +263,42 @@ func TestCreate_DuplicateUsername(t *testing.T) {
 	})
 	if !errors.Is(err, userdom.ErrUsernameTaken) {
 		t.Fatalf("expected ErrUsernameTaken, got %v", err)
+	}
+}
+
+func TestCreate_AllowsUsernameReuseAfterSoftDelete(t *testing.T) {
+	roleID := uuid.New()
+	deletedUser := &userdom.User{ID: uuid.New(), Username: "alice"}
+	svc := usersvc.New(
+		&stubRepo{
+			// Active lookup finds nothing — the only "alice" on record is soft-deleted.
+			findByUsername: func(_ context.Context, _ string) (*userdom.User, error) {
+				return nil, userdom.ErrNotFound
+			},
+			findByUsernameIncludingDeleted: func(_ context.Context, _ string) (*userdom.User, error) {
+				return deletedUser, nil
+			},
+		},
+		&stubRoleRepo{
+			findByName: func(_ context.Context, _ string) (*globalroledom.GlobalRole, error) {
+				return &globalroledom.GlobalRole{ID: roleID, Name: userdom.RoleUser}, nil
+			},
+		},
+	)
+
+	got, err := svc.Create(context.Background(), userdom.CreateInput{
+		Username: "alice",
+		Password: "password123",
+		FullName: "Alice",
+	})
+	if err != nil {
+		t.Fatalf("expected username reuse after soft-delete to succeed, got: %v", err)
+	}
+	if got.Username != "alice" {
+		t.Errorf("unexpected username: %s", got.Username)
+	}
+	if got.ID == deletedUser.ID {
+		t.Fatal("expected a new user ID, not the deleted user's ID")
 	}
 }
 

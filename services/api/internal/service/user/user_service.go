@@ -102,8 +102,9 @@ func (s *Service) ListGlobalPermissions(ctx context.Context, id uuid.UUID) ([]st
 // Create registers a new user with a hashed password.
 // If Role is provided, it is resolved to a RoleID via roleRepo.
 func (s *Service) Create(ctx context.Context, in userdom.CreateInput) (*userdom.User, error) {
-	// Check username uniqueness across active and soft-deleted users.
-	_, err := s.repo.FindByUsernameIncludingDeleted(ctx, in.Username)
+	// Check username uniqueness among active users only; a soft-deleted
+	// user's username is freed up for reuse.
+	_, err := s.repo.FindByUsername(ctx, in.Username)
 	if err == nil {
 		return nil, userdom.ErrUsernameTaken
 	}
