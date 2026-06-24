@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -573,9 +574,19 @@ func (h *PluginHandler) ProxyRequest(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Read request body.
+	// Read request body, capped so an oversized body can never reach the
+	// plugin's WASM memory (see Runtime.HandleRequest for why that matters).
+	if maxBody := h.runtime.MaxRequestBodyBytes(); maxBody > 0 {
+		r.Body = http.MaxBytesReader(w, r.Body, maxBody)
+	}
 	bodyBytes, err := io.ReadAll(r.Body)
 	if err != nil {
+		var maxBytesErr *http.MaxBytesError
+		if errors.As(err, &maxBytesErr) {
+			presenter.Error(w, r, apierr.New(apierr.CodePayloadTooLarge,
+				fmt.Sprintf("request body exceeds the %d byte limit", maxBytesErr.Limit)))
+			return
+		}
 		presenter.Error(w, r, apierr.New(apierr.CodeBadRequest, "failed to read request body"))
 		return
 	}

@@ -423,6 +423,8 @@ func httpStatusForCode(code apierr.Code) int {
 		apierr.CodePluginAlreadyUpToDate,
 		apierr.CodePluginDowngradeNotAllowed:
 		return http.StatusConflict
+	case apierr.CodePayloadTooLarge:
+		return http.StatusRequestEntityTooLarge
 	case apierr.CodeAgentNotFound,
 		apierr.CodeAgentTypeNotFound,
 		apierr.CodeAgentMCPServerNotFound,
